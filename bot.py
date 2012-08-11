@@ -1,19 +1,22 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, time
+import sys, time, os.path
 import lxml.html
-from twisted.internet import reactor, task, defer, protocol
+from twisted.internet import reactor, defer, protocol
 from twisted.python import log
 from twisted.words.protocols import irc
 from twisted.web.client import getPage
-from twisted.application import internet, service
-
-config = __import__('config')
+from twisted.application import internet
+import config
 
 class ChanLogger:
-    def __init__(self, file):
-        self.file = file
+    def __init__(self, channel=''):
+        filename = config.BOTNAME
+        if channel:
+            filename += '_' + channel
+        filename += '.log'
+        self.file = open(os.path.join('log', filename), "a")
 
     def log(self, message):
         timestamp = time.strftime("[%H:%M:%S]", time.localtime(time.time()))
@@ -24,54 +27,79 @@ class ChanLogger:
         self.file.close()
 
 class IRCBot(irc.IRCClient):
+    #NickServ identification handled automatically
     nickname = config.BOTNAME
     username = config.BOTNAME
     password = config.BOTPASS
 
+    nicks = {}
+    sourceURL = 'https://github.com/RouxRC/gazouilleur'
+
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
-        self.msg("NickServ", 'identify '+self.username+' '+self.password); 
         log.msg('Connection made')
-        self.logger = {self.username: ChanLogger(open(self.username+".log", "a"))}
-        self.logger[self.username].log("[connected at %s]" % time.asctime(time.localtime(time.time())))
+        self.logger = {config.BOTNAME: ChanLogger()}
+        self.logger[config.BOTNAME].log("[connected at %s]" % time.asctime(time.localtime(time.time())))
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
+        for channel in self.factory.channels:
+            self.left(channel)
         log.msg('Connection lost because: %s.' % (reason,))
-        self.logger[self.username].log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
-        self.logger[self.username].close()
+        self.logger[config.BOTNAME].log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        self.logger[config.BOTNAME].close()
 
     def signedOn(self):
         log.msg("Signed on as %s." % (self.nickname,))
         for channel in self.factory.channels:
             self.join(channel)
 
+    @defer.inlineCallbacks                                                                                                                                                
+    def reclaimNick(self):
+        yield self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
+        yield self.msg("NickServ", 'identify %s %s' % (config.BOTNAME, config.BOTPASS,))
+        log.msg("Reclaimed ident as %s." % (config.BOTNAME,))
+
     def nickChanged(self, nick):
-        self.logger[self.nickname] = self.logger[self.username]
+        log.msg("Identified as %s." % (nick,))
+        if nick != config.BOTNAME:
+            self.reclaimNick()
+
+    def noticed(self, user, channel, message):
+        if 'is not a registered nickname' in message and 'NickServ' in user:
+            self.reclaimNick()
+        if channel == "*" or channel == self.nickname:
+            channel = config.BOTNAME
+        self.logger[channel].log("%s: %s" % (user, message))
 
     def joined(self, channel):
         log.msg("Joined %s." % (channel,))
-        self.logger[channel] = ChanLogger(open(self.username+"_"+channel+".log", "a"))
+        self.logger[channel] = ChanLogger(channel)
         self.logger[channel].log("[joined at %s]" % time.asctime(time.localtime(time.time())))
 
     def left(self, channel):          
-        log.msg("Joined %s." % (channel,))
-        self.logger[channel].log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        log.msg("Left %s." % (channel,))
+        self.logger[channel].log("[left at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[channel].close()
 
-    def noticed(self, user, channel, message):
-        if channel == "*":
-            channel = self.username
-        self.logger[channel].log("%s: %s" % (user, message))
 
     def privmsg(self, user, channel, message):
-        nick, _, host = user.partition('!')
+        logchan = config.BOTNAME if channel == "*" or channel == self.nickname else channel
+        nick, userid, host = user.partition('!')
         message = message.strip()
+        if channel not in self.nicks:
+            self.nicks[channel] = {}
+        if nick not in self.nicks[channel] or self.nicks[channel][nick] != (userid, host):
+            self.logger[logchan].log("%s: %s" % (user, message))
+            self.nicks[channel][nick] = (userid,host)
+        else:
+            self.logger[logchan].log("%s: %s" % (nick, message))
         d = None
         if not message.startswith('!'):
             if self.nickname.lower() in message.lower():
                 d = defer.maybeDeferred(lambda x: x+": Oui?", nick)
             return
+        log.msg("[%s] Received command from user %s: %s" % (channel, user, message))
         command, sep, rest = message.lstrip('!').partition(' ')
         func = getattr(self, 'command_' + command.lower(), None)
         if func is None:
@@ -98,17 +126,30 @@ class IRCBot(irc.IRCClient):
     def _send_message(self, msg, target, nick=None):
         if nick:
             msg = '%s: %s' % (nick, msg)
+            logchan = target
+        else:
+            logchan = config.BOTNAME
         self.msg(target, msg)
+        self.logger[logchan].log("%s: %s" % (self.nickname, msg))
 
     def _show_error(self, failure):
         return failure.getErrorMessage()
 
     def command_help(self, rest, nick=None):
+        rest = rest.replace('!', '')
+        commands = [c.replace('command_', '!') for c in dir(self) if c.startswith('command_')]
         if rest == '':
-            return 'My commands are:  '+' ;  '.join([c.replace('command_', '!') for c in dir(self) if c.startswith('command_')])
+            return 'My commands are:  '+' ;  '.join(commands)+'\nType "!help <command>" to get more details.'
+        elif rest in commands:
+#TODO
+            return
 
     def command_ping(self, rest, nick=None):
+        """!ping\nPing test, should answer pong"""
         return 'Pong.'
+
+    def command_source(self,rest, nick=None):
+        return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
 # TODO
     def command_lastseen(self, rest, nick=None):
@@ -154,7 +195,7 @@ class IRCBot(irc.IRCClient):
 
 class IRCBotFactory(protocol.ReconnectingClientFactory):
     protocol = IRCBot
-    channels = ["#" + c for c in config.CHANNELS]
+    channels = ["#" + c['name'] for c in config.CHANNELS]
 
 if __name__ == '__main__':
     reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
@@ -165,4 +206,4 @@ if __name__ == '__main__':
 elif __name__ == '__builtin__':
     ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
-
+# TODO add log in service
