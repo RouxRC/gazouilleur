@@ -35,18 +35,25 @@ class IRCBot(irc.IRCClient):
     nicks = {}
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
 
+    def log(self, message, user=None, channel=config.BOTNAME):
+        if channel == "*" or channel == self.nickname or channel not in self.logger:
+            channel = config.BOTNAME
+        if user:
+            message = "%s: %s" % (user, message)
+        self.logger[channel].log(message)
+
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         log.msg('Connection made')
         self.logger = {config.BOTNAME: ChanLogger()}
-        self.logger[config.BOTNAME].log("[connected at %s]" % time.asctime(time.localtime(time.time())))
+        self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
         for channel in self.factory.channels:
             self.left(channel)
         log.msg('Connection lost because: %s.' % (reason,))
-        self.logger[config.BOTNAME].log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME].close()
 
     def signedOn(self):
@@ -68,32 +75,29 @@ class IRCBot(irc.IRCClient):
     def noticed(self, user, channel, message):
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self.reclaimNick()
-        if channel == "*" or channel == self.nickname:
-            channel = config.BOTNAME
-        self.logger[channel].log("%s: %s" % (user, message))
+        self.log(message, user, channel)
 
     def joined(self, channel):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = ChanLogger(channel)
-        self.logger[channel].log("[joined at %s]" % time.asctime(time.localtime(time.time())))
+        self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
 
     def left(self, channel):          
         log.msg("Left %s." % (channel,))
-        self.logger[channel].log("[left at %s]" % time.asctime(time.localtime(time.time())))
+        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.logger[channel].close()
 
 
     def privmsg(self, user, channel, message):
-        logchan = config.BOTNAME if channel == "*" or channel == self.nickname else channel
         nick, userid, host = user.partition('!')
         message = message.strip()
         if channel not in self.nicks:
             self.nicks[channel] = {}
         if nick not in self.nicks[channel] or self.nicks[channel][nick] != (userid, host):
-            self.logger[logchan].log("%s: %s" % (user, message))
+            self.log(message, user, channel)
             self.nicks[channel][nick] = (userid,host)
         else:
-            self.logger[logchan].log("%s: %s" % (nick, message))
+            self.log(message, nick, channel)
         d = None
         if not message.startswith('!'):
             if self.nickname.lower() in message.lower():
@@ -126,11 +130,8 @@ class IRCBot(irc.IRCClient):
     def _send_message(self, msg, target, nick=None):
         if nick:
             msg = '%s: %s' % (nick, msg)
-            logchan = target
-        else:
-            logchan = config.BOTNAME
         self.msg(target, msg)
-        self.logger[logchan].log("%s: %s" % (self.nickname, msg))
+        self.log(msg, self.nickname, target)
 
     def _show_error(self, failure):
         return failure.getErrorMessage()
