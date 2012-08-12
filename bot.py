@@ -117,13 +117,13 @@ class IRCBot(irc.IRCClient):
         self.logger[channel].close()
 
     def userJoined(self, user, channel):
-        self.log("[%s joined.]" % user, user, channel)
+        self.log("[%s joined]" % user, user, channel)
 
     def userLeft(self, user, channel, message=None):
         if message:
-            message = "[%s left (%s).]" % (user, message)
+            message = "[%s left (%s)]" % (user, message)
         else:
-            message = "[%s left .]" % user
+            message = "[%s left]" % user
         self.log(message, user, channel)
 
     def _get_user_channels(self, nick):
@@ -213,46 +213,69 @@ class IRCBot(irc.IRCClient):
         """!source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
-    re_shortdate = re.compile(r'^....-(..)-(.. ..:..).*$')
-    def _shortdate(self, date):
-        return self.re_shortdate.sub(r'\1/\2', str(date))
+    re_find_digit = re.compile(r'(\s+\d+\s*|\s*\d+\s+)')
+    def _find_digit(self, string):
+        nb = 1
+        res = self.re_find_digit.search(string)
+        if res:
+            nb = res.group(1).strip()
+            string = self.re_find_digit.sub(r'', string)
+        return nb, string
+
+    def command_lastfrom(self, rest, channel=None, nick=None):
+        """!lastfrom <nick> [<N>] : Prints the last message or <N> last ones from user <nick> (maximum 5)."""
+        nb, fromnick = self._find_digit(rest)
+        return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
+    
+    def command_lastwith(self, rest, channel=None, nick=None):
+        """!lastwith <word> [<N>] : Prints the last message or <N> last ones matching <word> (maximum 5)."""
+        nb, word = self._find_digit(rest)
+        return self.command_last("%s --with %s" % (nb, word), channel, nick)
+
+    re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')         
+    def _shortdate(self, date): 
+        return self.re_shortdate.sub(r'\2/\1\3', str(date))
 
     def command_last(self, rest, channel=None, nick=None):
-        """!last [<N>] : Prints the last message or <N> last ones (maximum 4)."""
-        #TODO add --from --with
-        nb, _, msg = rest.partition(' ')
-        nb = max(1, min(sint(nb), 4)) + 1
+        """!last [<N>] [--from <nick>] [--with <text>] : Prints the last message or <N> last ones (maximum 5)."""
         query = {'channel': channel, '$or': [{'user': {'$ne': self.nickname}}, {'message': {'$not': re.compile(r'^(!last|'+nick+': )', re.I)} }] }
-        res = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], limit=nb))
-        if len(res) == 0:
+        nb = 1
+        current = ""
+        for arg in rest.split(' '):
+            if current == "f":
+                query['user'] = arg
+                current = ""
+            elif current == "w":
+                query['message'] = re.compile("%s" % arg, re.I)
+                current = ""
+            elif arg.isdigit():
+                nb = max(nb, min(sint(arg), 5))
+            elif arg == "--from":
+                current = "f"
+            elif arg == "--with":
+                current = "w"
+        matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], limit=nb+1))
+        if len(matches) == 0:
             return "No match found in my history log."
-        res.reverse()
-        res.pop()
-        res = "\n".join(['%s - %s: %s' % (self._shortdate(l['timestamp']), str(l['user']), str(l['message'])) for l in res])
-        return res
+        matches.reverse()
+        matches.pop()
+        return "\n".join(['[%s] %s — %s' % (self._shortdate(l['timestamp']), str(l['user']), str(l['message'])) for l in matches])
 
     def command_lastseen(self, rest, channel=None, *args):
         """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
         nick, _, msg = rest.partition(' ')
         re_nick = re.compile(r'^\['+nick+' ', re.I)
         res = list(self.db['logs'].find({'channel': channel, 'user': nick, 'message': re_nick}, sort=[('timestamp', pymongo.DESCENDING)], limit=2))
-        msg = ""
-        if len(res) > 0:
-            res.reverse()
-            msg += "%s %s" % (self._shortdate(res[0]['timestamp']), str(res[0]['message']))
-        if len(res) == 2:
-            msg += "\n%s %s" % (self._shortdate(res[1]['timestamp']), str(res[1]['message']))
-        res = self.db['logs'].find_one({'channel': channel, 'user': nick, 'message': {'$not': re_nick}}, sort=[('timestamp', pymongo.DESCENDING)])
+        msg = "Cannot find traces of %s in my history log." % nick
         if res:
-            msg += "\nLast message from %s (%s): %s" % (nick, self._shortdate(res['timestamp']), str(res['message']))
-        if msg == "":
-            msg = "Cannot find traces of %s in my history log." % nick
+            res.reverse()
+            msg = " —— ".join(["%s %s" % (self._shortdate(m['timestamp']), str(m['message'])[2:-2]) for m in res])
         return msg
 
     def command_saylater(self, rest, *args):
         """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
         when, _, msg = rest.partition(' ')
-        when = int(when)
+        when = sint(when)
         d = defer.Deferred()
         # A small example of how to defer the reply from a command. callLater
         # will callback the Deferred with the reply after so many seconds.
