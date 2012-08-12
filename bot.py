@@ -1,8 +1,9 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, time, os.path
+import sys, time, os, os.path
 import lxml.html
+from inspect import getdoc
 from twisted.internet import reactor, defer, protocol
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -16,6 +17,8 @@ class ChanLogger:
         if channel:
             filename += '_' + channel
         filename += '.log'
+        if not os.path.isdir('log'):
+            os.mkdir('log')
         self.file = open(os.path.join('log', filename), "a")
 
     def log(self, message):
@@ -62,19 +65,20 @@ class IRCBot(irc.IRCClient):
             self.join(channel)
 
     @defer.inlineCallbacks                                                                                                                                                
-    def reclaimNick(self):
-        yield self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
-        yield self.msg("NickServ", 'identify %s %s' % (config.BOTNAME, config.BOTPASS,))
-        log.msg("Reclaimed ident as %s." % (config.BOTNAME,))
+    def _reclaimNick(self):
+        if config.BOTPASS:
+            yield self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
+            yield self.msg("NickServ", 'identify %s %s' % (config.BOTNAME, config.BOTPASS,))
+            log.msg("Reclaimed ident as %s." % (config.BOTNAME,))
 
     def nickChanged(self, nick):
         log.msg("Identified as %s." % (nick,))
         if nick != config.BOTNAME:
-            self.reclaimNick()
+            self._reclaimNick()
 
     def noticed(self, user, channel, message):
         if 'is not a registered nickname' in message and 'NickServ' in user:
-            self.reclaimNick()
+            self._reclaimNick()
         self.log(message, user, channel)
 
     def joined(self, channel):
@@ -87,6 +91,8 @@ class IRCBot(irc.IRCClient):
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.logger[channel].close()
 
+    def _find_command_function(self, command):
+        return getattr(self, 'command_' + command.lower(), None)
 
     def privmsg(self, user, channel, message):
         nick, userid, host = user.partition('!')
@@ -105,7 +111,7 @@ class IRCBot(irc.IRCClient):
             return
         log.msg("[%s] Received command from user %s: %s" % (channel, user, message))
         command, sep, rest = message.lstrip('!').partition(' ')
-        func = getattr(self, 'command_' + command.lower(), None)
+        func = self._find_command_function(command)
         if func is None:
             # TODO ADD MSSG FONCTION INEXISTANTE CALL !HELP
             return
@@ -137,26 +143,30 @@ class IRCBot(irc.IRCClient):
         return failure.getErrorMessage()
 
     def command_help(self, rest, nick=None):
-        rest = rest.replace('!', '')
-        commands = [c.replace('command_', '!') for c in dir(self) if c.startswith('command_')]
+        """!help [<command>]: Prints general help or help for specific <command>."""
+        rest = rest.replace('!', '').lower()
+        commands = [c.replace('command_', '') for c in dir(self) if c.startswith('command_')]
         if rest == '':
-            return 'My commands are:  '+' ;  '.join(commands)+'\nType "!help <command>" to get more details.'
+            return 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
         elif rest in commands:
-#TODO
-            return
+            return self._find_command_function(rest).__doc__
+        return '!%s is not a valid command' % rest
 
     def command_ping(self, rest, nick=None):
-        """!ping\nPing test, should answer pong"""
+        """!ping : Ping test, should answer pong."""
         return 'Pong.'
 
     def command_source(self,rest, nick=None):
+        """!source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
 # TODO
     def command_lastseen(self, rest, nick=None):
+        """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
         return "TODO"
 
     def command_saylater(self, rest, nick=None):
+        """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
         when, sep, msg = rest.partition(' ')
         when = int(when)
         d = defer.Deferred()
@@ -168,6 +178,7 @@ class IRCBot(irc.IRCClient):
         return d
 
     def command_title(self, url, nick=None):
+        """!title <url> : Prints the title of the webpage at <url>."""
         d = getPage(url)
         # Another example of using Deferreds. twisted.web.client.getPage returns
         # a Deferred which is called back when the URL requested has been
