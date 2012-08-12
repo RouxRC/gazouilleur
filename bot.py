@@ -116,6 +116,33 @@ class IRCBot(irc.IRCClient):
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.logger[channel].close()
 
+    def userJoined(self, user, channel):
+        self.log("[%s joined.]" % user, user, channel)
+
+    def userLeft(self, user, channel, message=None):
+        if message:
+            message = "[%s left (%s).]" % (user, message)
+        else:
+            message = "[%s left .]" % user
+        self.log(message, user, channel)
+
+    def _get_user_channels(self, nick):
+        res = []
+        for c in self.factory.channels:
+            last_log = self.db['logs'].find_one({'channel': c, 'user': nick, 'message': re.compile(r'^\['+nick+' ', re.I)}, sort=[('timestamp', pymongo.DESCENDING)])
+            if last_log and not last_log['message'].endswith(' left.]'):
+                res.append(c)
+        return res
+
+    def userQuit(self, user, quitMessage):
+        nick, _, _ = user.partition('!')
+        for c in self._get_user_channels(nick):
+            self.userLeft(nick, c, quitMessage)
+
+    def userRenamed(self, oldnick, newnick):
+        for c in self._get_user_channels(oldnick):
+            self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
+
     def _find_command_function(self, command):
         return getattr(self, 'command_' + command.lower(), None)
 
@@ -187,24 +214,40 @@ class IRCBot(irc.IRCClient):
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
     re_shortdate = re.compile(r'^....-(..)-(.. ..:..).*$')
+    def _shortdate(self, date):
+        return self.re_shortdate.sub(r'\1/\2', str(date))
+
     def command_last(self, rest, channel=None, nick=None):
         """!last [<N>] : Prints the last message or <N> last ones (maximum 4)."""
         #TODO add --from --with
         nb, _, msg = rest.partition(' ')
-        nb = max(1, min(sint(nb), 4))+1
-        query = {'channel': channel, '$or': [{'user': {'$ne': self.nickname}}, {'message': {'$not': re.compile(r'^'+nick+': ', re.I)} }] }
+        nb = max(1, min(sint(nb), 4)) + 1
+        query = {'channel': channel, '$or': [{'user': {'$ne': self.nickname}}, {'message': {'$not': re.compile(r'^(!last|'+nick+': )', re.I)} }] }
         res = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], limit=nb))
         if len(res) == 0:
             return "No match found in my history log."
         res.reverse()
         res.pop()
-        res = "\n".join(['%s - %s: %s' % (self.re_shortdate.sub(r'\1/\2', str(l['timestamp'])), str(l['user']), str(l['message'])) for l in res])
+        res = "\n".join(['%s - %s: %s' % (self._shortdate(l['timestamp']), str(l['user']), str(l['message'])) for l in res])
         return res
 
-# TODO
     def command_lastseen(self, rest, channel=None, *args):
         """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
-        return "TODO"
+        nick, _, msg = rest.partition(' ')
+        re_nick = re.compile(r'^\['+nick+' ', re.I)
+        res = list(self.db['logs'].find({'channel': channel, 'user': nick, 'message': re_nick}, sort=[('timestamp', pymongo.DESCENDING)], limit=2))
+        msg = ""
+        if len(res) > 0:
+            res.reverse()
+            msg += "%s %s" % (self._shortdate(res[0]['timestamp']), str(res[0]['message']))
+        if len(res) == 2:
+            msg += "\n%s %s" % (self._shortdate(res[1]['timestamp']), str(res[1]['message']))
+        res = self.db['logs'].find_one({'channel': channel, 'user': nick, 'message': {'$not': re_nick}}, sort=[('timestamp', pymongo.DESCENDING)])
+        if res:
+            msg += "\nLast message from %s (%s): %s" % (nick, self._shortdate(res['timestamp']), str(res['message']))
+        if msg == "":
+            msg = "Cannot find traces of %s in my history log." % nick
+        return msg
 
     def command_saylater(self, rest, *args):
         """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
