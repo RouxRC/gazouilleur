@@ -5,12 +5,24 @@ BOTNAME = 'XXXXXX'
 BOTPASS = 'YYYYYY'
 HOST = 'irc.freenode.net'
 PORT = 6667
-CHANNELS = [{'name'; 'XXX'}, {'name': 'XX2'}]
-AUTH_USERS = ['YYY']
+GLOBAL_USERS = ['YYY', 'XXX']
+CHANNELS = {
+  'XXX': {
+    'USERS': ['DDD', 'EEE'],
+    'TWITTER': {
+        'USER': '',
+        '': '',
+        'OAUTH_TOKEN': '',
+        'OAUTH_KEY': ''
+    }
+  },
+  'YYY': {
+  }
+]
 MONGODB = {
-            'host': 'localhost',
-            'port': 27017,
-            'database': BOTNAME,
-            'user': BOTNAME,
-            'pswd': BOTPASS
-          }
+    'HOST': 'localhost',
+    'PORT': 27017,
+    'DATABASE': BOTNAME,
+    'USER': BOTNAME,
+    'PSWD': BOTPASS
+}

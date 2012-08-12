@@ -13,6 +13,11 @@ from twisted.web.client import getPage
 from twisted.application import internet
 import config
 
+def chanconf(channel):
+    if channel:
+        channel = channel.lstrip('#')
+    return config.CHANNELS[channel]
+
 class FileLogger:
     def __init__(self, channel=''):
         filename = config.BOTNAME
@@ -40,8 +45,8 @@ class IRCBot(irc.IRCClient):
         self.password = config.BOTPASS
         self.nicks = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
-        self.db = pymongo.Connection(config.MONGODB['host'], config.MONGODB['port'])[config.MONGODB['database']]
-        self.db.authenticate(config.MONGODB['user'], config.MONGODB['pswd'])
+        self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
+        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
 
     def log(self, message, user=None, channel=config.BOTNAME):
         if user:
@@ -131,8 +136,9 @@ class IRCBot(irc.IRCClient):
         else:
             d.addCallback(self._send_message, channel, nick)
 
-    def _check_user_rights(self, nick):
-        if nick not in config.AUTH_USERS:
+#TODO apply
+    def _check_user_rights(self, nick, channel):
+        if nick not in config.GLOBAL_USERS and channel in self.factory.channels and ('USERS' not in chanconf(channel) or nick not in chanconf(channel)['USERS']):
             return 'Sorry only registered users are allowed to use me'
         return
 
@@ -151,8 +157,8 @@ class IRCBot(irc.IRCClient):
         """!help [<command>]: Prints general help or help for specific <command>."""
         rest = rest.lstrip('!').lower()
         commands = [c.lstrip('command_') for c in dir(IRCBot) if c.startswith('command_')]
-        if channel not in config.CHANNELS or 'twitter' not in config.CHANNELS[channel]:
-            commands = [c for c in commands if not 'twitter' in self._find_command_function(c).__doc__]
+        if channel not in self.factory.channels or 'TWITTER' not in chanconf(channel):
+            commands = [c for c in commands if not 'twitter' in self._find_command_function(c).__doc__.lower()]
         def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
         if rest == '':
             return def_msg
@@ -165,7 +171,7 @@ class IRCBot(irc.IRCClient):
         return 'Pong.'
 
     def command_test(self, *args):
-        """!test : Simple test to check whether I'm present, similar as !ping."""
+        """!test : Simple test to check whether I'm present, TwiTTER similar as !ping."""
         return 'Hello? type "!help" to list my commands.'
 
     def command_source(self, *args):
@@ -222,7 +228,7 @@ class IRCBot(irc.IRCClient):
 
 class IRCBotFactory(protocol.ReconnectingClientFactory):
     protocol = IRCBot
-    channels = ["#" + c['name'] for c in config.CHANNELS]
+    channels = ["#" + c for c in config.CHANNELS.keys()]
 
 if __name__ == '__main__':
     reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
