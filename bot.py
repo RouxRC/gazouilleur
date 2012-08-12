@@ -1,8 +1,10 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, time, os, os.path
+import sys, os, os.path, types
+import datetime, time
 import lxml.html
+import pymongo
 from inspect import getdoc
 from twisted.internet import reactor, defer, protocol
 from twisted.python import log
@@ -11,7 +13,7 @@ from twisted.web.client import getPage
 from twisted.application import internet
 import config
 
-class ChanLogger:
+class FileLogger:
     def __init__(self, channel=''):
         filename = config.BOTNAME
         if channel:
@@ -30,25 +32,37 @@ class ChanLogger:
         self.file.close()
 
 class IRCBot(irc.IRCClient):
-    #NickServ identification handled automatically
-    nickname = config.BOTNAME
-    username = config.BOTNAME
-    password = config.BOTPASS
 
-    nicks = {}
-    sourceURL = 'https://github.com/RouxRC/gazouilleur'
+    def __init__(self):
+        #NickServ identification handled automatically
+        self.nickname = config.BOTNAME
+        self.username = config.BOTNAME
+        self.password = config.BOTPASS
+        self.nicks = {}
+        self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
+        self.db = pymongo.Connection(config.MONGODB['host'], config.MONGODB['port'])[config.MONGODB['database']]
+        self.db.authenticate(config.MONGODB['user'], config.MONGODB['pswd'])
 
     def log(self, message, user=None, channel=config.BOTNAME):
+        if user:
+            nick, _, host = user.partition('!')
+            if channel not in self.nicks:
+                self.nicks[channel] = {}
+            if nick not in self.nicks[channel] or self.nicks[channel][nick] != host:
+                self.nicks[channel][nick] = host
+            else:
+                user = nick
+            host = self.nicks[channel][nick]
+            self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': nick, 'host': host, 'message': message})
+            message = "%s: %s" % (user, message)
         if channel == "*" or channel == self.nickname or channel not in self.logger:
             channel = config.BOTNAME
-        if user:
-            message = "%s: %s" % (user, message)
         self.logger[channel].log(message)
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         log.msg('Connection made')
-        self.logger = {config.BOTNAME: ChanLogger()}
+        self.logger = {config.BOTNAME: FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
 
     def connectionLost(self, reason):
@@ -64,7 +78,7 @@ class IRCBot(irc.IRCClient):
         for channel in self.factory.channels:
             self.join(channel)
 
-    @defer.inlineCallbacks                                                                                                                                                
+    @defer.inlineCallbacks
     def _reclaimNick(self):
         if config.BOTPASS:
             yield self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
@@ -83,10 +97,10 @@ class IRCBot(irc.IRCClient):
 
     def joined(self, channel):
         log.msg("Joined %s." % (channel,))
-        self.logger[channel] = ChanLogger(channel)
+        self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
 
-    def left(self, channel):          
+    def left(self, channel):
         log.msg("Left %s." % (channel,))
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.logger[channel].close()
@@ -95,33 +109,22 @@ class IRCBot(irc.IRCClient):
         return getattr(self, 'command_' + command.lower(), None)
 
     def privmsg(self, user, channel, message):
-        nick, userid, host = user.partition('!')
+        nick, _, _ = user.partition('!')
         message = message.strip()
-        if channel not in self.nicks:
-            self.nicks[channel] = {}
-        if nick not in self.nicks[channel] or self.nicks[channel][nick] != (userid, host):
-            self.log(message, user, channel)
-            self.nicks[channel][nick] = (userid,host)
-        else:
-            self.log(message, nick, channel)
+        self.log(message, user, channel)
         d = None
         if not message.startswith('!'):
             if self.nickname.lower() in message.lower():
-                d = defer.maybeDeferred(lambda x: x+": Oui?", nick)
-            return
+                d = defer.maybeDeferred(self.command_test)
+            else:
+                return
         log.msg("[%s] Received command from user %s: %s" % (channel, user, message))
-        command, sep, rest = message.lstrip('!').partition(' ')
+        command, _, rest = message.lstrip('!').partition(' ')
         func = self._find_command_function(command)
-        if func is None:
-            # TODO ADD MSSG FONCTION INEXISTANTE CALL !HELP
-            return
-        # maybeDeferred will always return a Deferred. It calls func(rest), and
-        # if that returned a Deferred, return that. Otherwise, return the return
-        # value of the function wrapped in twisted.internet.defer.succeed. If
-        # an exception was raised, wrap the traceback in
-        # twisted.internet.defer.fail and return that.
+        if func is None and d is None:
+            d = defer.maybeDeferred(self.command_help, command, channel)
         if d is None:
-            d = defer.maybeDeferred(func, rest, nick)
+            d = defer.maybeDeferred(func, rest, channel, nick)
         d.addErrback(self._show_error)
         if channel == self.nickname:
             d.addCallback(self._send_message, nick)
@@ -134,6 +137,8 @@ class IRCBot(irc.IRCClient):
         return
 
     def _send_message(self, msg, target, nick=None):
+        if isinstance(msg, types.ListType):
+            msg = '\n'.join([m for (r, m) in msg])
         if nick:
             msg = '%s: %s' % (nick, msg)
         self.msg(target, msg)
@@ -142,32 +147,42 @@ class IRCBot(irc.IRCClient):
     def _show_error(self, failure):
         return failure.getErrorMessage()
 
-    def command_help(self, rest, nick=None):
+    def command_help(self, rest, channel=None, *args):
         """!help [<command>]: Prints general help or help for specific <command>."""
-        rest = rest.replace('!', '').lower()
-        commands = [c.replace('command_', '') for c in dir(self) if c.startswith('command_')]
+        rest = rest.lstrip('!').lower()
+        commands = [c.lstrip('command_') for c in dir(IRCBot) if c.startswith('command_')]
+        if channel not in config.CHANNELS or 'twitter' not in config.CHANNELS[channel]:
+            commands = [c for c in commands if not 'twitter' in self._find_command_function(c).__doc__]
+        def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
         if rest == '':
-            return 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
+            return def_msg
         elif rest in commands:
             return self._find_command_function(rest).__doc__
-        return '!%s is not a valid command' % rest
+        return '!%s is not a valid command. %s' % (rest, def_msg)
 
-    def command_ping(self, rest, nick=None):
+    def command_ping(self, *args):
         """!ping : Ping test, should answer pong."""
         return 'Pong.'
 
-    def command_source(self,rest, nick=None):
+    def command_test(self, *args):
+        """!test : Simple test to check whether I'm present, similar as !ping."""
+        return 'Hello? type "!help" to list my commands.'
+
+    def command_source(self, *args):
         """!source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
+    def command_last(self, rest, channel=None, *args):
+        """!last [<N>] : Prints the last message or <N> last ones (maximum 5)."""
+        return "TODO"
 # TODO
-    def command_lastseen(self, rest, nick=None):
+    def command_lastseen(self, rest, channel=None, *args):
         """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
         return "TODO"
 
-    def command_saylater(self, rest, nick=None):
+    def command_saylater(self, rest, *args):
         """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
-        when, sep, msg = rest.partition(' ')
+        when, _, msg = rest.partition(' ')
         when = int(when)
         d = defer.Deferred()
         # A small example of how to defer the reply from a command. callLater
@@ -177,7 +192,7 @@ class IRCBot(irc.IRCClient):
         # maybeDeferred in privmsg.
         return d
 
-    def command_title(self, url, nick=None):
+    def command_title(self, url, *args):
         """!title <url> : Prints the title of the webpage at <url>."""
         d = getPage(url)
         # Another example of using Deferreds. twisted.web.client.getPage returns

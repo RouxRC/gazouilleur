@@ -7,4 +7,10 @@ HOST = 'irc.freenode.net'
 PORT = 6667
 CHANNELS = [{'name'; 'XXX'}, {'name': 'XX2'}]
 AUTH_USERS = ['YYY']
-
+MONGODB = {
+            'host': 'localhost',
+            'port': 27017,
+            'database': BOTNAME,
+            'user': BOTNAME,
+            'pswd': BOTPASS
+          }

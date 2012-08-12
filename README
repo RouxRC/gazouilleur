@@ -1,6 +1,8 @@
 
-Configure the bot by copying and adapting the config.py.example file into config.py
+Configure the bot by copying and adapting the config.py.example file into config.py.
 
-Start it by running "python bot.py"
+Create a corresponding MongoDB database and matching user accordingly to your config.py file.
+
+Start the bot by running "python bot.py".
 
 
