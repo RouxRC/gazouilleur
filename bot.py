@@ -1,7 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, os, os.path, types
+import sys, os, os.path, types, re
 import datetime, time
 import lxml.html
 import pymongo
@@ -12,6 +12,12 @@ from twisted.words.protocols import irc
 from twisted.web.client import getPage
 from twisted.application import internet
 import config
+
+def sint(s):
+    try:
+        return int(s.strip())
+    except:
+        return 0
 
 def chanconf(channel):
     if channel:
@@ -142,13 +148,15 @@ class IRCBot(irc.IRCClient):
             return 'Sorry only registered users are allowed to use me'
         return
 
+    @defer.inlineCallbacks
     def _send_message(self, msg, target, nick=None):
-        if isinstance(msg, types.ListType):
-            msg = '\n'.join([m for (r, m) in msg])
-        if nick:
-            msg = '%s: %s' % (nick, msg)
-        self.msg(target, msg)
-        self.log(msg, self.nickname, target)
+        if not isinstance(msg, types.ListType):
+            msgs = [(1, m) for m in msg.split('\n')]
+        for m in [msg for (res, msg) in msgs if res]:
+            if nick:
+                m = '%s: %s' % (nick, m)
+            yield self.msg(target, m)
+            yield self.log(m, self.nickname, target)
 
     def _show_error(self, failure):
         return failure.getErrorMessage()
@@ -171,16 +179,28 @@ class IRCBot(irc.IRCClient):
         return 'Pong.'
 
     def command_test(self, *args):
-        """!test : Simple test to check whether I'm present, TwiTTER similar as !ping."""
+        """!test : Simple test to check whether I'm present, similar as !ping."""
         return 'Hello? type "!help" to list my commands.'
 
     def command_source(self, *args):
         """!source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
-    def command_last(self, rest, channel=None, *args):
-        """!last [<N>] : Prints the last message or <N> last ones (maximum 5)."""
-        return "TODO"
+    re_shortdate = re.compile(r'^....-(..)-(.. ..:..).*$')
+    def command_last(self, rest, channel=None, nick=None):
+        """!last [<N>] : Prints the last message or <N> last ones (maximum 4)."""
+        #TODO add --from --with
+        nb, _, msg = rest.partition(' ')
+        nb = max(1, min(sint(nb), 4))+1
+        query = {'channel': channel, '$or': [{'user': {'$ne': self.nickname}}, {'message': {'$not': re.compile(r'^'+nick+': ', re.I)} }] }
+        res = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], limit=nb))
+        if len(res) == 0:
+            return "No match found in my history log."
+        res.reverse()
+        res.pop()
+        res = "\n".join(['%s - %s: %s' % (self.re_shortdate.sub(r'\1/\2', str(l['timestamp'])), str(l['user']), str(l['message'])) for l in res])
+        return res
+
 # TODO
     def command_lastseen(self, rest, channel=None, *args):
         """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
