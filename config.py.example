@@ -12,9 +12,15 @@ CHANNELS = {
     'USERS': ['DDD', 'EEE'],
     'TWITTER': {
         'USER': '',
-        '': '',
+        'PASS': '',
+        'KEY': '',
+        'SECRET': '',
         'OAUTH_TOKEN': '',
         'OAUTH_KEY': ''
+    },
+    'IDENTICA': {
+        'USER': '',
+        'PASS': ''
     }
   },
   'YYY': {
@@ -27,3 +33,5 @@ MONGODB = {
     'USER': BOTNAME,
     'PSWD': BOTPASS
 }
+DEBUG = False
+ADMINS = ['XXX']
