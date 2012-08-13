@@ -153,11 +153,12 @@ class IRCBot(irc.IRCClient):
             d = defer.maybeDeferred(self.command_help, command, channel)
         if d is None:
             d = defer.maybeDeferred(func, rest, channel, nick)
-        d.addErrback(self._show_error)
         if channel == self.nickname:
             d.addCallback(self._send_message, nick)
+            d.addErrback(self._show_error, nick)
         else:
             d.addCallback(self._send_message, channel, nick)
+            d.addErrback(self._show_error, channel, nick)
 
 #TODO apply
     def _check_user_rights(self, nick, channel):
@@ -180,9 +181,9 @@ class IRCBot(irc.IRCClient):
     def _show_error(self, failure, target, nick=None):
         failure.trap(Exception)
         log.msg(failure)
-        if 'DEBUG' in config and config.DEBUG:
+        if config.DEBUG:
             self.msg(target, "%s: Woooups, something is wrong...\n%s" % (nick, failure.getErrorMessage()))
-        if 'ADMINS' in config:
+        if config.ADMINS:
             for nick in config.ADMINS:
                 self.msg(nick, failure.getErrorMessage())
   # -----------------
@@ -190,12 +191,12 @@ class IRCBot(irc.IRCClient):
 
     def command_help(self, rest, channel=None, *args):
         """!help [<command>]: Prints general help or help for specific <command>."""
-        rest = rest.lstrip('!').lower()
-        commands = [c.lstrip('command_') for c in dir(IRCBot) if c.startswith('command_')]
+        rest = rest.lstrip('!')
+        commands = [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')]
         if channel not in self.factory.channels or 'TWITTER' not in chanconf(channel):
             commands = [c for c in commands if not 'twitter' in self._find_command_function(c).__doc__.lower()]
         def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
-        if rest == '':
+        if rest is None or rest == '':
             return def_msg
         elif rest in commands:
             return self._find_command_function(rest).__doc__
