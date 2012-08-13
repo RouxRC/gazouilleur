@@ -10,7 +10,7 @@ from twisted.internet import reactor, defer, protocol
 from twisted.python import log
 from twisted.words.protocols import irc
 from twisted.web.client import getPage
-from twisted.application import internet
+from twisted.application import internet, service
 import config
 
 def sint(s):
@@ -64,7 +64,10 @@ class IRCBot(irc.IRCClient):
             else:
                 user = nick
             host = self.nicks[channel][nick]
-            self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': nick, 'host': host, 'message': message})
+            self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message})
+            if nick+" changed nickname to " in message:
+                oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
+                self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
         if channel == "*" or channel == self.nickname or channel not in self.logger:
             channel = config.BOTNAME
@@ -104,7 +107,7 @@ class IRCBot(irc.IRCClient):
     def noticed(self, user, channel, message):
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
-        self.log(message, user, channel)
+        self.log(message, user)
 
     def joined(self, channel):
         log.msg("Joined %s." % (channel,))
@@ -129,8 +132,8 @@ class IRCBot(irc.IRCClient):
     def _get_user_channels(self, nick):
         res = []
         for c in self.factory.channels:
-            last_log = self.db['logs'].find_one({'channel': c, 'user': nick, 'message': re.compile(r'^\['+nick+' ', re.I)}, sort=[('timestamp', pymongo.DESCENDING)])
-            if last_log and not last_log['message'].endswith(' left.]'):
+            last_log = self.db['logs'].find_one({'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)])
+            if last_log and not last_log['message'].endswith(' left]'):
                 res.append(c)
         return res
 
@@ -207,46 +210,85 @@ class IRCBot(irc.IRCClient):
 
     def command_test(self, *args):
         """!test : Simple test to check whether I'm present, similar as !ping."""
-        return 'Hello? type "!help" to list my commands.'
+        return 'Hello! Type "!help" to list my commands.'
 
     def command_source(self, *args):
         """!source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
-    re_find_digit = re.compile(r'(\s+\d+\s*|\s*\d+\s+)')
-    def _find_digit(self, string):
+    re_extract_digit = re.compile(r'(^|[^t])\s+(\d)+\s+')
+    def _extract_digit(self, string):
+        if string.strip().isdigit():
+            return int(string), ''
+        string = " %s " % string
         nb = 1
-        res = self.re_find_digit.search(string)
+        res = self.re_extract_digit.search(string)
         if res:
-            nb = res.group(1).strip()
-            string = self.re_find_digit.sub(r'', string)
+            nb = sint(res.group(2))
+            string = self.re_extract_digit.sub(r'\1 ', string, 1)
         return nb, string
 
     def command_lastfrom(self, rest, channel=None, nick=None):
-        """!lastfrom <nick> [<N>] : Prints the last message or <N> last ones from user <nick> (maximum 5)."""
-        nb, fromnick = self._find_digit(rest)
+        """!lastfrom <nick> [<N>] : Alias for "!last --from", prints the last or <N> (max 5) last message(s) from user <nick>."""
+        nb, fromnick = self._extract_digit(rest)
         return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
-    
+
     def command_lastwith(self, rest, channel=None, nick=None):
-        """!lastwith <word> [<N>] : Prints the last message or <N> last ones matching <word> (maximum 5)."""
-        nb, word = self._find_digit(rest)
+        """!lastwith <word> [<N>] : Alias for "!last --with", prints the last or <N> (max 5) last message(s) matching <word>."""
+        nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
-    re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')         
-    def _shortdate(self, date): 
+    re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
+    def _shortdate(self, date):
         return self.re_shortdate.sub(r'\2/\1\3', str(date))
 
+    re_lastcommand = re.compile(r'^!last', re.I)
+    re_optionstart = re.compile(r'\s*--start\s*(\d*)\s*', re.I)
+    def command_lastmore(self, rest, channel=None, nick=None):
+        """!lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous !last !lastwith or !lastfrom command"""
+        nb, rest = self._extract_digit(rest)
+        ct = 0
+        st = 0
+        tmprest = ""
+        last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
+        for m in last:
+            command, _, text = str(m['message']).lstrip('!').partition(' ')
+            if command == "lastseen":
+                continue
+            res = self.re_optionstart.search(text)
+            if res:
+                st = sint(res.group(1))
+                text = self.re_optionstart.sub(' ', text)
+            ct2, text = self._extract_digit(text)
+            ct += min(ct2, 5)
+            if command == "lastmore":
+                tmprest += " %s" % text
+            else:
+                function = self._find_command_function(command)
+                rest = " ".join([text, tmprest, rest])
+                if function:
+                    return function("%s %s --start %s" % (nb, rest, st+ct), channel, nick)
+        return ""
+
+    re_clean_blanks = re.compile(r'\s+')
     def command_last(self, rest, channel=None, nick=None):
-        """!last [<N>] [--from <nick>] [--with <text>] : Prints the last message or <N> last ones (maximum 5)."""
-        query = {'channel': channel, '$or': [{'user': {'$ne': self.nickname}}, {'message': {'$not': re.compile(r'^(!last|'+nick+': )', re.I)} }] }
+        """!last [<N>] [--from <nick>] [--with <text>] [--start <nb>] : Prints the last or <N> (max 5) last message(s), optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
+        if channel == self.nickname:
+            channel = self.factory.channels[0]
+        query = {'channel': channel, 'message': {'$not': self.re_lastcommand}, '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+nick+': |[^\s:]+: (!|\[\d))')}}]}
         nb = 1
+        st = 0
         current = ""
+        rest = self.re_clean_blanks.sub(' ', rest)
         for arg in rest.split(' '):
             if current == "f":
-                query['user'] = arg
+                query['user'] = arg.lower()
                 current = ""
             elif current == "w":
-                query['message'] = re.compile("%s" % arg, re.I)
+                query['message']['$regex'] = re.compile("%s" % arg, re.I)
+                current = ""
+            elif current == "s":
+                st = max(st, sint(arg))
                 current = ""
             elif arg.isdigit():
                 nb = max(nb, min(sint(arg), 5))
@@ -254,22 +296,24 @@ class IRCBot(irc.IRCClient):
                 current = "f"
             elif arg == "--with":
                 current = "w"
-        matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], limit=nb+1))
+            elif arg == "--start":
+                current = "s"
+        matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
         if len(matches) == 0:
-            return "No match found in my history log."
+            more = " more" if st > 1 else ""
+            return "No"+more+" match found in my history log."
         matches.reverse()
-        matches.pop()
-        return "\n".join(['[%s] %s — %s' % (self._shortdate(l['timestamp']), str(l['user']), str(l['message'])) for l in matches])
+        return "\n".join(['[%s] %s — %s' % (self._shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
     def command_lastseen(self, rest, channel=None, *args):
-        """!lastseen <nickname> : Prints last time <nickname> was seen logging off and in."""
+        """!lastseen <nickname> : Prints the last time <nickname> was seen logging off and in."""
         nick, _, msg = rest.partition(' ')
-        re_nick = re.compile(r'^\['+nick+' ', re.I)
-        res = list(self.db['logs'].find({'channel': channel, 'user': nick, 'message': re_nick}, sort=[('timestamp', pymongo.DESCENDING)], limit=2))
+        re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
+        res = list(self.db['logs'].find({'channel': channel, 'user': nick.lower(), 'message': re_nick}, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         msg = "Cannot find traces of %s in my history log." % nick
         if res:
             res.reverse()
-            msg = " —— ".join(["%s %s" % (self._shortdate(m['timestamp']), str(m['message'])[2:-2]) for m in res])
+            msg = " —— ".join(["%s %s" % (self._shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1]) for m in res])
         return msg
 
     def command_saylater(self, rest, *args):
@@ -323,6 +367,7 @@ if __name__ == '__main__':
 # This runs the program in the background. __name__ is __builtin__ when you use
 # twistd -y on a python module.
 elif __name__ == '__builtin__':
+    application = service.Application('Gazouilleur IRC Bot')
     ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
-# TODO add log in service
+    log.startLogging(open(os.path.relpath('run.log'), 'w'))

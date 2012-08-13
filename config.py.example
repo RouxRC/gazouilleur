@@ -6,6 +6,7 @@ BOTPASS = 'YYYYYY'
 HOST = 'irc.freenode.net'
 PORT = 6667
 GLOBAL_USERS = ['YYY', 'XXX']
+# First channel will benefit of private use of !last commands
 CHANNELS = {
   'XXX': {
     'USERS': ['DDD', 'EEE'],
@@ -18,7 +19,7 @@ CHANNELS = {
   },
   'YYY': {
   }
-]
+}
 MONGODB = {
     'HOST': 'localhost',
     'PORT': 27017,
