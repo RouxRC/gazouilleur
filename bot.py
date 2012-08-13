@@ -170,6 +170,7 @@ class IRCBot(irc.IRCClient):
     def _send_message(self, msgs, target, nick=None):
         if msgs is None:
             return
+        msgs = str(msgs).strip()
         if not isinstance(msgs, types.ListType):
             msgs = [(1, m) for m in msgs.split('\n')]
         for m in [msg for (res, msg) in msgs if res]:
@@ -303,6 +304,8 @@ class IRCBot(irc.IRCClient):
     def command_lastseen(self, rest, channel=None, nick=None):
         """!lastseen <nickname> : Prints the last time <nickname> was seen logging off and in."""
         user, _, msg = rest.partition(' ')
+        if user == '':
+            return "Please ask for a specific nickname."
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
         res = list(self.db['logs'].find({'channel': channel, 'user': user.lower(), 'message': re_user}, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         if res:
@@ -313,7 +316,7 @@ class IRCBot(irc.IRCClient):
   # Count commands
 
     def command_count(self, rest, *args):
-        """!count <text> : Prints the character length of <text> (urls will be shortened to 21 chars)."""
+        """!count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
         return str(countchars(rest))+" characters (max 140)"
 
     def command_lastcount(self, rest, nick=None, channel=None):
@@ -323,24 +326,31 @@ class IRCBot(irc.IRCClient):
   # -------------------------------------
   # Twitter / Identi.ca sending commands
 
-    def _send_via_protocol(self, protocol, command, channel, nick, *args):
+    re_nolimit = re.compile(r'\s*--nolimit\s*')
+    def _match_nolimit(self, text):
+        if self.re_nolimit.search(text):
+            return self.re_nolimit.sub(' ', text).strip(), True
+        return text, False
+
+    def _send_via_protocol(self, protocol, command, channel, nick, arg1, *args, **kwargs):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, protocol, conf):
             return "No %s account is set for this channel." % protocol
+        arg1, kwargs['nolimit'] = self._match_nolimit(arg1)
         a = Sender(protocol, conf)
-        d = threads.deferToThread(getattr(a, command, None), *args)
+        d = threads.deferToThread(getattr(a, command, None), arg1, *args, **kwargs)
         return d
 
     def command_identica(self, tweet, channel=None, nick=None):
-        """!identica <text> : Sends the message <text> on Identi.ca."""
+        """!identica <text> [--nolimit]: Posts message <text> on Identi.ca (--nolimit overrides the minimum 30 characters rule)."""
         return self._send_via_protocol('identica', 'microblog', channel, nick, tweet)
 
     def command_twitteronly(self, tweet, channel=None, nick=None):
-        """!twitteronly <text> : Sends the message <text> on Twitter."""
-        return self._send_via_protocol('twitter', 'microblog', tweet, channel, nick)
+        """!twitteronly <text> [--nolimit]: Posts message <text> on Twitter (--nolimit overrides the minimum 30 characters rule)."""
+        return self._send_via_protocol('twitter', 'microblog', channel, nick, tweet)
 
     def command_twitter(self, tweet, channel=None, nick=None):
-        """!twitter <text> : """
+        """!twitter <text> [--nolimit] : Posts message <text> on Identi.ca and Twitter (--nolimit overrides the minimum 30 characters rule)."""
         d1 = defer.maybeDeferred(self.command_twitteronly, tweet, channel, nick)
         d2 = defer.maybeDeferred(self.command_identica, tweet, channel, nick)
         return defer.DeferredList([d1, d2])

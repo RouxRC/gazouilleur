@@ -10,7 +10,7 @@ import config
 class Sender():
 
     def __init__(self, protocol, conf):
-        self.protool = protocol
+        self.protocol = protocol
         if protocol == "identica":
             self.conf = conf['IDENTICA']
             self.domain = "identi.ca"
@@ -28,9 +28,11 @@ class Sender():
 
 #TODO ADD TEST USER
 
-    def microblog(self, tweet, tryout=0):
+    def microblog(self, tweet, nolimit=False):
         ct = countchars(tweet)
-        if ct > 140:
+        if ct < 30 and not nolimit:
+            return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
+        elif ct > 140:
             return "Too long (%s characters)" % ct
         try:
             res = self.conn.statuses.update(status=tweet)
