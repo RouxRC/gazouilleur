@@ -216,7 +216,7 @@ class IRCBot(irc.IRCClient):
   # Default commands
 
     def command_help(self, rest, channel=None, nick=None):
-        """!help [<command>]: Prints general help or help for specific <command>."""
+        """!help [<command>] : Prints general help or help for specific <command>."""
         rest = rest.lstrip('!')
         conf = chanconf(channel)
         commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
@@ -224,7 +224,10 @@ class IRCBot(irc.IRCClient):
         if rest is None or rest == '':
             return def_msg
         elif rest in commands:
-            return clean_doc(self._get_command_doc(rest))
+            doc = clean_doc(self._get_command_doc(rest))
+            if not chan_has_identica(channel, conf):
+                doc = clean_identica(doc)
+            return doc
         return '!%s is not a valid command. %s' % (rest, def_msg)
 
     def command_ping(self, *args):
@@ -364,9 +367,9 @@ class IRCBot(irc.IRCClient):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, protocol, conf):
             return "No %s account is set for this channel." % protocol
-        if 'tweet' in kwargs:
-            kwargs['tweet'], nolimit = self._match_nolimit(kwargs['tweet'])
-            ct = countchars(kwargs['tweet'])
+        if 'text' in kwargs:
+            kwargs['text'], nolimit = self._match_nolimit(kwargs['text'])
+            ct = countchars(kwargs['text'])
             if ct < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140:
@@ -375,36 +378,60 @@ class IRCBot(irc.IRCClient):
         command = getattr(a, command, None)
         return command(**kwargs)
 
-    def command_identica(self, tweet, channel=None, nick=None):
-        """!identica <text> [--nolimit]: Posts message <text> on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
-        return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, tweet=tweet)
+    def command_identica(self, text, channel=None, nick=None):
+        """!identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
-    def command_twitteronly(self, tweet, channel=None, nick=None):
-        """!twitteronly <text> [--nolimit]: Posts message <text> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, tweet=tweet)
+    def command_twitteronly(self, text, channel=None, nick=None):
+        """!twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
-    def command_twitter(self, tweet, channel=None, nick=None):
-        """!twitter <text> [--nolimit] : Posts message <text> on Identi.ca and Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
-        d1 = defer.maybeDeferred(self.command_twitteronly, tweet, channel, nick)
-        d2 = defer.maybeDeferred(self.command_identica, tweet, channel, nick)
+    def command_twitter(self, text, channel=None, nick=None):
+        """!twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
+        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
         return defer.DeferredList([d1, d2])
 
-    def command_rt(self, tweetid, channel=None, nick=None):
-        """!rt <tweet_id> : (twitter)./TWITTER"""
-        # TODO parse + post sur identica RT
-        return TODO
-
     def command_answer(self, rest, channel=None, nick=None):
-        """!answer <tweetid> <text> : ./TWITTER"""
-        #TODO parse rest
-        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, tweet=tweet, tweet_id=tweet_id)
-        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, tweet=tweet)
+        """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        tweet_id, _, text = rest.partition(' ')
+        tweet_id = safeint(tweet_id)
+        if not tweet_id or text == "":
+            return "Please input a correct tweet_id and message."
+        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id)
+        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
         return defer.DeferredList([d1, d2])
 
     def command_dm(self, rest, channel=None, nick=None):
-        """!dm <user> <text> : ./TWITTER"""
-        #TODO parse rest
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, tweet=text)
+        """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        user, _, text = rest.partition(' ')
+        user = user.lsplit('@').lower()
+        if user == "" or text == "":
+            return "Please input a correct tweet_id and message."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
+
+    def command_rmtweet(self, tweet_id, channel=None, nick=None):
+        """!rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
+        tweet_id = safeint(rest)
+        if not tweet_id:
+            return "Please input a correct tweet_id."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
+
+    def command_rt(self, tweet_id, channel=None, nick=None):
+        """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
+        tweet_id = safeint(rest)
+        if not tweet_id:
+            return "Please input a correct tweet_id."
+        dl = []
+        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'retweet', channel, nick, tweet_id=tweet_id))
+        # TODO post sur identica RT
+        # if chan_has_identica(channel):
+            # GETPage
+            # tweet = "♻%s: %s" (user, tweet)
+            # if countchars(tweet) > 140:
+            #    tweet = "%s…" % tweet[:139]
+            # dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=tweet))
+        return defer.DeferredList(dl)
 
   # ----------------------------
   # Twitter monitoring commands

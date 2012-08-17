@@ -31,6 +31,8 @@ class Sender():
         if tryout > 2:
             return Exception(previous_exception)
         try:
+            args['trim_user'] = 'true'
+            args['source'] = config.BOTNAME
             res = function(**args)
             if config.DEBUG:
                 print res
@@ -41,9 +43,9 @@ class Sender():
                 print e
             return self._send_query(function, args, tryout+1, exception)
 
-    def microblog(self, tweet="", tweet_id=None):
+    def microblog(self, text="", tweet_id=None):
         function = getattr(self.conn.statuses, 'update', None)
-        args = {'status': tweet, 'trim_user': 'true', 'source': config.BOTNAME}
+        args = {'status': text}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
         return self._send_query(function, args)
@@ -58,9 +60,9 @@ class Sender():
         args = {'id': tweet_id}
         return self._send_query(function, args)
 
-    def directmsg(self, user, tweet):
+    def directmsg(self, user, text):
         function = getattr(self.conn.direct_messages, 'new', None)
-        args = {'user': user, 'text': tweet}
+        args = {'screen_name': user, 'text': text}
         return self._send_query(function, args)
 
 

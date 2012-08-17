@@ -17,6 +17,9 @@ sending_error = lambda x: re_sending_error.sub(r'ERROR \1: \2', str(x))
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
 
+re_clean_identica = re.compile(r'(and posts a ♻ status)? on Identi\.ca( and)?( as a)?', re.I)
+clean_identica = lambda x: re_clean_identica.sub('', x)
+
 # URL recognition adapted from Twitter's
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
@@ -94,7 +97,7 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
         return True if is_user_admin(nick) else False
     conf = chanconf(channel, conf)
-    if command_doc.endswith('/TWITTER') and not chan_has_twitter(channel, conf):
+    if command_doc.endswith('/TWITTER') and not (chan_has_twitter(channel, conf) and (chan_has_identica(channel, conf) or 'twitter' in clean_doc(command_doc).lower())):
         return False
     if is_user_auth(nick, channel, conf):
         return True
