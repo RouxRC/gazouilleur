@@ -27,6 +27,8 @@ class IRCBot(irc.IRCClient):
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+        self.db['logs'].ensure_index([('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
 
     # Double logger (mongo / files)
     def log(self, message, user=None, channel=config.BOTNAME):
