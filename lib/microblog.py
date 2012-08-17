@@ -20,7 +20,7 @@ class Sender():
             self.conf = conf['TWITTER']
             self.domain = "api.twitter.com"
             self.api_version = "1"
-            self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_KEY'], self.conf['SECRET'], self.conf['KEY'])
+            self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
         else:
             raise Exception
         self.auth_users = config.GLOBAL_USERS + conf['USERS']

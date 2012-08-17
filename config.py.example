@@ -1,37 +1,40 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-BOTNAME = 'XXXXXX'
-BOTPASS = 'YYYYYY'
+# Example config of the actual bot gazouilleur on #RegardsCitoyens 's chan on freenode.net
+
+BOTNAME = 'gazouilleur2'
+BOTPASS = '--------'
 HOST = 'irc.freenode.net'
 PORT = 6667
-GLOBAL_USERS = ['YYY', 'XXX']
+GLOBAL_USERS = ['Roux']
 # First channel will benefit of private use of !last commands
 CHANNELS = {
-  'XXX': {
-    'USERS': ['DDD', 'EEE'],
+  'regardscitoyens': {
+    'USERS': [],
     'TWITTER': {
-        'USER': '',
-        'PASS': '',
-        'KEY': '',
-        'SECRET': '',
-        'OAUTH_TOKEN': '',
-        'OAUTH_KEY': ''
+      'USER': 'RegardsCitoyens',
+      'PASS': '--------',
+      'KEY': '---------',
+      'SECRET': '--------',
+      'OAUTH_TOKEN': '--------',
+      'OAUTH_SECRET': '---------'
     },
     'IDENTICA': {
-        'USER': '',
-        'PASS': ''
+      'USER': 'regardscitoyens',
+      'PASS': '---------'
     }
   },
-  'YYY': {
+  'rc-test': {
+    'USERS': []
   }
 }
 MONGODB = {
-    'HOST': 'localhost',
-    'PORT': 27017,
-    'DATABASE': BOTNAME,
-    'USER': BOTNAME,
-    'PSWD': BOTPASS
+  'HOST': 'localhost',
+  'PORT': 27017,
+  'DATABASE': BOTNAME,
+  'USER': BOTNAME,
+  'PSWD': BOTPASS
 }
 DEBUG = False
-ADMINS = ['XXX']
+ADMINS = GLOBAL_USERS
