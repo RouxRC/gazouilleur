@@ -41,21 +41,27 @@ class Sender():
                 print e
             return self._send_query(function, args, tryout+1, exception)
 
-    def microblog(self, tweet=""):
+    def microblog(self, tweet="", tweet_id=None):
         function = getattr(self.conn.statuses, 'update', None)
-        args = {'status': tweet}
+        args = {'status': tweet, 'trim_user': 'true', 'source': config.BOTNAME}
+        if tweet_id:
+            args['in_reply_to_status_id'] = tweet_id
+        return self._send_query(function, args)
+
+    def delete(self, tweet_id):
+        function = getattr(self.conn.statuses, 'destroy', None)
+        args = {'id': tweet_id}
         return self._send_query(function, args)
 
     def retweet(self, tweet_id):
-        pass
+        function = getattr(self.conn.statuses, 'retweet', None)
+        args = {'id': tweet_id}
+        return self._send_query(function, args)
 
     def directmsg(self, user, tweet):
         function = getattr(self.conn.direct_messages, 'new', None)
         args = {'user': user, 'text': tweet}
         return self._send_query(function, args)
-
-    def answer(self, tweet_id, tweet):
-        pass
 
 
 #class Follower(TwitterStream):

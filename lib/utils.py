@@ -17,11 +17,29 @@ sending_error = lambda x: re_sending_error.sub(r'ERROR \1: \2', str(x))
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
 
-re_url = re.compile(r'(^|\s)(https?://)?\S+\.[a-z0-9]{2,3}(\s|$)', re.I)
+# URL recognition adapted from Twitter's
+# https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
+UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
+PRE_CHARS = ur'(?:^|$|[\s"<>\':!=])'
+DOMAIN_CHARS = ur'[^\s_\!\.\/]+(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
+PATH_CHARS = ur'(?:[\.,]?[%s!\*\'\(\);:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
+QUERY_CHARS = ur'[a-z0-9!\*\'\(\);:&=\+\$/%#\[\]\-_\.,~]'
+PATH_ENDING_CHARS = r'[%s\)=#/]' % UTF_CHARS
+QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
+END_CHARS = ur'(?:$|[\s"<>\':!=])'
+URL_REGEX = re.compile('(%s)(https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?(%s)' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+
+#re_url = re.compile(r'(^|\s)(https?://)?\S+\.[a-z0-9]{2,3}/?\S*(\s|$)', re.I)
 def countchars(text):
     text = text.strip()
-    while re_url.search(text):
-        text = re_url.sub(r'\1http://t.co/xxxxxxxx\3', text)
+#    while re_url.search(text):
+#        text = re_url.sub(r'\1http://t.co/xxxxxxxx\3', text)
+    res = URL_REGEX.search(text)
+    while res:
+        print res.groups()
+        text = URL_REGEX.sub(r'\1http://t.co/xxxxxxxx\5', text)
+        res = URL_REGEX.search(text)
+    print text
     return len(text)
 
 re_handle_quotes = re.compile(r'("[^"]*")')

@@ -389,13 +389,15 @@ class IRCBot(irc.IRCClient):
 
     def command_rt(self, tweetid, channel=None, nick=None):
         """!rt <tweet_id> : (twitter)./TWITTER"""
-        # + post sur identica RT
+        # TODO parse + post sur identica RT
         return TODO
 
     def command_answer(self, rest, channel=None, nick=None):
         """!answer <tweetid> <text> : ./TWITTER"""
         #TODO parse rest
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'answer', channel, nick, tweetid=tweetid, tweet=text)
+        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, tweet=tweet, tweet_id=tweet_id)
+        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, tweet=tweet)
+        return defer.DeferredList([d1, d2])
 
     def command_dm(self, rest, channel=None, nick=None):
         """!dm <user> <text> : ./TWITTER"""
