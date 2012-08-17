@@ -1,7 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, os, os.path, time
+import sys, os, os.path, time, codecs
 sys.path.append('..')
 import config
 
@@ -13,7 +13,7 @@ class FileLogger:
         filename += '.log'
         if not os.path.isdir('log'):
             os.mkdir('log')
-        self.file = open(os.path.join('log', filename), "a")
+        self.file = codecs.open(os.path.join('log', filename), "a", encoding="utf-8")
 
     def log(self, message):
         timestamp = time.strftime("[%H:%M:%S]", time.localtime(time.time()))

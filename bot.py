@@ -30,6 +30,8 @@ class IRCBot(irc.IRCClient):
 
     # Double logger (mongo / files)
     def log(self, message, user=None, channel=config.BOTNAME):
+        if channel == "*" or channel == self.nickname or channel not in self.logger:
+            channel = config.BOTNAME
         if user:
             nick, _, host = user.partition('!')
             if channel not in self.nicks:
@@ -44,9 +46,9 @@ class IRCBot(irc.IRCClient):
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        if channel == "*" or channel == self.nickname or channel not in self.logger:
-            channel = config.BOTNAME
         self.logger[channel].log(message)
+        if user:
+            return nick, user
 
   # -------------------
   # Connexion loggers
@@ -105,18 +107,18 @@ class IRCBot(irc.IRCClient):
     def userJoined(self, user, channel):
         self.log("[%s joined]" % user, user, channel)
 
-    def userLeft(self, user, channel, message=None):
-        if message:
-            message = "[%s left (%s)]" % (user, message)
-        else:
-            message = "[%s left]" % user
-        self.log(message, user, channel)
+    def userLeft(self, user, channel, reason=None):
+        msg = "[%s left" % user
+        if reason:
+            msg += " (%s)]" % reason
+        msg += "]"
+        self.log(msg, user, channel)
 
     def _get_user_channels(self, nick):
         res = []
         for c in self.factory.channels:
             last_log = self.db['logs'].find_one({'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)])
-            if last_log and not last_log['message'].endswith(' left]'):
+            if last_log and not last_log['message'].encode('utf-8').endswith(' left]'):
                 res.append(c)
         return res
 
@@ -136,71 +138,91 @@ class IRCBot(irc.IRCClient):
     def _find_command_function(self, command):
         return getattr(self, 'command_' + command.lower(), None)
 
+    def _get_command_doc(self, command):
+        if not isinstance(command, types.MethodType):
+            command = self._find_command_function(command)
+        return command.__doc__
+
+    def _can_user_do(self, nick, channel, command, conf=None):
+        return has_user_rights_in_doc(nick, channel, self._get_command_doc(command))
+
     def privmsg(self, user, channel, message):
-        nick, _, _ = user.partition('!')
+        try:
+            message = message.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                message = message.decode('iso-8859-1')
+            except UnicodeDecodeError:
+                message = message.decode('cp1252')
         message = cleanblanks(message)
-        self.log(message, user, channel)
+        nick, user = self.log(message, user, channel)
         d = None
         if not message.startswith('!'):
             if self.nickname.lower() in message.lower():
                 d = defer.maybeDeferred(self.command_test)
             else:
                 return
-        log.msg("[%s] Received command from user %s: %s" % (channel, user, message))
+        message = message.encode('utf-8')
+        if config.DEBUG:
+            log.msg("[%s] COMMAND: %s: %s" % (channel, user, message))
         command, _, rest = message.lstrip('!').partition(' ')
         func = self._find_command_function(command)
         if func is None and d is None:
             d = defer.maybeDeferred(self.command_help, command, channel)
+        target = nick if channel == self.nickname else channel
         if d is None:
-            d = defer.maybeDeferred(func, rest, channel, nick)
-        if channel == self.nickname:
-            d.addCallback(self._send_message, nick)
-            d.addErrback(self._show_error, nick)
-        else:
-            d.addCallback(self._send_message, channel, nick)
-            d.addErrback(self._show_error, channel, nick)
-
-#TODO apply
-    def _check_user_rights(self, nick, channel):
-        chanconf = chanconf(channel)
-        if nick not in config.GLOBAL_USERS and channel in self.factory.channels and ('USERS' not in chanconf or nick not in chanconf['USERS']):
-            return 'Sorry only registered users are allowed to use me'
-        return
+            if self._can_user_do(nick, channel, func):
+                d = defer.maybeDeferred(func, rest, channel, nick)
+            else:
+               return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
+        d.addCallback(self._send_message, target, nick)
+        d.addErrback(self._show_error, target, nick)
 
     def _send_message(self, msgs, target, nick=None):
+        if config.DEBUG:
+            log.msg("[%s] REPLIED: %s" % (target, msgs))
         if msgs is None:
             return
-        msgs = str(msgs).strip()
         if not isinstance(msgs, types.ListType):
-            msgs = [(1, m) for m in msgs.split('\n')]
-        for m in [msg for (res, msg) in msgs if res]:
-            if nick:
-                m = '%s: %s' % (nick, m)
-            self.msg(target, m)
-            self.log(m, self.nickname, target)
+            msgs = str(msgs).strip()
+            msgs = [(True, m) for m in msgs.split('\n')]
+        uniq = {}
+        for res, msg in msgs:
+            if not res:
+                self._show_error(msg, target, nick)
+            elif msg in uniq:
+                continue
+            else:
+                uniq[msg] = None
+            if nick and target != nick:
+                msg = '%s: %s' % (nick, msg)
+            self.msg(target, msg)
+            self.log(msg.decode('utf-8'), self.nickname, target)
 
     def _show_error(self, failure, target, nick=None):
         failure.trap(Exception)
-        log.msg(failure)
+        log.msg("ERROR: %s" % failure)
+        msg = "%s: Woooups, something is wrong..." % nick
         if config.DEBUG:
-            self.msg(target, "%s: Woooups, something is wrong...\n%s" % (nick, failure.getErrorMessage()))
+            msg += "\n%s" % failure.getErrorMessage()
+        self.msg(target, msg)
         if config.ADMINS:
-            for nick in config.ADMINS:
-                self.msg(nick, failure.getErrorMessage())
+            for user in config.ADMINS:
+                self.msg(user, "[%s] %s" % (target, str(failure)))
+
   # -----------------
   # Default commands
 
-    def command_help(self, rest, channel=None, *args):
+    def command_help(self, rest, channel=None, nick=None):
         """!help [<command>]: Prints general help or help for specific <command>."""
         rest = rest.lstrip('!')
-        commands = [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')]
-        if channel not in self.factory.channels or 'TWITTER' not in chanconf(channel):
-            commands = [c for c in commands if not 'twitter' in self._find_command_function(c).__doc__.lower()]
+        conf = chanconf(channel)
+        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
         def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
         if rest is None or rest == '':
             return def_msg
         elif rest in commands:
-            return self._find_command_function(rest).__doc__
+            return clean_doc(self._get_command_doc(rest))
         return '!%s is not a valid command. %s' % (rest, def_msg)
 
     def command_ping(self, *args):
@@ -250,7 +272,7 @@ class IRCBot(irc.IRCClient):
         tmprest = ""
         last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
         for m in last:
-            command, _, text = str(m['message']).lstrip('!').partition(' ')
+            command, _, text = m['message'].encode('utf-8').lstrip('!').partition(' ')
             if command == "lastseen":
                 continue
             res = self.re_optionstart.search(text)
@@ -268,15 +290,16 @@ class IRCBot(irc.IRCClient):
                     return function("%s %s --start %s" % (nb, rest, st+ct), channel, nick)
         return ""
 
-    def command_last(self, rest, channel=None, nick=None):
+    def command_last(self, rest, channel=None, nick=None, reverse=False):
         """!last [<N>] [--from <nick>] [--with <text>] [--start <nb>] : Prints the last or <N> (max 5) last message(s), optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
+        # For private queries, give priority to first listed chan for the use of !last commands
         if channel == self.nickname:
             channel = self.factory.channels[0]
-        query = {'channel': channel, 'message': {'$not': self.re_lastcommand}, '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+nick+': |[^\s:]+: (!|\[\d))')}}]}
+        query = {'channel': channel, 'message': {'$not': self.re_lastcommand}, '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
         nb = 1
         st = 0
         current = ""
-        rest = cleanblanks(rest)
+        rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
                 query['user'] = arg.lower()
@@ -299,6 +322,8 @@ class IRCBot(irc.IRCClient):
         if len(matches) == 0:
             more = " more" if st > 1 else ""
             return "No"+more+" match found in my history log."
+        if reverse:
+            matches.reverse()
         return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
     def command_lastseen(self, rest, channel=None, nick=None):
@@ -309,6 +334,7 @@ class IRCBot(irc.IRCClient):
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
         res = list(self.db['logs'].find({'channel': channel, 'user': user.lower(), 'message': re_user}, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         if res:
+            res.reverse()
             return " —— ".join(["%s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1]) for m in res])
         return self.command_lastfrom(user, channel, nick)
 
@@ -317,11 +343,11 @@ class IRCBot(irc.IRCClient):
 
     def command_count(self, rest, *args):
         """!count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
-        return str(countchars(rest))+" characters (max 140)"
+        return threads.deferToThread(lambda x: str(countchars(x))+" characters (max 140)", rest)
 
-    def command_lastcount(self, rest, nick=None, channel=None):
-        """!lastcount <text> : Prints the latest count command and result"""
-        return self.command_last("2 --with ^!count|\S+:\s\d+\scharacters", nick, channel)
+    def command_lastcount(self, rest, channel=None, nick=None):
+        """!lastcount : Prints the latest !count command and its result"""
+        return self.command_last("2 --with ^!count|\S+:\s\d+\scharacters", channel, nick, True)
 
   # -------------------------------------
   # Twitter / Identi.ca sending commands
@@ -332,55 +358,63 @@ class IRCBot(irc.IRCClient):
             return self.re_nolimit.sub(' ', text).strip(), True
         return text, False
 
-    def _send_via_protocol(self, protocol, command, channel, nick, arg1, *args, **kwargs):
+    def _send_via_protocol(self, protocol, command, channel, nick, **kwargs):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, protocol, conf):
             return "No %s account is set for this channel." % protocol
-        arg1, kwargs['nolimit'] = self._match_nolimit(arg1)
+        if 'tweet' in kwargs:
+            kwargs['tweet'], nolimit = self._match_nolimit(kwargs['tweet'])
+            ct = countchars(kwargs['tweet'])
+            if ct < 30 and not nolimit:
+                return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
+            elif ct > 140:
+                return "Too long (%s characters)" % ct
         a = Sender(protocol, conf)
-        d = threads.deferToThread(getattr(a, command, None), arg1, *args, **kwargs)
-        return d
+        command = getattr(a, command, None)
+        return command(**kwargs)
 
     def command_identica(self, tweet, channel=None, nick=None):
-        """!identica <text> [--nolimit]: Posts message <text> on Identi.ca (--nolimit overrides the minimum 30 characters rule)."""
-        return self._send_via_protocol('identica', 'microblog', channel, nick, tweet)
+        """!identica <text> [--nolimit]: Posts message <text> on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, tweet=tweet)
 
     def command_twitteronly(self, tweet, channel=None, nick=None):
-        """!twitteronly <text> [--nolimit]: Posts message <text> on Twitter (--nolimit overrides the minimum 30 characters rule)."""
-        return self._send_via_protocol('twitter', 'microblog', channel, nick, tweet)
+        """!twitteronly <text> [--nolimit]: Posts message <text> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, tweet=tweet)
 
     def command_twitter(self, tweet, channel=None, nick=None):
-        """!twitter <text> [--nolimit] : Posts message <text> on Identi.ca and Twitter (--nolimit overrides the minimum 30 characters rule)."""
+        """!twitter <text> [--nolimit] : Posts message <text> on Identi.ca and Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         d1 = defer.maybeDeferred(self.command_twitteronly, tweet, channel, nick)
         d2 = defer.maybeDeferred(self.command_identica, tweet, channel, nick)
         return defer.DeferredList([d1, d2])
 
     def command_rt(self, tweetid, channel=None, nick=None):
-        """!rt <tweet_id> : (twitter)"""
+        """!rt <tweet_id> : (twitter)./TWITTER"""
         # + post sur identica RT
         return TODO
 
     def command_answer(self, rest, channel=None, nick=None):
-        """!answer <tweetid> <text> : """
-        return "TODO"
+        """!answer <tweetid> <text> : ./TWITTER"""
+        #TODO parse rest
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'answer', channel, nick, tweetid=tweetid, tweet=text)
 
     def command_dm(self, rest, channel=None, nick=None):
-        """!dm <user> <text> : """
-        return "TODO"
+        """!dm <user> <text> : ./TWITTER"""
+        #TODO parse rest
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, tweet=text)
 
   # ----------------------------
   # Twitter monitoring commands
 
     def command_follow(self, tweet, *args):
-        """!follow <text> : """
+        """!follow <text> : ./AUTH"""
         return "TODO"
 
     def command_unfollow(self, tweet, *args):
-        """!unfollow <text> : """
+        """!unfollow <text> : ./AUTH"""
         return "TODO"
 
     def command_lasttweet(self, tweet, *args):
-        """!lasttweet <text> : """
+        """!lasttweet <text> : ./AUTH"""
         return "TODO"
 
   # ------------------
@@ -389,7 +423,7 @@ class IRCBot(irc.IRCClient):
     def command_saylater(self, rest, *args):
         """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
         when, _, msg = rest.partition(' ')
-        when = safeint(when)
+        when = min(1, safeint(when))
         d = defer.Deferred()
         reactor.callLater(when, d.callback, msg)
         return d

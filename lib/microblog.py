@@ -20,33 +20,39 @@ class Sender():
             self.conf = conf['TWITTER']
             self.domain = "api.twitter.com"
             self.api_version = "1"
-            self.auth = OAuth(self.conf['TOKEN'], self.conf['TOKEN_SECRET'], self.conf['SECRET'], self.conf['KEY'])
+            self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_KEY'], self.conf['SECRET'], self.conf['KEY'])
         else:
             raise Exception
         self.auth_users = config.GLOBAL_USERS + conf['USERS']
         self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
-#TODO ADD TEST USER
 
-    def microblog(self, tweet, nolimit=False):
-        ct = countchars(tweet)
-        if ct < 30 and not nolimit:
-            return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
-        elif ct > 140:
-            return "Too long (%s characters)" % ct
+    def _send_query(self, function, args, tryout=0, previous_exception=None):
+        if tryout > 2:
+            return Exception(previous_exception)
         try:
-            res = self.conn.statuses.update(status=tweet)
-#TODO TRY AGAIN ?
-            return "Huge success on %s ! (%s characters)" % (self.protocol, ct)
+            res = function(**args)
+            if config.DEBUG:
+                print res
+            return "[%s] Huge success!" % self.protocol
         except Exception as e:
-            return Exception("[%s] %s" % (self.domain, sending_error(e)))
+            exception = "[%s] %s" % (self.domain, sending_error(e))
+            if config.DEBUG:
+                print e
+            return self._send_query(function, args, tryout+1, exception)
+
+    def microblog(self, tweet=""):
+        function = getattr(self.conn.statuses, 'update', None)
+        args = {'status': tweet}
+        return self._send_query(function, args)
 
     def retweet(self, tweet_id):
         pass
 
     def directmsg(self, user, tweet):
-        #t.direct_messages.new(user=user, text=text)
-        pass
+        function = getattr(self.conn.direct_messages, 'new', None)
+        args = {'user': user, 'text': tweet}
+        return self._send_query(function, args)
 
     def answer(self, tweet_id, tweet):
         pass
