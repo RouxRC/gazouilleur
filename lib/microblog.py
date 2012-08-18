@@ -21,13 +21,10 @@ class Sender():
             self.domain = "api.twitter.com"
             self.api_version = "1"
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
-        else:
-            raise Exception
         self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
-
     def _send_query(self, function, args, tryout=0, previous_exception=None):
-        if tryout > 2:
+        if tryout > 2: 
             return previous_exception
         try:
             args['trim_user'] = 'true'

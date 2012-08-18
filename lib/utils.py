@@ -76,14 +76,20 @@ def chanconf(chan, conf=None):
         return None
 
 def chan_has_protocol(chan, protocol, conf=None):
-    conf = chanconf(chan, conf)
-    return conf and protocol.upper() in conf
+    protocol = protocol.upper()
+    if protocol == "IDENTICA":
+        return chan_has_identica(chan, conf)
+    elif protocol == "TWITTER":
+        return chan_has_twitter(chan, conf)
+    return False
 
 def chan_has_identica(chan, conf=None):
-    return chan_has_protocol(chan, 'IDENTICA', conf)
+    conf = chanconf(chan, conf)
+    return conf and 'IDENTICA' in conf and 'USER' in conf['IDENTICA'] and 'PASS' in conf['IDENTICA']
 
 def chan_has_twitter(chan, conf=None):
-    return chan_has_protocol(chan, 'TWITTER', conf)
+    conf = chanconf(chan, conf)
+    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER']
 
 def is_user_admin(nick):
     return nick in config.ADMINS
@@ -99,8 +105,9 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
         return True if is_user_admin(nick) else False
     conf = chanconf(channel, conf)
-    if command_doc.endswith('/TWITTER') and not (chan_has_twitter(channel, conf) and (chan_has_identica(channel, conf) or 'twitter' in clean_doc(command_doc).lower())):
-        return False
+    if command_doc.endswith('/TWITTER'):
+        print chan_has_identica(channel, conf), chan_has_twitter(channel, conf)
+        return (chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower())
     if is_user_auth(nick, channel, conf):
         return True
     if command_doc.endswith('/AUTH') or command_doc.endswith('/TWITTER'):

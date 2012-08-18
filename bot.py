@@ -190,13 +190,14 @@ class IRCBot(irc.IRCClient):
         if not isinstance(msgs, types.ListType):
             msgs = str(msgs).strip()
             msgs = [(True, m) for m in msgs.split('\n')]
-        if len(msgs) == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
+        nb_m = len(msgs)
+        if nb_m == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
             msgs = [(True, "[identi.ca/twitter] Huge success!")]
         uniq = {}
         for res, msg in msgs:
             if not res:
                 self._show_error(msg, target, nick)
-            elif msg in uniq:
+            elif msg in uniq or (uniq and nb_m == 2 and msg.endswith("account is set for this channel.")):
                 continue
             else:
                 uniq[msg] = None
