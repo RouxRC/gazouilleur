@@ -257,7 +257,7 @@ class IRCBot(irc.IRCClient):
         if res:
             nb = safeint(res.group(2))
             string = self.re_extract_digit.sub(r'\1 ', string, 1)
-        return nb, string
+        return nb, string.strip()
 
     def command_lastfrom(self, rest, channel=None, nick=None):
         """!lastfrom <nick> [<N>] : Alias for "!last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from !last except --from can apply)."""
@@ -340,7 +340,7 @@ class IRCBot(irc.IRCClient):
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
         if config.DEBUG:
-            print rest, query
+            log.msg(rest, query)
         matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
         if len(matches) == 0:
             more = " more" if st > 1 else ""
@@ -478,10 +478,11 @@ class IRCBot(irc.IRCClient):
         when, task = self._extract_digit(rest)
         when = max(1, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
+        target = nick if channel == self.nickname else channel
         if task.startswith('!'):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
         else:
-            taskid = reactor.callLater(when, self._send_message, task, channel)
+            taskid = reactor.callLater(when, self._send_message, task, target)
         rank = len(self.tasks)
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
@@ -489,7 +490,7 @@ class IRCBot(irc.IRCClient):
     def command_scheduled(self, rest, channel=None, *args):
         """!scheduled : Prints the list of coming tasks scheduled./AUTH"""
         now = time.time()
-        res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now])
+        res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
         if res == "":
             return "No task scheduled."
         return res
@@ -500,8 +501,9 @@ class IRCBot(irc.IRCClient):
         try:
             task = self.tasks[task_id]
             if task['channel'] != channel:
-                return "Task #%s is not scheduled for this channel."
+                return "Task #%s is not scheduled for this channel." % task_id
             task['id'].cancel()
+            self.tasks[task_id]['canceled'] = True
             return "#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command'])
         except:
             return "The task #%s does not exist yet or is already canceled." % task_id
