@@ -13,8 +13,6 @@ CHANNELS = {
   'regardscitoyens': {
     'USERS': [],
     'TWITTER': {
-      'USER': 'RegardsCitoyens',
-      'PASS': '--------',
       'KEY': '---------',
       'SECRET': '--------',
       'OAUTH_TOKEN': '--------',
