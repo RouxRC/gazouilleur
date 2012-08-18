@@ -105,10 +105,10 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
         return True if is_user_admin(nick) else False
     conf = chanconf(channel, conf)
+    auth = is_user_auth(nick, channel, conf)
     if command_doc.endswith('/TWITTER'):
-        print chan_has_identica(channel, conf), chan_has_twitter(channel, conf)
-        return (chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower())
-    if is_user_auth(nick, channel, conf):
+        return auth and ((chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower()))
+    if auth:
         return True
     if command_doc.endswith('/AUTH') or command_doc.endswith('/TWITTER'):
         return False

@@ -389,10 +389,10 @@ class IRCBot(irc.IRCClient):
             return self.re_nolimit.sub(' ', text).strip(), True
         return text, False
 
-    def _send_via_protocol(self, protocol, command, channel, nick, **kwargs):
+    def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         conf = chanconf(channel)
-        if not chan_has_protocol(channel, protocol, conf):
-            return "No %s account is set for this channel." % protocol
+        if not chan_has_protocol(channel, siteprotocol, conf):
+            return "No %s account is set for this channel." % siteprotocol
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_nolimit(kwargs['text'])
             ct = countchars(kwargs['text'])
@@ -400,8 +400,8 @@ class IRCBot(irc.IRCClient):
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140:
                 return "Too long (%s characters)" % ct
-        a = Sender(protocol, conf)
-        command = getattr(a, command, None)
+        conn = Sender(siteprotocol, conf)
+        command = getattr(conn, command, None)
         return command(**kwargs)
 
     def command_identica(self, text, channel=None, nick=None):
@@ -442,6 +442,16 @@ class IRCBot(irc.IRCClient):
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
 
+    def _rt_on_identica(self, tweet_id, conf, channel, nick):
+        conn = Sender('twitter', conf)
+        res = conn.show_status(tweet_id)
+        if res and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
+            tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
+            if countchars(tweet) > 140:
+                tweet = "%s…" % tweet[:139]
+            return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
+        return "Cannot find tweet %s on Twitter." % tweet_id
+
     def command_rt(self, tweet_id, channel=None, nick=None):
         """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
         tweet_id = safeint(tweet_id)
@@ -449,13 +459,9 @@ class IRCBot(irc.IRCClient):
             return "Please input a correct tweet_id."
         dl = []
         dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'retweet', channel, nick, tweet_id=tweet_id))
-        # TODO post sur identica RT
-        # if chan_has_identica(channel):
-            # GETPage
-            # tweet = "♻%s: %s" (user, tweet)
-            # if countchars(tweet) > 140:
-            #    tweet = "%s…" % tweet[:139]
-            # dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=tweet))
+        conf = chanconf(channel)
+        if chan_has_identica(channel, conf):
+            dl.append(defer.maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
         return defer.DeferredList(dl, consumeErrors=True)
 
   # ----------------------------
