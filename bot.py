@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import sys, os.path, types, re
-import datetime, time
+import time
+from datetime import datetime
 import lxml.html
 import pymongo
 from twisted.internet import reactor, defer, protocol, threads
@@ -24,6 +25,7 @@ class IRCBot(irc.IRCClient):
         self.username = config.BOTNAME
         self.password = config.BOTPASS
         self.nicks = {}
+        self.tasks = []
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
@@ -43,10 +45,10 @@ class IRCBot(irc.IRCClient):
             else:
                 user = nick
             host = self.nicks[channel][nick]
-            self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message})
+            self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
-                self.db['logs'].insert({'timestamp': datetime.datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
+                self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
         self.logger[channel].log(message)
         if user:
@@ -414,8 +416,7 @@ class IRCBot(irc.IRCClient):
 
     def command_answer(self, rest, channel=None, nick=None):
         """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
-        tweet_id, _, text = rest.partition(' ')
-        tweet_id = safeint(tweet_id)
+        tweet_id, text = self._extract_digit(rest)
         if not tweet_id or text == "":
             return "Please input a correct tweet_id and message."
         d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id)
@@ -471,13 +472,39 @@ class IRCBot(irc.IRCClient):
   # ------------------
   # Other commands...
 
-    def command_saylater(self, rest, *args):
-        """!saylater <seconds> <message> : Makes me say <message> in <seconds> seconds."""
-        when, _, msg = rest.partition(' ')
-        when = min(1, safeint(when))
-        d = defer.Deferred()
-        reactor.callLater(when, d.callback, msg)
-        return d
+    def command_runlater(self, rest, channel=None, nick=None):
+        """!saylater <minutes> <!command [arguments]> : Schedules <!command> in <minutes>."""
+        now = time.time()
+        when, task = self._extract_digit(rest)
+        when = max(1, when) * 60
+        then = shortdate(datetime.fromtimestamp(now + when))
+        if task.startswith('!'):
+            taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
+        else:
+            taskid = reactor.callLater(when, self._send_message, task, channel)
+        rank = len(self.tasks)
+        self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
+        return "Task #%s scheduled at %s : %s" % (rank, then, task)
+
+    def command_scheduled(self, rest, channel=None, *args):
+        """!scheduled : Prints the list of coming tasks scheduled./AUTH"""
+        now = time.time()
+        res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now])
+        if res == "":
+            return "No task scheduled."
+        return res
+
+    def command_cancel(self, rest, channel=None, nick=None):
+        """!cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
+        task_id = safeint(rest.lstrip('#'))
+        try:
+            task = self.tasks[task_id]
+            if task['channel'] != channel:
+                return "Task #%s is not scheduled for this channel."
+            task['id'].cancel()
+            return "#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command'])
+        except:
+            return "The task #%s does not exist yet or is already canceled." % task_id
 
     def command_title(self, url, *args):
         """!title <url> : Prints the title of the webpage at <url>."""
