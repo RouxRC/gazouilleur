@@ -11,14 +11,21 @@ cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip())
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
 shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
 
-re_sending_error = re.compile(r'^.* status (\d+) .*\n.*"error":"([^"]*)".*$', re.I)
-sending_error = lambda x: re_sending_error.sub(r'ERROR \1: \2', str(x))
-
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
 
 re_clean_identica = re.compile(r'(and posts a ♻ status)? on Identi\.ca( and)?( as a)?', re.I)
 clean_identica = lambda x: re_clean_identica.sub('', x)
+
+re_sending_error = re.compile(r'^.* status (\d+) .*details: ({"error":"([^"]*)")?.*$', re.I|re.S)
+def sending_error(error):
+    error = str(error)
+    res = re_sending_error.search(error)
+    if res:
+        if res.group(3):
+            return re_sending_error.sub(r'ERROR \1: \3', error)
+        return re_sending_error.sub(r'ERRROR \1', error)
+    return "ERROR undefined"
 
 # URL recognition adapted from Twitter's
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py

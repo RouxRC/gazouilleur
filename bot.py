@@ -190,6 +190,8 @@ class IRCBot(irc.IRCClient):
         if not isinstance(msgs, types.ListType):
             msgs = str(msgs).strip()
             msgs = [(True, m) for m in msgs.split('\n')]
+        if len(msgs) == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
+            msgs = [(True, "[identi.ca/twitter] Huge success!")]
         uniq = {}
         for res, msg in msgs:
             if not res:
@@ -247,16 +249,17 @@ class IRCBot(irc.IRCClient):
   # ------------------
   # LogQuery commands
 
-    re_extract_digit = re.compile(r'(^|[^t])\s+(\d)+\s+')
+    re_extract_digit = re.compile(r'\s+(\d+)\s+')
     def _extract_digit(self, string):
-        if string.strip().isdigit():
-            return int(string), ''
+        nb = safeint(string.strip())
+        if nb:
+            return nb, ''
         string = " %s " % string
         nb = 1
         res = self.re_extract_digit.search(string)
         if res:
-            nb = safeint(res.group(2))
-            string = self.re_extract_digit.sub(r'\1 ', string, 1)
+            nb = safeint(res.group(1))
+            string = self.re_extract_digit.sub(r' ', string, 1)
         return nb, string.strip()
 
     def command_lastfrom(self, rest, channel=None, nick=None):
@@ -412,7 +415,7 @@ class IRCBot(irc.IRCClient):
         """!twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
         d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
-        return defer.DeferredList([d1, d2])
+        return defer.DeferredList([d1, d2], consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
         """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
@@ -421,14 +424,14 @@ class IRCBot(irc.IRCClient):
             return "Please input a correct tweet_id and message."
         d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id)
         d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
-        return defer.DeferredList([d1, d2])
+        return defer.DeferredList([d1, d2], consumeErrors=True)
 
     def command_dm(self, rest, channel=None, nick=None):
         """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         user, _, text = rest.partition(' ')
         user = user.lstrip('@').lower()
         if user == "" or text == "":
-            return "Please input a correct tweet_id and message."
+            return "Please input a user name and a message."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
@@ -452,7 +455,7 @@ class IRCBot(irc.IRCClient):
             # if countchars(tweet) > 140:
             #    tweet = "%s…" % tweet[:139]
             # dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=tweet))
-        return defer.DeferredList(dl)
+        return defer.DeferredList(dl, consumeErrors=True)
 
   # ----------------------------
   # Twitter monitoring commands

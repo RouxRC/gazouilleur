@@ -28,18 +28,18 @@ class Sender():
 
     def _send_query(self, function, args, tryout=0, previous_exception=None):
         if tryout > 2:
-            return Exception(previous_exception)
+            return previous_exception
         try:
             args['trim_user'] = 'true'
             args['source'] = config.BOTNAME
             res = function(**args)
             if config.DEBUG:
-                print res
+                print args, res
             return "[%s] Huge success!" % self.protocol
-        except Exception as e:
-            exception = "[%s] %s" % (self.domain, sending_error(e))
-            if config.DEBUG:
-                print e
+        except TwitterHTTPError as e:
+            exception = "[%s] %s" % (self.protocol, sending_error(e))
+            if config.DEBUG and exception != previous_exception:
+                print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
             return self._send_query(function, args, tryout+1, exception)
 
     def microblog(self, text="", tweet_id=None):
@@ -61,7 +61,7 @@ class Sender():
 
     def directmsg(self, user, text):
         function = getattr(self.conn.direct_messages, 'new', None)
-        args = {'screen_name': user, 'text': text}
+        args = {'user': user, 'text': text}
         return self._send_query(function, args)
 
 
