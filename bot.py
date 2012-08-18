@@ -433,14 +433,14 @@ class IRCBot(irc.IRCClient):
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """!rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
-        tweet_id = safeint(rest)
+        tweet_id = safeint(tweet_id)
         if not tweet_id:
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
 
     def command_rt(self, tweet_id, channel=None, nick=None):
         """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
-        tweet_id = safeint(rest)
+        tweet_id = safeint(tweet_id)
         if not tweet_id:
             return "Please input a correct tweet_id."
         dl = []
@@ -495,7 +495,7 @@ class IRCBot(irc.IRCClient):
             return "No task scheduled."
         return res
 
-    def command_cancel(self, rest, channel=None, nick=None):
+    def command_cancel(self, rest, channel=None, *args):
         """!cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
         task_id = safeint(rest.lstrip('#'))
         try:

@@ -32,17 +32,12 @@ QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
 END_CHARS = ur'(?:$|[\s"<>\':!=])'
 URL_REGEX = re.compile('(%s)(https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?(%s)' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
-#re_url = re.compile(r'(^|\s)(https?://)?\S+\.[a-z0-9]{2,3}/?\S*(\s|$)', re.I)
 def countchars(text):
     text = text.strip()
-#    while re_url.search(text):
-#        text = re_url.sub(r'\1http://t.co/xxxxxxxx\3', text)
     res = URL_REGEX.search(text)
     while res:
-        print res.groups()
         text = URL_REGEX.sub(r'\1http://t.co/xxxxxxxx\5', text)
         res = URL_REGEX.search(text)
-    print text
     return len(text)
 
 re_handle_quotes = re.compile(r'("[^"]*")')
