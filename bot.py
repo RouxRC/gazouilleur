@@ -206,7 +206,7 @@ class IRCBot(irc.IRCClient):
         log.msg("ERROR: %s" % failure)
         msg = "%s: Woooups, something is wrong..." % nick
         if config.DEBUG:
-            msg += "\n%s" % failure.getErrorMessage()
+            msg = "%s \n%s" % (msg, failure.getErrorMessage())
         self.msg(target, msg)
         if config.ADMINS:
             for user in config.ADMINS:
@@ -258,45 +258,49 @@ class IRCBot(irc.IRCClient):
         return nb, string
 
     def command_lastfrom(self, rest, channel=None, nick=None):
-        """!lastfrom <nick> [<N>] : Alias for "!last --from", prints the last or <N> (max 5) last message(s) from user <nick>."""
+        """!lastfrom <nick> [<N>] : Alias for "!last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from !last except --from can apply)."""
         nb, fromnick = self._extract_digit(rest)
         return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
 
     def command_lastwith(self, rest, channel=None, nick=None):
-        """!lastwith <word> [<N>] : Alias for "!last --with", prints the last or <N> (max 5) last message(s) matching <word>."""
+        """!lastwith <word> [<N>] : Alias for "!last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from !last can apply)."""
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
     re_lastcommand = re.compile(r'^!last', re.I)
-    re_optionstart = re.compile(r'\s*--start\s*(\d*)\s*', re.I)
+    re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
+    re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
     def command_lastmore(self, rest, channel=None, nick=None):
-        """!lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous !last !lastwith or !lastfrom command"""
+        """!lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous !last !lastwith !lastfrom or !lastcount command (options from !last except --skip can apply; --from and --with will reset --skip to 0)."""
         nb, rest = self._extract_digit(rest)
         ct = 0
         st = 0
-        tmprest = ""
+        tmprest = rest
         last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
         for m in last:
             command, _, text = m['message'].encode('utf-8').lstrip('!').partition(' ')
             if command == "lastseen":
                 continue
-            res = self.re_optionstart.search(text)
+            res = self.re_optionskip.search(text)
             if res:
                 st = safeint(res.group(1))
-                text = self.re_optionstart.sub(' ', text)
+                text = self.re_optionskip.sub(' ', text)
             ct2, text = self._extract_digit(text)
             ct += min(ct2, 5)
-            if command == "lastmore":
-                tmprest += " %s" % text
-            else:
+            tmprest = "%s %s" % (text, tmprest)
+            if command != "lastmore":
                 function = self._find_command_function(command)
-                rest = " ".join([text, tmprest, rest])
+                if not self.re_optionsfromwith.search(rest):
+                    tmprest = "%s --skip %s" % (tmprest, st+ct)
+                if command != "lastcount":
+                    tmprest = "%s %s" % (nb, tmprest)
                 if function:
-                    return function("%s %s --start %s" % (nb, rest, st+ct), channel, nick)
-        return ""
+                    return function(tmprest, channel, nick)
+        return "No !last like command found in my history log."
 
+    re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """!last [<N>] [--from <nick>] [--with <text>] [--start <nb>] : Prints the last or <N> (max 5) last message(s), optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
+        """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
         # For private queries, give priority to first listed chan for the use of !last commands
         if channel == self.nickname:
             channel = self.factory.channels[0]
@@ -310,19 +314,31 @@ class IRCBot(irc.IRCClient):
                 query['user'] = arg.lower()
                 current = ""
             elif current == "w":
-                query['message']['$regex'] = re.compile("%s" % arg, re.I)
+                re_arg = re.compile("%s" % arg, re.I)
+                if '$and' in query:
+                    query['$and'].append({'message': re_arg})
+                elif '$regex' not in query['message']:
+                    query['message']['$regex'] = re_arg
+                else:
+                    query['$and'] = [{'message': query['message']['$regex']}, {'message': re_arg}]
+                    del query['message']['$regex']
                 current = ""
             elif current == "s":
                 st = max(st, safeint(arg))
                 current = ""
+            elif current == "c":
+                chan = '#'+arg.lower().lstrip('#')
+                if chan in self.factory.channels:
+                    query['channel'] = chan
+                else:
+                    return "I do not follow this channel."
+                current = ""
             elif arg.isdigit():
                 nb = max(nb, min(safeint(arg), 5))
-            elif arg == "--from":
-                current = "f"
-            elif arg == "--with":
-                current = "w"
-            elif arg == "--start":
-                current = "s"
+            elif self.re_matchcommands.match(arg):
+                current = arg.lstrip('-')[0]
+        if config.DEBUG:
+            print rest, query
         matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
         if len(matches) == 0:
             more = " more" if st > 1 else ""
@@ -332,7 +348,7 @@ class IRCBot(irc.IRCClient):
         return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
     def command_lastseen(self, rest, channel=None, nick=None):
-        """!lastseen <nickname> : Prints the last time <nickname> was seen logging off and in."""
+        """!lastseen <nickname> : Prints the last time <nickname> was seen logging in and out."""
         user, _, msg = rest.partition(' ')
         if user == '':
             return "Please ask for a specific nickname."
@@ -351,8 +367,12 @@ class IRCBot(irc.IRCClient):
         return threads.deferToThread(lambda x: str(countchars(x))+" characters (max 140)", rest)
 
     def command_lastcount(self, rest, channel=None, nick=None):
-        """!lastcount : Prints the latest !count command and its result"""
-        return self.command_last("2 --with ^!count|\S+:\s\d+\scharacters", channel, nick, True)
+        """!lastcount : Prints the latest !count command and its result (options from !last except <N> can apply)."""
+        res = self.re_optionskip.search(rest)
+        if res:
+            st = safeint(res.group(1)) * 2
+            rest = self.re_optionskip.sub(' --skip %s ' % st, rest)
+        return self.command_last("2 --with ^!count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
 
   # -------------------------------------
   # Twitter / Identi.ca sending commands
@@ -405,7 +425,7 @@ class IRCBot(irc.IRCClient):
     def command_dm(self, rest, channel=None, nick=None):
         """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         user, _, text = rest.partition(' ')
-        user = user.lsplit('@').lower()
+        user = user.lstrip('@').lower()
         if user == "" or text == "":
             return "Please input a correct tweet_id and message."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
@@ -475,7 +495,7 @@ class IRCBot(irc.IRCClient):
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):
     protocol = IRCBot
-    channels = ["#" + c for c in config.CHANNELS.keys()]
+    channels = ["#" + c.lower() for c in config.CHANNELS.keys()]
 
 
 # Run as 'python bot.py' ...
