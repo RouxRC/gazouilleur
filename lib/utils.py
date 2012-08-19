@@ -50,10 +50,8 @@ def countchars(text):
 re_handle_quotes = re.compile(r'("[^"]*")')
 re_handle_simple_quotes = re.compile(r"('[^']*')")
 def _handle_quotes(args, regexp):
-    res = regexp.search(args)
-    if res:
-        for m in res.groups():
-            args = args.replace(m, m[1:-1].replace(' ', '\s'))
+    for m in regexp.finditer(args):
+        args = args.replace(m.group(1), m.group(1)[1:-1].replace(' ', '\s'))
     return args
 
 def handle_quotes(args):
