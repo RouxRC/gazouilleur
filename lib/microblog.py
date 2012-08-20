@@ -69,8 +69,3 @@ class Sender():
         args = {'user': user, 'text': text}
         return self._send_query(function, args)
 
-
-#class Follower(TwitterStream):
-
-#    def __init__(self):
-#        pass

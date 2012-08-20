@@ -16,7 +16,7 @@ sys.path.append('lib')
 from filelogger import FileLogger
 from utils import *
 from microblog import *
-
+from feeds import FeederFactory
 ANTIFLOOD = 0.4
 
 class IRCBot(irc.IRCClient):
@@ -28,6 +28,7 @@ class IRCBot(irc.IRCClient):
         self.password = config.BOTPASS
         self.nicks = {}
         self.tasks = []
+        self.feeders = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
@@ -82,11 +83,22 @@ class IRCBot(irc.IRCClient):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        self.feeders[channel] = {}
+        conf = chanconf(channel)
+        if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+            self.feeders[channel]['mytweets'] = FeederFactory(channel, 'tweets', 30, 1, 20, feeds = [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))])
+            # TODO HANDLE DMs 
+        self.feeders[channel]['tweets'] = FeederFactory(channel, 'tweets', 60, 3, 20)
+        self.feeders[channel]['news'] = FeederFactory(channel, 'news', 300, 10, 30)
+        for f in self.feeders[channel].keys():
+            self.feeders[channel][f].start()
 
     def left(self, channel):
         log.msg("Left %s." % (channel,))
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.logger[channel].close()
+        for f in self.feeders[channel].keys():
+            self.feeders[channel][f].end()
 
   # ----------------------------------
   # Identification when nickname used

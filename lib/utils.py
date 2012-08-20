@@ -1,7 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, re
+import sys, re, urllib
 sys.path.append('..')
 import config
 
@@ -56,6 +56,9 @@ def _handle_quotes(args, regexp):
 
 def handle_quotes(args):
     return _handle_quotes(_handle_quotes(args, re_handle_quotes), re_handle_simple_quotes)
+
+def getIcerocketFeedUrl(query):
+    return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
 
 def safeint(n):
     try:

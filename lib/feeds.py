@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, sys, time, feedparser
-from twisted.internet import reactor, protocol, defer, task
+import os, sys, time, urllib
+import feedparser, pymongo
+from twisted.internet import reactor, protocol, defer, task, threads
 from twisted.python import failure
 from twisted.web import error
 from httpget import conditionalGetPage
@@ -11,12 +12,9 @@ try:
     import cStringIO as _StringIO
 except ImportError:
     import StringIO as _StringIO
- 
-rss_feeds = ['http://www.icerocket.com/search?tab=twitter&q=gazouilleur&rss=1', 
-          'http://www.icerocket.com/search?tab=twitter&q=regardscitoyens&rss=1',
-          'http://www.icerocket.com/search?tab=twitter&q=deputes&rss=1&p=2',
-          'http://www.regardscitoyens.org/feed/'
-        ]
+from utils import getIcerocketFeedUrl
+sys.path.append('..')
+from config import DEBUG, MONGODB
  
 # This dict structure will be the following:
 # { 'URL': (TIMESTAMP, value) }
@@ -27,6 +25,7 @@ class FeederProtocol():
         self.factory = factory
         self.with_errors = 0
         self.error_list = []
+        self.db = self.factory.db
         
     def _handle_error(self, traceback, extra_args):
         self.with_errors += 1
@@ -56,16 +55,15 @@ class FeederProtocol():
         return feed
     
     def work_on_page(self, parsed_feed, url):
-        print "got", url
         chan = parsed_feed.get('channel', None)
         if chan:
-            print chan.get('title', '')
+            if DEBUG:
+                print "Got", chan.get('title', '')
             #print chan.get('link', '')
             #print chan.get('tagline', '')
             #print chan.get('description', '')
         items = parsed_feed.get('items', None)
-        if items:
-            print len(items)
+#        if items:
 #            for item in items:
 #                print '\tTitle: ', item.get('title', '')
 #                print '\tDate: ', item.get('date', '')
@@ -73,7 +71,6 @@ class FeederProtocol():
 #                print '\tDescription: ', item.get('description', '')
 #                print '\tSummary: ', item.get('summary', '')
 #                print "-"*20
-        print "="*40
         return parsed_feed
         
     def start(self, urls=None):
@@ -89,43 +86,76 @@ class FeederProtocol():
                 d.addCallback(lambda x: feed)
             d.addCallback(self.work_on_page, url)
             d.addErrback(self._handle_error, (url, 'working on page'))
-        return d
+        return d 
  
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, channel, delay=90, simul_conns=20, timeout=10):
-    #    self.protocol.factory = self
+    def __init__(self, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None):
+        if DEBUG:
+            print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
         self.channel = channel
+        self.database = database
         self.delay = delay
         self.simul_conns = simul_conns
         self.timeout = timeout
+        self.feeds = feeds
+        self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
-        loop = task.LoopingCall(self.start).start(self.delay)
-        #self.start()
- 
+
     def start(self):
-        self.get_feeds(self. channel)
-        self.nb_feeds = len(self.urls)
+        self.runner = task.LoopingCall(self.run)
+        self.runner.start(self.delay + 2)
+
+    def end(self):
+        if self.runner:
+            self.runner.stop()
+ 
+    def run(self):
+        urls = self.feeds
+        if not urls:
+            urls = self.get_feeds(self.channel, self.database)
+        if DEBUG and len(urls):
+            print "Query %s" % urls
         # Divide into groups all the feeds to download
-        if len(self.urls) > self.simul_conns:
+        if len(urls) > self.simul_conns:
             url_groups = [[] for x in xrange(self.simul_conns)]
-            for i, url in enumerate(self.urls):
+            for i, url in enumerate(urls):
                 url_groups[i % self.simul_conns].append(url)
         else:
-            url_groups = [[url] for url in self.urls]
+            url_groups = [url for url in urls]
         for group in url_groups:
             self.protocol.start(group)
- 
-    def get_feeds(self, channel=None):
-        if not channel:
-            self.urls = rss_feeds
-        self.urls = rss_feeds
-#TODO get chan feeds from DB
-        
-if __name__=="__main__":
-    f = FeederFactory("#rc")
+        return defer.succeed(True)
+
+    def get_feeds(self, channel=None, database="news"):
+        urls = []
+        feeds = self.db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
+        if database == "tweets":
+            # create combined queries on Icerocket from search words created in db
+            query = ""
+            for feed in feeds:
+                arg = "()OR" % urllib.quote(feed['query'], '')
+                if len(query+arg) < 200:
+                    query += arg
+                else:
+                    urls.append(getIcerocketFeedUrl(query))
+                    query = ""
+            if query != "":
+                urls.append(getIcerocketFeedUrl(query))
+        elif database == "news":
+            urls = [feed['query'] for feed in feeds]
+        return urls
+
+
+rss_feeds = ['http://www.icerocket.com/search?tab=twitter&q=gazouilleur&rss=1', 
+          'http://www.icerocket.com/search?tab=twitter&q=regardscitoyens&rss=1',
+          'http://www.icerocket.com/search?tab=twitter&q=deputes&rss=1&p=2',
+          'http://www.regardscitoyens.org/feed/']
+
+if __name__ == "__main__":
+    FeederFactory("#rc-test", "new", 20, 3, 15, rss_feeds).start()
     reactor.run()
 

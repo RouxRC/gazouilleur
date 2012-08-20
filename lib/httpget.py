@@ -23,7 +23,8 @@ class ConditionalHTTPPageGetter(HTTPPageGetter):
 class ConditionalHTTPClientFactory(HTTPClientFactory):
     
     protocol = ConditionalHTTPPageGetter
-    
+    noisy = False
+ 
     def __init__(self, cacheDir, url, method='GET', postdata=None, headers={}, agent="Gazouilleur with Twisted ConditionalPageGetter", timeout=0, cookies=None, followRedirect=1):
         self.cachefile = path.join(cacheDir, self.getHashForUrl(url))
         self.last_modified = None
@@ -32,7 +33,7 @@ class ConditionalHTTPClientFactory(HTTPClientFactory):
                 self.last_modified = cache.readline().strip()
                 headers['If-Modified-Since'] = self.last_modified
         HTTPClientFactory.__init__(self, url, method=method, postdata=postdata, headers=headers, agent=agent, timeout=timeout, cookies=cookies, followRedirect=followRedirect)
-    
+
     def getHashForUrl(self, url):
         hash = md5.new(url)
         return hash.hexdigest()
