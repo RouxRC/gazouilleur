@@ -182,6 +182,11 @@ class IRCBot(irc.IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
+    def msg(self, target, msg, delay=0):
+        d = defer.Deferred()
+        reactor.callLater(delay, irc.IRCClient.msg, self, target, msg)
+        return d
+
     def _send_message(self, msgs, target, nick=None):
         if config.DEBUG:
             log.msg("[%s] REPLIED: %s" % (target, msgs))
@@ -194,6 +199,7 @@ class IRCBot(irc.IRCClient):
         if nb_m == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
             msgs = [(True, "[identi.ca/twitter] Huge success!")]
         uniq = {}
+        delay = 0
         for res, msg in msgs:
             if not res:
                 self._show_error(msg, target, nick)
@@ -203,8 +209,9 @@ class IRCBot(irc.IRCClient):
                 uniq[msg] = None
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-            self.msg(target, msg)
+            self.msg(target, msg, delay)
             self.log(msg.decode('utf-8'), self.nickname, target)
+            delay += 0.4
 
     def _show_error(self, failure, target, nick=None):
         failure.trap(Exception)
@@ -212,10 +219,13 @@ class IRCBot(irc.IRCClient):
         msg = "%s: Woooups, something is wrong..." % nick
         if config.DEBUG:
             msg = "%s \n%s" % (msg, failure.getErrorMessage())
-        self.msg(target, msg)
-        if config.ADMINS:
-            for user in config.ADMINS:
-                self.msg(user, "[%s] %s" % (target, str(failure)))
+        delay = 0
+        for m in msg.split('\n'):
+            self.msg(target, msg, delay)
+            if config.ADMINS:
+                for user in config.ADMINS:
+                    self.msg(user, "[%s] %s" % (target, str(failure)), delay)
+            delay += 0.4
 
   # -----------------
   # Default commands
