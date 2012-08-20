@@ -125,7 +125,7 @@ class FeederFactory(protocol.ClientFactory):
             for i, url in enumerate(urls):
                 url_groups[i % self.simul_conns].append(url)
         else:
-            url_groups = [url for url in urls]
+            url_groups = [[url] for url in urls]
         for group in url_groups:
             self.protocol.start(group)
         return defer.succeed(True)
