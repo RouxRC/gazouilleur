@@ -17,6 +17,8 @@ from filelogger import FileLogger
 from utils import *
 from microblog import *
 
+ANTIFLOOD = 0.4
+
 class IRCBot(irc.IRCClient):
 
     def __init__(self):
@@ -211,7 +213,7 @@ class IRCBot(irc.IRCClient):
                 msg = '%s: %s' % (nick, msg)
             self.msg(target, msg, delay)
             self.log(msg.decode('utf-8'), self.nickname, target)
-            delay += 0.4
+            delay += ANTIFLOOD
 
     def _show_error(self, failure, target, nick=None):
         failure.trap(Exception)
@@ -225,7 +227,7 @@ class IRCBot(irc.IRCClient):
             if config.ADMINS:
                 for user in config.ADMINS:
                     self.msg(user, "[%s] %s" % (target, str(failure)), delay)
-            delay += 0.4
+            delay += ANTIFLOOD
 
   # -----------------
   # Default commands
