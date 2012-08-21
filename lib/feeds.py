@@ -3,7 +3,7 @@
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os, sys, time, urllib
-from datetime import datetime
+from datetime import datetime, timedelta
 import feedparser, pymongo
 from twisted.internet import reactor, protocol, defer, task, threads
 from twisted.python import failure
@@ -59,13 +59,16 @@ class FeederProtocol():
 
     def process_tweets(self, feed, url):
         items = feed.get('items', None)
-        items.reverse()
-        ids = []
-        tweets = {}
         if not items:
             return None
+        ids = []
+        tweets = {}
+        fresh = True
         for i in items:
-            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-3*60*60) # -3H
+            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-3*60*60)
+            if datetime.today() - date > timedelta(hours=24):
+                fresh = False
+                break
             tweet = i.get('title', '').replace('\n', ' ')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
@@ -73,15 +76,16 @@ class FeederProtocol():
                 user = res.group(1)
                 tid = long(res.group(2))
                 ids.append(tid)
+                #TODO ADD hash for RTs
                 tweets[tid] = {'channel': self.fact.channel, '_id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'link': link, 'date': date, 'timestamp': datetime.today()}
         last = self.db['tweets'].find_one({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])
+        ids.reverse()
+        news = []
         if last:
-            print "last"
             news = [tweets[tid] for tid in ids if tid > last['_id']]
-            print news
         elif tweets:
-            print "run new page"
-            reactor.callLater(1, self.start, [next_page(url)])
+            if fresh:
+                reactor.callLater(10, self.start, [next_page(url)])
             news = [tweets[tid] for tid in ids]
         if news:
             self.db['tweets'].insert(news)

@@ -86,7 +86,7 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 60, 1, 20, feeds = [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))])
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 80, 1, 20, feeds = [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))])
             # TODO HANDLE DMs 
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 150, 2, 20)
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 300, 10, 30)

@@ -60,7 +60,7 @@ def handle_quotes(args):
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 
 def getIcerocketFeedUrl(query):
-    return 'http://www.icerocketss.com/search?tab=twitter&q=%s&rss=1' % query
+    return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
 
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
 def next_page(url):
