@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, sys, time, urllib
+import os, sys, time
 from datetime import datetime, timedelta
 import feedparser, pymongo
 from twisted.internet import reactor, protocol, defer, task, threads
@@ -13,7 +13,7 @@ try:
     import cStringIO as _StringIO
 except ImportError:
     import StringIO as _StringIO
-from utils import getIcerocketFeedUrl, next_page, re_tweet_url
+from utils import getIcerocketFeedUrl, getFeeds, next_page, re_tweet_url
 sys.path.append('..')
 from config import DEBUG, MONGODB
 
@@ -138,7 +138,7 @@ class FeederFactory(protocol.ClientFactory):
     def run(self):
         urls = self.feeds
         if not urls:
-            urls = self.get_feeds(self.channel, self.database)
+            urls = getFeeds(self.channel, self.database, self.db)
         if DEBUG and len(urls):
             print "Query %s" % urls
         # Divide into groups all the feeds to download
@@ -156,26 +156,6 @@ class FeederFactory(protocol.ClientFactory):
             else:
                 self.protocol.start(group)
         return defer.succeed(True)
-
-    def get_feeds(self, channel=None, database="news"):
-        urls = []
-        feeds = self.db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
-        if database == "tweets":
-            # create combined queries on Icerocket from search words retrieved in db
-            query = ""
-            for feed in feeds:
-                arg = feed['query'].replace('@', 'from:')
-                arg = "()OR" % urllib.quote(arg, '')
-                if len(query+arg) < 200:
-                    query += arg
-                else:
-                    urls.append(getIcerocketFeedUrl(query[:-2]))
-                    query = ""
-            if query != "":
-                urls.append(getIcerocketFeedUrl(query))
-        elif database == "news":
-            urls = [feed['query'] for feed in feeds]
-        return urls
 
 
 rss_feeds = ['http://www.icerocket.com/search?tab=twitter&q=gazouilleur&rss=1', 

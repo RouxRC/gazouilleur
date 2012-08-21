@@ -198,16 +198,16 @@ class IRCBot(irc.IRCClient):
 
     def _msg(self, target, msg): 
         self.log(msg.decode('utf-8'), self.nickname, target)
-        irc.IRCClient.msg(target, msg)
+        irc.IRCClient.msg(self, target, msg)
 
     def msg(self, target, msg, delay=0):
         d = defer.Deferred()
-        reactor.callLater(delay, self._msg, self, target, msg)
+        reactor.callLater(delay, self._msg, target, msg)
         return d
 
     def _send_message(self, msgs, target, nick=None):
-        if config.DEBUG:
-            log.msg("[%s] REPLIED: %s" % (target, msgs))
+         # if config.DEBUG:
+         #    log.msg("[%s] REPLIED: %s" % (target, msgs))
         if msgs is None:
             return
         if not isinstance(msgs, types.ListType):
@@ -494,17 +494,44 @@ class IRCBot(irc.IRCClient):
   # ----------------------------
   # Twitter monitoring commands
 
-    def command_follow(self, tweet, *args):
-        """!follow <text> : ./AUTH"""
+    re_url = re.compile(r'^https?://\S+$', re.I)
+    def _parse_follow_command(self, query):
+        query = query.strip()
+        database = 'news'
+        if not self.re_url.match(query):
+            database = 'tweets'
+        return database, query
+
+    def command_follow(self, query, channel=None, nick=None):
+        """!follow <url|text|@user> : Asks me to follow and display elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        database, query = self._parse_follow_command(query)
+        self.db['feeds'].update({'database': database, 'channel': channel, 'query': query}, {'database': database, 'channel': channel, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        return '"%s" query added to %s database for %s' % (query, database, channel)
+
+    def command_unfollow(self, query, channel=None, *args):
+        """!unfollow <url|text|@user> : Asks me to stop following and displaying elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        database, query = self._parse_follow_command(query)
+        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'query': query})
+        return '"%s" query removed from %s database for %s'  % (query, database, channel)
+
+    def command_listfollow(self, database, channel=None, *args):
+        """!listfollow [tweets|news]: Displays the list of queries followed for current channel."""
+        database = database.strip()
+        if database != "tweets" and database != "news":
+            return
+        feeds = getFeeds(channel, database, self.db)
+        if database == 'tweets':
+            return "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '') for f in feeds])
+        return "\n".join(feeds)
+
+    def command_lasttweets(self, tweet, *args):
+        """!lasttweet <text> : ."""
         return "TODO"
 
-    def command_unfollow(self, tweet, *args):
-        """!unfollow <text> : ./AUTH"""
+    def command_lastnews(self, tweet, *args):
+        """!lasttweet <text> : ."""
         return "TODO"
 
-    def command_lasttweet(self, tweet, *args):
-        """!lasttweet <text> : ./AUTH"""
-        return "TODO"
 
   # ------------------
   # Other commands...
