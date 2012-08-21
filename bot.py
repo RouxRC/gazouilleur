@@ -196,9 +196,13 @@ class IRCBot(irc.IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
+    def _msg(self, target, msg): 
+        self.log(msg.decode('utf-8'), self.nickname, target)
+        irc.IRCClient.msg(target, msg)
+
     def msg(self, target, msg, delay=0):
         d = defer.Deferred()
-        reactor.callLater(delay, irc.IRCClient.msg, self, target, msg)
+        reactor.callLater(delay, self._msg, self, target, msg)
         return d
 
     def _send_message(self, msgs, target, nick=None):
@@ -224,7 +228,6 @@ class IRCBot(irc.IRCClient):
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
             self.msg(target, msg, delay)
-            self.log(msg.decode('utf-8'), self.nickname, target)
             delay += ANTIFLOOD
 
     def _show_error(self, failure, target, nick=None):
