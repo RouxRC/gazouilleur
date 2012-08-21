@@ -3,6 +3,7 @@
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os, sys, time, urllib
+from datetime import datetime
 import feedparser, pymongo
 from twisted.internet import reactor, protocol, defer, task, threads
 from twisted.python import failure
@@ -12,20 +13,16 @@ try:
     import cStringIO as _StringIO
 except ImportError:
     import StringIO as _StringIO
-from utils import getIcerocketFeedUrl
+from utils import getIcerocketFeedUrl, next_page, re_tweet_url
 sys.path.append('..')
 from config import DEBUG, MONGODB
- 
-# This dict structure will be the following:
-# { 'URL': (TIMESTAMP, value) }
-cache = {}
- 
+
 class FeederProtocol():
     def __init__(self, factory):
-        self.factory = factory
+        self.fact = factory
         self.with_errors = 0
         self.error_list = []
-        self.db = self.factory.db
+        self.db = self.fact.db
         
     def _handle_error(self, traceback, extra_args):
         self.with_errors += 1
@@ -34,65 +31,85 @@ class FeederProtocol():
         print "="*20
         print "Trying to go on..."
 # TODO dm admins
-        
-    def get_data_from_page_in_cache(self, url):
-        already_got = cache.get(url, None)
+ 
+    def in_cache(self, url):
+        already_got = self.fact.cache.get(url, None)
         if already_got:
             elapsed_time = time.time() - already_got[0]
-            if elapsed_time < self.factory.delay:
-                return already_got[1]
-        return None
+            if elapsed_time < self.fact.delay:
+                return True
+        return False
  
     def get_page(self, nodata, url):
-        return conditionalGetPage(self.factory.cache_dir, url, timeout=self.factory.timeout)
+        return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
 
     def get_data_from_page(self, page, url):
         try:
             feed = feedparser.parse(_StringIO.StringIO(page+''))
         except TypeError:
             feed = feedparser.parse(_StringIO.StringIO(str(page)))
-        cache[url] = (time.time(), feed)
+        self.fact.cache[url] = (time.time(), feed)
         return feed
     
-    def work_on_page(self, parsed_feed, url):
-        chan = parsed_feed.get('channel', None)
-        if chan:
-            if DEBUG:
-                print "Got", chan.get('title', '')
-            #print chan.get('link', '')
-            #print chan.get('tagline', '')
-            #print chan.get('description', '')
-        items = parsed_feed.get('items', None)
-#        if items:
-#            for item in items:
-#                print '\tTitle: ', item.get('title', '')
-#                print '\tDate: ', item.get('date', '')
-#                print '\tLink: ', item.get('link', '')
-#                print '\tDescription: ', item.get('description', '')
-#                print '\tSummary: ', item.get('summary', '')
-#                print "-"*20
-        return parsed_feed
+    def process_elements(self, feed, url):
+        items = feed.get('items', None)
+        for i in items:
+            print i
+        return None
+
+    def process_tweets(self, feed, url):
+        items = feed.get('items', None)
+        items.reverse()
+        ids = []
+        tweets = {}
+        if not items:
+            return None
+        for i in items:
+            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-3*60*60) # -3H
+            tweet = i.get('title', '').replace('\n', ' ')
+            link = i.get('link', '')
+            res = re_tweet_url.search(link)
+            if res:
+                user = res.group(1)
+                tid = long(res.group(2))
+                ids.append(tid)
+                tweets[tid] = {'channel': self.fact.channel, '_id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'link': link, 'date': date, 'timestamp': datetime.today()}
+        last = self.db['tweets'].find_one({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])
+        if last:
+            print "last"
+            news = [tweets[tid] for tid in ids if tid > last['_id']]
+            print news
+        elif tweets:
+            print "run new page"
+            reactor.callLater(1, self.start, [next_page(url)])
+            news = [tweets[tid] for tid in ids]
+        if news:
+            self.db['tweets'].insert(news)
+            text = [(True, "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))) for t in news]
+            self.fact.ircclient._send_message(text, self.fact.channel)
+        return None
         
     def start(self, urls=None):
-        d = defer.succeed("")
+        d = defer.succeed('')
         for url in urls:
-            feed = self.get_data_from_page_in_cache(url)
-            if not feed:
+            if not self.in_cache(url):
                 d.addCallback(self.get_page, url)
                 d.addErrback(self._handle_error, (url, 'getting'))
                 d.addCallback(self.get_data_from_page, url)
                 d.addErrback(self._handle_error, (url, 'parsing'))
-            else:
-                d.addCallback(lambda x: feed)
-            d.addCallback(self.work_on_page, url)
-            d.addErrback(self._handle_error, (url, 'working on page'))
+                if self.fact.database == "tweets":
+                    d.addCallback(self.process_tweets, url)
+                else:
+                    d.addCallback(self.process_elements, url)
+                d.addErrback(self._handle_error, (url, 'working on page'))
         return d 
  
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None):
+    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
+        self.ircclient = ircclient
         self.channel = channel
         self.database = database
         self.delay = delay
@@ -104,6 +121,7 @@ class FeederFactory(protocol.ClientFactory):
         self.cache_dir = os.path.join('cache', channel)
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+        self.cache = {}
 
     def start(self):
         self.runner = task.LoopingCall(self.run)
@@ -126,22 +144,28 @@ class FeederFactory(protocol.ClientFactory):
                 url_groups[i % self.simul_conns].append(url)
         else:
             url_groups = [[url] for url in urls]
+        ct = 0
         for group in url_groups:
-            self.protocol.start(group)
+            if self.database == "tweets":
+                ct += 1
+                reactor.callLater(ct, self.protocol.start, group)
+            else:
+                self.protocol.start(group)
         return defer.succeed(True)
 
     def get_feeds(self, channel=None, database="news"):
         urls = []
         feeds = self.db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
         if database == "tweets":
-            # create combined queries on Icerocket from search words created in db
+            # create combined queries on Icerocket from search words retrieved in db
             query = ""
             for feed in feeds:
-                arg = "()OR" % urllib.quote(feed['query'], '')
+                arg = feed['query'].replace('@', 'from:')
+                arg = "()OR" % urllib.quote(arg, '')
                 if len(query+arg) < 200:
                     query += arg
                 else:
-                    urls.append(getIcerocketFeedUrl(query))
+                    urls.append(getIcerocketFeedUrl(query[:-2]))
                     query = ""
             if query != "":
                 urls.append(getIcerocketFeedUrl(query))
@@ -156,6 +180,6 @@ rss_feeds = ['http://www.icerocket.com/search?tab=twitter&q=gazouilleur&rss=1',
           'http://www.regardscitoyens.org/feed/']
 
 if __name__ == "__main__":
-    FeederFactory("#rc-test", "new", 20, 3, 15, rss_feeds).start()
+    FeederFactory(None, "#rc-test", "new", 20, 3, 15, rss_feeds).start()
     reactor.run()
 

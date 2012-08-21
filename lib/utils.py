@@ -57,8 +57,20 @@ def _handle_quotes(args, regexp):
 def handle_quotes(args):
     return _handle_quotes(_handle_quotes(args, re_handle_quotes), re_handle_simple_quotes)
 
+re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
+
 def getIcerocketFeedUrl(query):
-    return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
+    return 'http://www.icerocketss.com/search?tab=twitter&q=%s&rss=1' % query
+
+re_arg_page = re.compile(r'&p=(\d+)', re.I)
+def next_page(url):
+    p = 1
+    res = re_arg_page.search(url)
+    if res:
+        p = int(res.group(1))
+        url = re_arg_page.sub('', url)
+    p += 1
+    return "%s&p=%s" % (url, p)
 
 def safeint(n):
     try:
