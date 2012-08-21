@@ -63,7 +63,14 @@ re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
 
-def getFeeds(channel, database, db):
+def formatQuery(query, nourl=False):
+    if query:
+        query = query[:-2]
+    if not nourl:
+        query = getIcerocketFeedUrl(query)
+    return query
+
+def getFeeds(channel, database, db, nourl=False):
     urls = []
     queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
     if database == "tweets":
@@ -71,14 +78,17 @@ def getFeeds(channel, database, db):
         query = ""
         for feed in queries:
             arg = str(feed['query']).replace('@', 'from:')
-            arg = "(%s)OR" % urllib.quote(arg, '')
+            if not nourl:
+                arg = "(%s)OR" % urllib.quote(arg, '')
+            else:
+                arg = " «%s»  | " % arg
             if len(query+arg) < 200:
                 query += arg
             else:
-                urls.append(getIcerocketFeedUrl(query[:-2]))
+                urls.append(formatQuery(query, nourl))
                 query = ""
         if query != "":
-            urls.append(getIcerocketFeedUrl(query[:-2]))
+            urls.append(formatQuery(query, nourl))
     else:
         urls = [str(feed['query']) for feed in queries]
     return urls

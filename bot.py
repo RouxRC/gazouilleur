@@ -32,8 +32,13 @@ class IRCBot(irc.IRCClient):
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        self.db['logs'].ensure_index([('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['feeds'].ensure_index([('channel', pymongo.ASCENDING), ('database', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('id', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('source', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
 
     # Double logger (mongo / files)
     def log(self, message, user=None, channel=config.BOTNAME):
@@ -196,16 +201,17 @@ class IRCBot(irc.IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
-    def _msg(self, target, msg): 
-        self.log(msg.decode('utf-8'), self.nickname, target)
+    def _msg(self, target, msg, nolog=False):
+        if not nolog:
+            self.log(msg.decode('utf-8'), self.nickname, target)
         irc.IRCClient.msg(self, target, msg)
 
-    def msg(self, target, msg, delay=0):
+    def msg(self, target, msg, delay=0, nolog=False):
         d = defer.Deferred()
-        reactor.callLater(delay, self._msg, target, msg)
-        return d
+        reactor.callLater(delay, self._msg, target, msg, nolog=nolog)
+        return d 
 
-    def _send_message(self, msgs, target, nick=None):
+    def _send_message(self, msgs, target, nick=None, nolog=False):
          # if config.DEBUG:
          #    log.msg("[%s] REPLIED: %s" % (target, msgs))
         if msgs is None:
@@ -227,7 +233,7 @@ class IRCBot(irc.IRCClient):
                 uniq[msg] = None
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-            self.msg(target, msg, delay)
+            self.msg(target, msg, delay, nolog=nolog)
             delay += ANTIFLOOD
 
     def _show_error(self, failure, target, nick=None):
@@ -354,7 +360,7 @@ class IRCBot(irc.IRCClient):
                     query['message']['$regex'] = re_arg
                 else:
                     query['$and'] = [{'message': query['message']['$regex']}, {'message': re_arg}]
-                    del query['message']['$regex']
+                    query['message'].pop('$regex')
                 current = ""
             elif current == "s":
                 st = max(st, safeint(arg))
@@ -519,7 +525,8 @@ class IRCBot(irc.IRCClient):
         database = database.strip()
         if database != "tweets" and database != "news":
             return
-        feeds = getFeeds(channel, database, self.db)
+        feeds = getFeeds(channel, database, self.db, nourl=True)
+        print feeds
         if database == 'tweets':
             return "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '') for f in feeds])
         return "\n".join(feeds)

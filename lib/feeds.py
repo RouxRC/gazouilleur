@@ -53,6 +53,7 @@ class FeederProtocol():
     
     def process_elements(self, feed, url):
         items = feed.get('items', None)
+        elements = []
         for i in items:
             print i
         return None
@@ -62,10 +63,10 @@ class FeederProtocol():
         if not items:
             return None
         ids = []
-        tweets = {}
+        tweets = []
         fresh = True
         for i in items:
-            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-3*60*60)
+            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-4*60*60)
             if datetime.today() - date > timedelta(hours=24):
                 fresh = False
                 break
@@ -77,20 +78,19 @@ class FeederProtocol():
                 tid = long(res.group(2))
                 ids.append(tid)
                 #TODO ADD hash for RTs
-                tweets[tid] = {'channel': self.fact.channel, '_id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'link': link, 'date': date, 'timestamp': datetime.today()}
-        last = self.db['tweets'].find_one({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])
-        ids.reverse()
-        news = []
-        if last:
-            news = [tweets[tid] for tid in ids if tid > last['_id']]
-        elif tweets:
+                tweets.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url})
+        existing = [t['_id'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        news = [t for t in tweets if t['_id'] not in existing]
+        if news:
+            news.reverse()
             if fresh:
                 reactor.callLater(10, self.start, [next_page(url)])
-            news = [tweets[tid] for tid in ids]
-        if news:
-            self.db['tweets'].insert(news)
+            try:
+                self.db['tweets'].insert(news, continue_on_error=True, safe=True)
+            except pymongo.errors.OperationFailure as e:
+                print "ERROR saving batch in DB", e
             text = [(True, "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))) for t in news]
-            self.fact.ircclient._send_message(text, self.fact.channel)
+            self.fact.ircclient._send_message(text, self.fact.channel, nolog=True)
         return None
         
     def start(self, urls=None):
