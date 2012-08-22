@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, re, urllib
-from urllib2 import urlopen
+from urllib2 import urlopen, URLError
 import pymongo
 sys.path.append('..')
 import config
@@ -54,22 +54,26 @@ URL_REGEX = re.compile('%s+((https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?)%s' % (PR
 
 def countchars(text):
     text = text.strip()
-    findurls = URL_REGEX.findall(text)
-    for res in findurls:
+    for res in URL_REGEX.findall(text):
         text = text.replace(res[0], 'http___t_co_xxxxxxxx')
     return len(text)
 
 re_clean_url1 = re.compile(r'/#!/')
-re_clean_url2 = re.compile(r'(\?)?\&?(utm_(term|medium|source|campaign|content)|xtor)=[^\&#]*', re.I)
+re_clean_url2 = re.compile(r'((\?|&)(utm_(term|medium|source|campaign|content)|xtor)=[^&#]*)', re.I)
 def clean_url(url):
     url = re_clean_url1.sub('/', url)
-    url = re_clean_url2.sub(r'\1', url)
+    for i in re_clean_url2.findall(url):
+        if i[1] == "?":
+            url = url.replace(i[2], '')
+        else:
+            url = url.replace(i[0], '')
     return url
 
 def clean_redir_urls(text, urls={}):
-    findurls = URL_REGEX.findall(text)
-    for res in findurls:
+    for res in URL_REGEX.findall(text):
         url0 = res[0]
+        if not url0.startswith('http'):
+            url0 = "http://%s" % url0
         if url0 in urls:
             url1 = urls[url0]
             if url1 == url0:
@@ -78,10 +82,10 @@ def clean_redir_urls(text, urls={}):
             try:
                 url1 = urlopen(url0).geturl()
                 url1 = clean_url(url1)
-            except:
+                urls[url0] = url1
+                urls[url1] = url1
+            except URLError:
                 url1 = url0
-            urls[url0] = url1
-            urls[url1] = url1
         text = text.replace(url0, url1)
     return text, urls
 
@@ -168,13 +172,13 @@ def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER']
 
-def chan_has_follow_rt(chan, conf=None):
+def chan_displays_rt(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'FOLLOW_RT' in conf and conf['FOLLOW_RT']
+    return conf and 'DISPLAY_RT' in conf and conf['DISPLAY_RT']
 
-def chan_has_follow_my_rt(chan, conf=None):
+def chan_displays_my_rt(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'TWITTER' in conf and 'FOLLOW_RT' in conf['TWITTER'] and conf['TWITTER']['FOLLOW_RT']
+    return conf and 'TWITTER' in conf and 'DISPLAY_RT' in conf['TWITTER'] and conf['TWITTER']['DISPLAY_RT']
 
 def is_user_admin(nick):
     return nick in config.ADMINS

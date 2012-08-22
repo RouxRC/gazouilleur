@@ -7,29 +7,7 @@ BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
 HOST = 'irc.freenode.net'
 PORT = 6667
-GLOBAL_USERS = ['Roux']
-# First channel will benefit of private use of !last commands
-CHANNELS = {
-  'regardscitoyens': {
-    'USERS': [],
-    'IDENTICA': {
-      'USER': 'regardscitoyens',
-      'PASS': '---------'
-    'TWITTER': {
-      'USER': 'RegardsCitoyens',
-      'KEY': '---------',
-      'SECRET': '--------',
-      'OAUTH_TOKEN': '--------',
-      'OAUTH_SECRET': '---------',
-      'FOLLOW_RT': True
-    },
-    'FOLLOW_RT': False
-    }
-  },
-  'rc-test': {
-    'USERS': []
-  }
-}
+
 MONGODB = {
   'HOST': 'localhost',
   'PORT': 27017,
@@ -37,5 +15,34 @@ MONGODB = {
   'USER': BOTNAME,
   'PSWD': BOTPASS
 }
+
+# GLOBAL_USERS will have rights to perform all available commands on all channels
+GLOBAL_USERS = ['Roux']
+
+# First channel will benefit of private use of !last commands
+CHANNELS = {
+  'regardscitoyens': {
+    'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
+    'IDENTICA': {   # Set an IDENTICA USER and PASS to allow microblogging with Identi.ca
+      'USER': 'regardscitoyens',
+      'PASS': '---------'
+    'TWITTER': {    # Set a TWITTER USER to follow its tweets and mentions
+      'USER': 'RegardsCitoyens',
+      'DISPLAY_RT': True,   # Set to true to follow also all RTs for USER
+      'KEY': '---------',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
+      'SECRET': '--------',
+      'OAUTH_TOKEN': '--------',
+      'OAUTH_SECRET': '---------'
+    },
+    'DISPLAY_RT': False     # Set to true to follow also all RTs for queries set on this channel
+    }
+  },
+  'rc-test': {
+    'USERS': []
+  }
+}
+
+#DEBUG mode will display errors publicly on the channel
 DEBUG = False
+#ADMINS will get in priv msg tracebacks from errors
 ADMINS = GLOBAL_USERS

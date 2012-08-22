@@ -91,9 +91,9 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 80, 1, 20, feeds = [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], followRT=chan_has_follow_my_rt(channel, conf))
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 80, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
             # TODO HANDLE DMs 
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 150, 2, 20, followRT=chan_has_follow_rt(channel, conf))
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 150, 2, 20, [], chan_displays_rt(channel, conf))
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 300, 10, 30)
         for f in self.feeders[channel].keys():
             self.feeders[channel][f].start()
@@ -101,9 +101,9 @@ class IRCBot(irc.IRCClient):
     def left(self, channel):
         log.msg("Left %s." % (channel,))
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
-        self.logger[channel].close()
         for f in self.feeders[channel].keys():
             self.feeders[channel][f].end()
+        self.logger[channel].close()
 
   # ----------------------------------
   # Identification when nickname used
@@ -201,17 +201,16 @@ class IRCBot(irc.IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
-    def _msg(self, target, msg, nolog=False):
-        if not nolog:
-            self.log(msg.decode('utf-8'), self.nickname, target)
+    def _msg(self, target, msg):
+        self.log(msg.decode('utf-8'), self.nickname, target)
         irc.IRCClient.msg(self, target, msg)
 
-    def msg(self, target, msg, delay=0, nolog=False):
+    def msg(self, target, msg, delay=0):
         d = defer.Deferred()
-        reactor.callLater(delay, self._msg, target, msg, nolog=nolog)
+        reactor.callLater(delay, self._msg, target, msg)
         return d 
 
-    def _send_message(self, msgs, target, nick=None, nolog=False):
+    def _send_message(self, msgs, target, nick=None):
          # if config.DEBUG:
          #    log.msg("[%s] REPLIED: %s" % (target, msgs))
         if msgs is None:
@@ -233,7 +232,7 @@ class IRCBot(irc.IRCClient):
                 uniq[msg] = None
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-            self.msg(target, msg, delay, nolog=nolog)
+            self.msg(target, msg, delay)
             delay += ANTIFLOOD
 
     def _show_error(self, failure, target, nick=None):
@@ -526,9 +525,8 @@ class IRCBot(irc.IRCClient):
         if database != "tweets" and database != "news":
             return
         feeds = getFeeds(channel, database, self.db, nourl=True)
-        print feeds
         if database == 'tweets':
-            return "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '') for f in feeds])
+            return "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         return "\n".join(feeds)
 
     def command_lasttweets(self, tweet, *args):

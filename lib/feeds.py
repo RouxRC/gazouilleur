@@ -5,9 +5,8 @@
 import os, sys, time
 from datetime import datetime, timedelta
 import feedparser, pymongo
-from twisted.internet import reactor, protocol, defer, task, threads
+from twisted.internet import reactor, protocol, defer, task
 from twisted.python import failure
-from twisted.web import error
 from httpget import conditionalGetPage
 try:
     import cStringIO as _StringIO
@@ -22,22 +21,15 @@ re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 class FeederProtocol():
     def __init__(self, factory):
         self.fact = factory
-        self.with_errors = 0
-        self.error_list = []
         self.db = self.fact.db
 
     def _handle_error(self, traceback, extra_args):
-        self.with_errors += 1
-        self.error_list.append(extra_args)
-        print traceback, extra_args
-        print "="*20
-        print "Trying to go on..."
-# TODO dm admins
+        self.fact.ircclient._show_error(traceback, self.fact.channel)
 
     def in_cache(self, url):
         already_got = self.fact.cache.get(url, None)
         if already_got:
-            elapsed_time = time.time() - already_got[0]
+            elapsed_time = time.time() - already_got
             if elapsed_time < self.fact.delay:
                 return True
         return False
@@ -50,7 +42,7 @@ class FeederProtocol():
             feed = feedparser.parse(_StringIO.StringIO(page+''))
         except TypeError:
             feed = feedparser.parse(_StringIO.StringIO(str(page)))
-        self.fact.cache[url] = (time.time(), feed)
+        self.fact.cache[url] = time.time()
         return feed
 
     def process_elements(self, feed, url):
@@ -62,10 +54,10 @@ class FeederProtocol():
 
     def process_tweets(self, feed, url):
         items = feed.get('items', None)
-        items.reverse()
         if not items:
             return None
         ids = []
+        hashs = []
         tweets = []
         fresh = True
         for i in items:
@@ -79,28 +71,31 @@ class FeederProtocol():
             if res:
                 user = res.group(1)
                 tid = long(res.group(2))
+                rt_hash = uniq_rt_hash(tweet)
+                if rt_hash not in hashs:
+                    hashs.append(rt_hash)
                 ids.append(tid)
-                tweets.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': uniq_rt_hash(tweet), 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url})
+                tweets.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': rt_hash, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url})
         existing = [t['_id'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
+            news.reverse()
             if fresh:
                 reactor.callLater(10, self.start, [next_page(url)])
+            text = []
+            if not self.fact.displayRT:
+                existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
+                for t in news:
+                    if t['uniq_rt_hash'] not in existing:
+                        existing.append(t['uniq_rt_hash'])
+                        text.append(self.displayTweet(t))
+            else:
+                text = [self.displayTweet(t) for t in news]
             try:
                 self.db['tweets'].insert(news, continue_on_error=True, safe=True)
             except pymongo.errors.OperationFailure as e:
-                print "ERROR saving batch in DB", e
-            text = []
-            if not self.fact.followRT:
-                hashs = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
-                for t in news:
-                    if t['uniq_rt_hash'] not in hashs:
-                        hashs.append(t['uniq_rt_hash'])
-                        text.append((True, displayTweet(t)))
-                print hashs
-            else:
-                text = [self.displayTweet(t) for t in news]
-            self.fact.ircclient._send_message(text, self.fact.channel, nolog=True)
+                self.fact.ircclient._show_error("ERROR saving batch in DB: %s" % e)
+            self.fact.ircclient._send_message(text, self.fact.channel)
         return None
 
     def displayTweet(self, t):
@@ -123,7 +118,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, followRT=True):
+    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
         self.ircclient = ircclient
@@ -133,7 +128,7 @@ class FeederFactory(protocol.ClientFactory):
         self.simul_conns = simul_conns
         self.timeout = timeout
         self.feeds = feeds
-        self.followRT = followRT
+        self.displayRT = displayRT
         self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
@@ -154,8 +149,6 @@ class FeederFactory(protocol.ClientFactory):
         urls = self.feeds
         if not urls:
             urls = getFeeds(self.channel, self.database, self.db)
-        if DEBUG and len(urls):
-            print "Query %s" % urls
         # Divide into groups all the feeds to download
         if len(urls) > self.simul_conns:
             url_groups = [[] for x in xrange(self.simul_conns)]
