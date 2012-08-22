@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, re, urllib
+from urllib2 import urlopen
 import pymongo
 sys.path.append('..')
 import config
@@ -28,26 +29,6 @@ def sending_error(error):
         return re_sending_error.sub(r'ERRROR \1', error)
     return "ERROR undefined"
 
-# URL recognition adapted from Twitter's
-# https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
-UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
-PRE_CHARS = ur'(?:^|$|[\s"<>\':!=])'
-DOMAIN_CHARS = ur'[^\s_\!\.\/]+(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
-PATH_CHARS = ur'(?:[\.,]?[%s!\*\'\(\);:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
-QUERY_CHARS = ur'[a-z0-9!\*\'\(\);:&=\+\$/%#\[\]\-_\.,~]'
-PATH_ENDING_CHARS = r'[%s\)=#/]' % UTF_CHARS
-QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
-END_CHARS = ur'(?:$|[\s"<>\':!=])'
-URL_REGEX = re.compile('(%s)(https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?(%s)' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
-
-def countchars(text):
-    text = text.strip()
-    res = URL_REGEX.search(text)
-    while res:
-        text = URL_REGEX.sub(r'\1http://t.co/xxxxxxxx\5', text)
-        res = URL_REGEX.search(text)
-    return len(text)
-
 re_handle_quotes = re.compile(r'("[^"]*")')
 re_handle_simple_quotes = re.compile(r"('[^']*')")
 def _handle_quotes(args, regexp):
@@ -58,7 +39,59 @@ def _handle_quotes(args, regexp):
 def handle_quotes(args):
     return _handle_quotes(_handle_quotes(args, re_handle_quotes), re_handle_simple_quotes)
 
-re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
+# URL recognition adapted from Twitter's
+# https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
+UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
+QUOTE_CHARS = ur'[«»“”"\'’‘]'
+SPACES = ur'[\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
+PRE_CHARS = ur'(?:^|$|%s|%s|[<>:!=])' % (SPACES, QUOTE_CHARS)
+DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
+PATH_CHARS = ur'(?:[\.,]?[%s!\*\'\(\);:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
+QUERY_CHARS = ur'[a-z0-9!\*\'\(\);:&=\+\$/%#\[\]\-_\.,~]'
+PATH_ENDING_CHARS = r'[%s\)=#/]' % UTF_CHARS
+QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
+URL_REGEX = re.compile('%s+((https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?)%s' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+
+def countchars(text):
+    text = text.strip()
+    findurls = URL_REGEX.findall(text)
+    for res in findurls:
+        text = text.replace(res[0], 'http___t_co_xxxxxxxx')
+    return len(text)
+
+re_clean_url1 = re.compile(r'/#!/')
+re_clean_url2 = re.compile(r'(\?)?\&?(utm_(term|medium|source|campaign|content)|xtor)=[^\&#]*', re.I)
+def clean_url(url):
+    url = re_clean_url1.sub('/', url)
+    url = re_clean_url2.sub(r'\1', url)
+    return url
+
+def clean_redir_urls(text, urls={}):
+    findurls = URL_REGEX.findall(text)
+    for res in findurls:
+        url0 = res[0]
+        if url0 in urls:
+            url1 = urls[url0]
+            if url1 == url0:
+                continue
+        else:
+            try:
+                url1 = urlopen(url0).geturl()
+                url1 = clean_url(url1)
+            except:
+                url1 = url0
+            urls[url0] = url1
+            urls[url1] = url1
+        text = text.replace(url0, url1)
+    return text, urls
+
+re_clean_quotes = re.compile(r'%s+' % QUOTE_CHARS)
+re_uniq_rt_hash = re.compile(r'[MLR]T\s*@[a-zA-Z0-9_]{1,15}[: ,]*')
+def uniq_rt_hash(text):
+    text = re_clean_quotes.sub(' ', text)
+    text = re_uniq_rt_hash.sub(' ', text)
+    text = cleanblanks(text)
+    return text
 
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
@@ -134,6 +167,14 @@ def chan_has_identica(chan, conf=None):
 def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER']
+
+def chan_has_follow_rt(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return conf and 'FOLLOW_RT' in conf and conf['FOLLOW_RT']
+
+def chan_has_follow_my_rt(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return conf and 'TWITTER' in conf and 'FOLLOW_RT' in conf['TWITTER'] and conf['TWITTER']['FOLLOW_RT']
 
 def is_user_admin(nick):
     return nick in config.ADMINS

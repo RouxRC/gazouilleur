@@ -12,15 +12,18 @@ GLOBAL_USERS = ['Roux']
 CHANNELS = {
   'regardscitoyens': {
     'USERS': [],
-    'TWITTER': {
-      'KEY': '---------',
-      'SECRET': '--------',
-      'OAUTH_TOKEN': '--------',
-      'OAUTH_SECRET': '---------'
-    },
     'IDENTICA': {
       'USER': 'regardscitoyens',
       'PASS': '---------'
+    'TWITTER': {
+      'USER': 'RegardsCitoyens',
+      'KEY': '---------',
+      'SECRET': '--------',
+      'OAUTH_TOKEN': '--------',
+      'OAUTH_SECRET': '---------',
+      'FOLLOW_RT': True
+    },
+    'FOLLOW_RT': False
     }
   },
   'rc-test': {
