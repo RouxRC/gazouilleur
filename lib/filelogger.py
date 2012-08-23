@@ -1,7 +1,8 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, os, os.path, time, codecs
+import sys, os, os.path, codecs
+from datetime import datetime
 sys.path.append('..')
 import config
 
@@ -16,8 +17,8 @@ class FileLogger:
         self.file = codecs.open(os.path.join('log', filename), "a", encoding="utf-8")
 
     def log(self, message):
-        timestamp = time.strftime("[%H:%M:%S]", time.localtime(time.time()))
-        if not file.closed:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not self.file.closed:
             self.file.write('%s %s\n' % (timestamp, message))
             self.file.flush()
 
