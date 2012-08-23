@@ -4,7 +4,7 @@
 
 import os, sys, time
 from datetime import datetime, timedelta
-import feedparser, pymongo
+import feedparser, pymongo, urllib2
 from twisted.internet import reactor, protocol, defer, task
 from twisted.python import failure
 from httpget import conditionalGetPage
@@ -34,23 +34,45 @@ class FeederProtocol():
                 return True
         return False
 
-    @defer.inlineCallbacks
-    def get_data_from_page(self, nodata, url):
-        page = yield conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
+    def get_page(self, nodata, url):
+        return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
+
+    def get_data_from_page(self, page, url):
         try:
             feed = feedparser.parse(_StringIO.StringIO(page+''))
         except TypeError:
             feed = feedparser.parse(_StringIO.StringIO(str(page)))
         self.fact.cache[url] = time.time()
-        defer.returnValue(feed)
+        return feed
 
     def process_elements(self, feed, url):
-        items = feed.get('items', None)
-    # TODO
-        elements = []
-        print items
-        for i in items:
-            print i
+        if not feed.entries:
+            return None
+        sourcename = url
+        if feed.feed and 'title' in feed.feed:
+            sourcename = feed.feed['title']
+        ids = []
+        news = []
+        for i in feed.entries:
+            date = i.get('published_parsed', '')
+            if date:
+                date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', '')))
+                if datetime.today() - date > timedelta(hours=24):
+                    break
+            link, self.fact.cache_urls = clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
+            sourcename = unescape_html(sourcename)
+            title = unescape_html(i.get('title', '').replace('\n', ' '))
+            ids.append(link)
+            news.append({'_id': "%s:%s" % (self.fact.channel, link), 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
+        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, 'link': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        new = [n for n in news if n['_id'] not in existing]
+        if new:
+            new.reverse()
+            try:
+                self.db['news'].insert(new, continue_on_error=True, safe=True)
+            except pymongo.errors.OperationFailure as e:
+                self.fact.ircclient._show_error("ERROR saving news batch in DB: %s" % e)
+            self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         return None
 
     def process_tweets(self, feed, url):
@@ -92,7 +114,7 @@ class FeederProtocol():
             try:
                 self.db['tweets'].insert(news, continue_on_error=True, safe=True)
             except pymongo.errors.OperationFailure as e:
-                self.fact.ircclient._show_error("ERROR saving batch in DB: %s" % e)
+                self.fact.ircclient._show_error("ERROR saving tweets batch in DB: %s" % e)
             self.fact.ircclient._send_message(text, self.fact.channel)
         return None
 
@@ -105,6 +127,8 @@ class FeederProtocol():
             if DEBUG:
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             if not self.in_cache(url):
+                d.addCallback(self.get_page, url)
+                d.addErrback(self._handle_error, (url, 'getting page'))
                 d.addCallback(self.get_data_from_page, url)
                 d.addErrback(self._handle_error, (url, 'parsing'))
                 if self.fact.database == "tweets":

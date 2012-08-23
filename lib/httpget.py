@@ -9,7 +9,7 @@ from twisted.web.client import HTTPPageGetter, HTTPClientFactory
 from utils import get_hash
  
 class ConditionalHTTPPageGetter(HTTPPageGetter):
-    
+
     def handleStatus_200(self):
         if self.headers.has_key('last-modified'):
             self.factory.lastModified(self.headers['last-modified'][0])
@@ -33,6 +33,11 @@ class ConditionalHTTPClientFactory(HTTPClientFactory):
                 self.last_modified = cache.readline().strip()
                 headers['If-Modified-Since'] = self.last_modified
         HTTPClientFactory.__init__(self, url, method=method, postdata=postdata, headers=headers, agent=agent, timeout=timeout, cookies=cookies, followRedirect=followRedirect)
+
+    #Fix Twisted GetPage crash on google P3P CP= headers
+    def gotHeaders(self, headers):
+        if headers.has_key('P3P') and header['P3P'].startswith('CP='):
+            del(headers['P3P'])
 
     def lastModified(self, modtime):
         with open(self.cachefile, 'w') as f:

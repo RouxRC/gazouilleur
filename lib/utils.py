@@ -3,7 +3,7 @@
 
 import sys, re, urllib, md5
 from urllib2 import urlopen, URLError
-import pymongo
+import pymongo, htmlentitydefs
 sys.path.append('..')
 import config
 
@@ -84,7 +84,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0).geturl(timeout=20)
+                url1 = urlopen(url0, timeout=20).geturl()
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
@@ -114,6 +114,10 @@ def uniq_rt_hash(text):
     text = re_clean_spec_chars.sub(' ', text)
     text = cleanblanks(text)
     return get_hash(text.encode('utf-8'))
+
+re_entities = re.compile(r'&([^;]+);')
+def unescape_html(text):
+    return re_entities.sub(lambda x: unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
 
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query

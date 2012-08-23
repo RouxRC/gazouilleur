@@ -240,10 +240,10 @@ class IRCBot(irc.IRCClient):
         if config.DEBUG:
             msg = "%s \n%s" % (msg, failure.getErrorMessage())
         for m in msg.split('\n'):
-            delay = self.msg(target, m, delay)
             if config.ADMINS:
                 for user in config.ADMINS:
                     delay = self.msg(user, m, delay)
+            delay = self.msg(target, m, delay)
 
   # -----------------
   # Default commands
@@ -511,8 +511,10 @@ class IRCBot(irc.IRCClient):
         return database, query
 
     def command_follow(self, query, channel=None, nick=None):
-        """!follow <url|text|@user> : Asks me to follow and display elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        """!follow <url|text| @user> : Asks me to follow and display elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
         database, query = self._parse_follow_command(query)
+        if len(query) > 300:
+            return "Please limit your follow queries to a maximum of 300 characters"
         self.db['feeds'].update({'database': database, 'channel': channel, 'query': query}, {'database': database, 'channel': channel, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
