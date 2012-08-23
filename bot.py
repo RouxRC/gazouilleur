@@ -81,20 +81,20 @@ class IRCBot(irc.IRCClient):
 
     def signedOn(self):
         log.msg("Signed on as %s." % (self.nickname,))
-        for channel in self.factory.channels:
-            self.join(channel)
+        for n, channel in enumerate(self.factory.channels):
+            self.join(channel, n)
 
-    def joined(self, channel):
+    def joined(self, channel, n=0):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 80, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), n)
             # TODO HANDLE DMs 
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 150, 2, 20, [], chan_displays_rt(channel, conf))
-        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 300, 10, 30)
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf), n + 5)
+        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40, n * 5)
         for f in self.feeders[channel].keys():
             self.feeders[channel][f].start()
 

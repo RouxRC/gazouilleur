@@ -34,10 +34,8 @@ class FeederProtocol():
                 return True
         return False
 
-    def get_page(self, nodata, url):
-        return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
-
-    def get_data_from_page(self, page, url):
+    def get_data_from_page(self, nodata, url):
+        page = conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
         try:
             feed = feedparser.parse(_StringIO.StringIO(page+''))
         except TypeError:
@@ -104,9 +102,9 @@ class FeederProtocol():
     def start(self, urls=None):
         d = defer.succeed('')
         for url in urls:
+            if DEBUG:
+                print "Query %s" % url
             if not self.in_cache(url):
-                d.addCallback(self.get_page, url)
-                d.addErrback(self._handle_error, (url, 'getting'))
                 d.addCallback(self.get_data_from_page, url)
                 d.addErrback(self._handle_error, (url, 'parsing'))
                 if self.fact.database == "tweets":
@@ -118,7 +116,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
+    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False, extradelay=0):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
         self.ircclient = ircclient
@@ -129,6 +127,7 @@ class FeederFactory(protocol.ClientFactory):
         self.timeout = timeout
         self.feeds = feeds
         self.displayRT = displayRT
+        self.extradelay = extradelay
         self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
@@ -139,7 +138,7 @@ class FeederFactory(protocol.ClientFactory):
 
     def start(self):
         self.runner = task.LoopingCall(self.run)
-        self.runner.start(self.delay + 2)
+        reactor.callLater(self.extradelay, self.runner.start, self.delay + 2)
 
     def end(self):
         if self.runner:
@@ -149,8 +148,6 @@ class FeederFactory(protocol.ClientFactory):
         urls = self.feeds
         if not urls:
             urls = getFeeds(self.channel, self.database, self.db)
-        if DEBUG and len(urls):
-            print "Query %s" % urls
         # Divide into groups all the feeds to download
         if len(urls) > self.simul_conns:
             url_groups = [[] for x in xrange(self.simul_conns)]
