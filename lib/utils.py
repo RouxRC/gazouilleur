@@ -61,7 +61,8 @@ def countchars(text):
     return len(_shorten_url(_shorten_url(text.strip())).decode('utf-8'))
 
 re_clean_url1 = re.compile(r'/#!/')
-re_clean_url2 = re.compile(r'((\?|&)(utm_(term|medium|source|campaign|content)|xtor)=[^&#]*)', re.I)
+re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
+re_clean_url3 = re.compile(r'\?$')
 def clean_url(url):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -69,6 +70,7 @@ def clean_url(url):
             url = url.replace(i[2], '')
         else:
             url = url.replace(i[0], '')
+    url = re_clean_url3.sub('', url)
     return url  
 
 def _clean_redir_urls(text, urls={}, first=True):
@@ -82,7 +84,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0).geturl()
+                url1 = urlopen(url0).geturl(timeout=20)
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
