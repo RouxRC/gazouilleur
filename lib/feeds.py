@@ -34,14 +34,15 @@ class FeederProtocol():
                 return True
         return False
 
+    @defer.inlineCallbacks
     def get_data_from_page(self, nodata, url):
-        page = conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
+        page = yield conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
         try:
             feed = feedparser.parse(_StringIO.StringIO(page+''))
         except TypeError:
             feed = feedparser.parse(_StringIO.StringIO(str(page)))
         self.fact.cache[url] = time.time()
-        return feed
+        defer.returnValue(feed)
 
     def process_elements(self, feed, url):
         items = feed.get('items', None)
@@ -116,7 +117,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False, extradelay=0):
+    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
         self.ircclient = ircclient
@@ -127,7 +128,6 @@ class FeederFactory(protocol.ClientFactory):
         self.timeout = timeout
         self.feeds = feeds
         self.displayRT = displayRT
-        self.extradelay = extradelay
         self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
@@ -138,7 +138,7 @@ class FeederFactory(protocol.ClientFactory):
 
     def start(self):
         self.runner = task.LoopingCall(self.run)
-        reactor.callLater(self.extradelay, self.runner.start, self.delay + 2)
+        self.runner.start(self.delay + 2)
 
     def end(self):
         if self.runner:

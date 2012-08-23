@@ -81,22 +81,23 @@ class IRCBot(irc.IRCClient):
 
     def signedOn(self):
         log.msg("Signed on as %s." % (self.nickname,))
-        for n, channel in enumerate(self.factory.channels):
-            self.join(channel, n)
+        for channel in self.factory.channels:
+            self.join(channel)
 
-    def joined(self, channel, n=0):
+    def joined(self, channel):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), n)
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
             # TODO HANDLE DMs 
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf), n + 5)
-        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40, n * 5)
-        for f in self.feeders[channel].keys():
-            self.feeders[channel][f].start()
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf))
+        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
+        n = self.factory.channels.index(channel) + 1
+        for i, f in enumerate(self.feeders[channel].keys()):
+            reactor.callLater(i*n, self.feeders[channel][f].start)
 
     def left(self, channel):
         log.msg("Left %s." % (channel,))
@@ -341,12 +342,16 @@ class IRCBot(irc.IRCClient):
         nb = 1
         st = 0
         current = ""
+        clean_my_nick = False
+        news = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
                 query['user'] = arg.lower()
                 current = ""
             elif current == "w":
+                if arg == self.str_re_tweets or arg == self.str_re_news:
+                    clean_my_nick = True
                 re_arg = re.compile("%s" % arg, re.I)
                 if '$and' in query:
                     query['$and'].append({'message': re_arg})
@@ -378,6 +383,9 @@ class IRCBot(irc.IRCClient):
             return "No"+more+" match found in my history log."
         if reverse:
             matches.reverse()
+        if clean_my_nick:
+            for i, m in enumerate(matches):
+                matches[i] = m.replace("%s — " % self.nickname, '')
         return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
     def command_lastseen(self, rest, channel=None, nick=None):
@@ -511,26 +519,34 @@ class IRCBot(irc.IRCClient):
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <url|text|@user> : Asks me to stop following and displaying elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
         database, query = self._parse_follow_command(query)
-        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'query': query})
+        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'query': query}, safe=True)
+        if not res or not res['n']:
+            return "I could not find such query in my database"
         return '"%s" query removed from %s database for %s'  % (query, database, channel)
 
-    def command_listfollow(self, database, channel=None, *args):
-        """!listfollow [tweets|news]: Displays the list of queries followed for current channel."""
+    def command_list(self, database, channel=None, *args):
+        """!list [tweets|news]: Displays the list of queries followed for current channel."""
         database = database.strip()
         if database != "tweets" and database != "news":
-            return
+            return "Please enter either !list tweets or !list news."
         feeds = getFeeds(channel, database, self.db, nourl=True)
         if database == 'tweets':
-            return "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
-        return "\n".join(feeds)
+            res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
+        else:
+            res = "\n".join(feeds)
+        if res:
+            return res
+        return "No query set for %s." % database
 
-    def command_lasttweets(self, tweet, *args):
-        """!lasttweet <text> : ."""
-        return "TODO"
+    str_re_tweets = ' — http://twitter\.com/'
+    def command_lasttweets(self, tweet, channel=None, nick=None):
+        """!lasttweets <word> [<N>] : Prints the last or <N< last tweets matching <word> (options from !last can apply)."""
+        return self.command_lastwith("'%s' %s" % (str_re_tweets, tweet), channel, nick)
 
-    def command_lastnews(self, tweet, *args):
-        """!lasttweet <text> : ."""
-        return "TODO"
+    str_re_news = '^\[News — '
+    def command_lastnews(self, tweet, channel=None, nick=None):
+        """!lastnews <word> [<N>] : Prints the last or <N< last news matching <word> (options from !last can apply)."""
+        return self.command_lastwith("'%s' %s" % (str_re_news, tweet), channel, nick)
 
 
   # ------------------
