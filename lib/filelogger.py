@@ -17,8 +17,9 @@ class FileLogger:
 
     def log(self, message):
         timestamp = time.strftime("[%H:%M:%S]", time.localtime(time.time()))
-        self.file.write('%s %s\n' % (timestamp, message))
-        self.file.flush()
+        if not file.closed:
+            self.file.write('%s %s\n' % (timestamp, message))
+            self.file.flush()
 
     def close(self):
         self.file.close()

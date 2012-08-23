@@ -71,7 +71,7 @@ def clean_url(url):
 
 def clean_redir_urls(text, urls={}):
     for res in URL_REGEX.findall(text):
-        url0 = res[0]
+        url0 = res[0].encode('utf-8')
         if not url0.startswith('http'):
             url0 = "http://%s" % url0
         if url0 in urls:
@@ -84,7 +84,9 @@ def clean_redir_urls(text, urls={}):
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
-            except URLError:
+            except URLError, UnicodeError:
+                if config.DEBUG:
+                    print "ERROR trying to access %s" % url0
                 url1 = url0
         text = text.replace(url0, url1)
     return text, urls

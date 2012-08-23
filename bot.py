@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, os.path, types, re
-import time
+import random, time
 from datetime import datetime
 import lxml.html
 import pymongo
@@ -17,7 +17,7 @@ from filelogger import FileLogger
 from utils import *
 from microblog import *
 from feeds import FeederFactory
-ANTIFLOOD = 0.4
+ANTIFLOOD = 0.35
 
 class IRCBot(irc.IRCClient):
 
@@ -206,13 +206,10 @@ class IRCBot(irc.IRCClient):
         irc.IRCClient.msg(self, target, msg)
 
     def msg(self, target, msg, delay=0):
-        d = defer.Deferred()
         reactor.callLater(delay, self._msg, target, msg)
-        return d 
+        return delay + ANTIFLOOD + random.random()/5
 
     def _send_message(self, msgs, target, nick=None):
-         # if config.DEBUG:
-         #    log.msg("[%s] REPLIED: %s" % (target, msgs))
         if msgs is None:
             return
         if not isinstance(msgs, types.ListType):
@@ -232,22 +229,20 @@ class IRCBot(irc.IRCClient):
                 uniq[msg] = None
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-            self.msg(target, msg, delay)
-            delay += ANTIFLOOD
+            delay = self.msg(target, msg, delay)
 
     def _show_error(self, failure, target, nick=None):
         failure.trap(Exception)
         log.msg("ERROR: %s" % failure)
         msg = "%s: Woooups, something is wrong..." % nick
+        delay = random.random()*len(self.factory.channels)*2
         if config.DEBUG:
             msg = "%s \n%s" % (msg, failure.getErrorMessage())
-        delay = 0
         for m in msg.split('\n'):
-            self.msg(target, msg, delay)
+            delay = self.msg(target, m, delay)
             if config.ADMINS:
                 for user in config.ADMINS:
-                    self.msg(user, "[%s] %s" % (target, str(failure)), delay)
-            delay += ANTIFLOOD
+                    delay = self.msg(user, m, delay)
 
   # -----------------
   # Default commands

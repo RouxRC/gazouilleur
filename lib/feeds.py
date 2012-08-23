@@ -149,6 +149,8 @@ class FeederFactory(protocol.ClientFactory):
         urls = self.feeds
         if not urls:
             urls = getFeeds(self.channel, self.database, self.db)
+        if DEBUG and len(urls):
+            print "Query %s" % urls
         # Divide into groups all the feeds to download
         if len(urls) > self.simul_conns:
             url_groups = [[] for x in xrange(self.simul_conns)]
