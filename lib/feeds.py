@@ -54,14 +54,13 @@ class FeederProtocol():
         return None
 
     def process_tweets(self, feed, url):
-        items = feed.get('items', None)
-        if not items:
+        if not feed.entries:
             return None
         ids = []
         hashs = []
         tweets = []
         fresh = True
-        for i in items:
+        for i in feed.entries:
             date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-4*60*60)
             if datetime.today() - date > timedelta(hours=12):
                 fresh = False
@@ -72,19 +71,17 @@ class FeederProtocol():
             if res:
                 user = res.group(1)
                 tid = long(res.group(2))
-                rt_hash = uniq_rt_hash(tweet)
-                if rt_hash not in hashs:
-                    hashs.append(rt_hash)
                 ids.append(tid)
-                tweets.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': rt_hash, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url})
+                tweets.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': uniq_rt_hash(tweet), 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url})
         existing = [t['_id'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             news.reverse()
-            if fresh and len(news) > len(items) / 2 :
+            if fresh and len(news) > len(feed.entries) / 2 :
                 reactor.callLater(10, self.start, [next_page(url)])
             text = []
             if not self.fact.displayRT:
+                hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
                 existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
                 for t in news:
                     if t['uniq_rt_hash'] not in existing:

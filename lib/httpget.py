@@ -3,10 +3,10 @@
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os.path as path
-import md5
 from twisted.internet import reactor, defer
 from twisted.web import client
 from twisted.web.client import HTTPPageGetter, HTTPClientFactory
+from utils import get_hash
  
 class ConditionalHTTPPageGetter(HTTPPageGetter):
     
@@ -26,7 +26,7 @@ class ConditionalHTTPClientFactory(HTTPClientFactory):
     noisy = False
  
     def __init__(self, cacheDir, url, method='GET', postdata=None, headers={}, agent="Gazouilleur with Twisted ConditionalPageGetter", timeout=0, cookies=None, followRedirect=1):
-        self.cachefile = path.join(cacheDir, self.getHashForUrl(url))
+        self.cachefile = path.join(cacheDir, get_hash(url))
         self.last_modified = None
         if path.exists(self.cachefile):
             with open(self.cachefile) as cache:
@@ -34,10 +34,6 @@ class ConditionalHTTPClientFactory(HTTPClientFactory):
                 headers['If-Modified-Since'] = self.last_modified
         HTTPClientFactory.__init__(self, url, method=method, postdata=postdata, headers=headers, agent=agent, timeout=timeout, cookies=cookies, followRedirect=followRedirect)
 
-    def getHashForUrl(self, url):
-        hash = md5.new(url)
-        return hash.hexdigest()
-        
     def lastModified(self, modtime):
         with open(self.cachefile, 'w') as f:
             f.write(modtime)

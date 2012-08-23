@@ -26,6 +26,7 @@ CHANNELS = {
     'IDENTICA': {   # Set an IDENTICA USER and PASS to allow microblogging with Identi.ca
       'USER': 'regardscitoyens',
       'PASS': '---------'
+    },
     'TWITTER': {    # Set a TWITTER USER to follow its tweets and mentions
       'USER': 'RegardsCitoyens',
       'DISPLAY_RT': True,   # Set to true to follow also all RTs for USER

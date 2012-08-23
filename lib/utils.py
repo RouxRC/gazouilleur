@@ -1,14 +1,14 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, re, urllib
+import sys, re, urllib, md5
 from urllib2 import urlopen, URLError
 import pymongo
 sys.path.append('..')
 import config
 
 re_clean_blanks = re.compile(r'[\s ]+')
-cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip())
+cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
 shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
@@ -42,7 +42,7 @@ def handle_quotes(args):
 # URL recognition adapted from Twitter's
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
-QUOTE_CHARS = ur'[«»“”"\'’‘]'
+QUOTE_CHARS = ur'[«»“”"\'’‘`]'
 SPACES = ur'[ \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
 PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!=])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
@@ -58,7 +58,7 @@ def _shorten_url(text):
     return text
 
 def countchars(text):
-    return len(_shorten_url(_shorten_url(text.strip())))
+    return len(_shorten_url(_shorten_url(text.strip())).decode('utf-8'))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)(utm_(term|medium|source|campaign|content)|xtor)=[^&#]*)', re.I)
@@ -101,13 +101,17 @@ def clean_redir_urls(text, urls):
     text, urls = _clean_redir_urls(text, urls)
     return _clean_redir_urls(text, urls, False)
 
-re_clean_quotes = re.compile(r'%s+' % QUOTE_CHARS)
-re_uniq_rt_hash = re.compile(r'[MLR]T\s*@[a-zA-Z0-9_]{1,15}[: ,]*')
+def get_hash(url):
+    hash = md5.new(url)
+    return hash.hexdigest()
+
+re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@[a-zA-Z0-9_]{1,15}[: ,]*' % QUOTE_CHARS)
+re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s])+' % (QUOTE_CHARS, '%'))
 def uniq_rt_hash(text):
-    text = re_clean_quotes.sub(' ', text)
     text = re_uniq_rt_hash.sub(' ', text)
+    text = re_clean_spec_chars.sub(' ', text)
     text = cleanblanks(text)
-    return text
+    return get_hash(text.encode('utf-8'))
 
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
