@@ -23,8 +23,8 @@ class FeederProtocol():
         self.fact = factory
         self.db = self.fact.db
 
-    def _handle_error(self, traceback, extra_args):
-        self.fact.ircclient._show_error(traceback, self.fact.channel)
+    def _handle_error(self, traceback, msg, url):
+        self.fact.ircclient._show_error(failure.Failure("%s %s : %s" % (msg, url, traceback)), self.fact.channel)
 
     def in_cache(self, url):
         already_got = self.fact.cache.get(url, None)
@@ -71,7 +71,7 @@ class FeederProtocol():
             try:
                 self.db['news'].insert(new, continue_on_error=True, safe=True)
             except pymongo.errors.OperationFailure as e:
-                self.fact.ircclient._show_error("ERROR saving news batch in DB: %s" % e)
+                self._handle_error(e, "recording news batch", url)
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         return None
 
@@ -113,8 +113,8 @@ class FeederProtocol():
                 text = [self.displayTweet(t) for t in news]
             try:
                 self.db['tweets'].insert(news, continue_on_error=True, safe=True)
-            except pymongo.errors.OperationFailure as e:
-                self.fact.ircclient._show_error("ERROR saving tweets batch in DB: %s" % e)
+            except Exception as e:
+                self._handle_error(e, "recording tweets batch", url)
             self.fact.ircclient._send_message(text, self.fact.channel)
         return None
 
@@ -128,14 +128,14 @@ class FeederProtocol():
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             if not self.in_cache(url):
                 d.addCallback(self.get_page, url)
-                d.addErrback(self._handle_error, (url, 'getting page'))
+                d.addErrback(self._handle_error, "downloading", url)
                 d.addCallback(self.get_data_from_page, url)
-                d.addErrback(self._handle_error, (url, 'parsing'))
+                d.addErrback(self._handle_error, "parsing", url)
                 if self.fact.database == "tweets":
                     d.addCallback(self.process_tweets, url)
                 else:
                     d.addCallback(self.process_elements, url)
-                d.addErrback(self._handle_error, (url, 'working on page'))
+                d.addErrback(self._handle_error, "working on", url)
         return d
 
 class FeederFactory(protocol.ClientFactory):

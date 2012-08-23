@@ -7,7 +7,8 @@ import pymongo, htmlentitydefs
 sys.path.append('..')
 import config
 
-re_clean_blanks = re.compile(r'[\s ]+')
+SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
+re_clean_blanks = re.compile(r'%s+' % SPACES)
 cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
@@ -43,8 +44,7 @@ def handle_quotes(args):
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
 QUOTE_CHARS = ur'[«»“”"\'’‘`]'
-SPACES = ur'[ \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
-PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!=])' % (SPACES, QUOTE_CHARS)
+PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:?!=)])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
@@ -62,7 +62,7 @@ def countchars(text):
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
-re_clean_url3 = re.compile(r'\?$')
+re_clean_url3 = re.compile(ur'(%s|%s|[…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
 def clean_url(url):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -75,9 +75,10 @@ def clean_url(url):
 
 def _clean_redir_urls(text, urls={}, first=True):
     for res in URL_REGEX.findall(text):
-        url0 = res[2].encode('utf-8')
-        if not url0.startswith('http'):
-            url0 = "http://%s" % url0
+        url00 = res[2].encode('utf-8')
+        url0 = url00
+        if not url00.startswith('http'):
+            url0 = "http://%s" % url00
         if url0 in urls:
             url1 = urls[url0]
             if url1 == url0:
@@ -88,13 +89,13 @@ def _clean_redir_urls(text, urls={}, first=True):
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
-            except URLError, UnicodeError:
+            except (URLError, UnicodeError, UnicodeDecodeError) as e:
                 if config.DEBUG:
-                    print "ERROR trying to access %s" % url0
-                url1 = url0
+                    print "ERROR trying to access %s : %s" % (url0, e)
+                url1 = url00
         if first:
             url1 = url1.replace('http', '##HTTP##')
-        text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
+        text = text.replace(res[0], '%s%s%s' % (res[1], url1.decode('utf-8'), res[3]))
     if not first:
         text = text.replace('##HTTP##', 'http')
     return text, urls

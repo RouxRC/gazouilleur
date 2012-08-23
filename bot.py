@@ -97,7 +97,7 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
         n = self.factory.channels.index(channel) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
-            reactor.callLater(i*n, self.feeders[channel][f].start)
+            reactor.callLater(5*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
         log.msg("Left %s." % (channel,))
