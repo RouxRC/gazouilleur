@@ -44,7 +44,7 @@ def handle_quotes(args):
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
 QUOTE_CHARS = ur'[«»“”"\'’‘]'
 SPACES = ur'[ \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
-PRE_CHARS = ur'(?:^|$|%s|%s|[<>:!=])' % (SPACES, QUOTE_CHARS)
+PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!=])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
@@ -94,7 +94,7 @@ def _clean_redir_urls(text, urls={}, first=True):
             url1 = url1.replace('http', '##HTTP##')
         text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
     if not first:
-        text.replace('##HTTP##', 'http')
+        text = text.replace('##HTTP##', 'http')
     return text, urls
 
 def clean_redir_urls(text, urls):
