@@ -552,6 +552,22 @@ class IRCBot(irc.IRCClient):
   # ------------------
   # Other commands...
 
+    re_url_pad = re.compile(r'http://.*pad', re.I)
+    def command_setpad(self, rest, channel=None, nick=None):
+        """!setpad <url> : Defines <url> of the current etherpad./AUTH"""
+        url = rest.strip()
+        if self.re_url_pad.match(url):
+            self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            return "Current pad is now set to %s" % rest
+        return "This is not a valid pad url."
+
+    def command_pad(self, rest, channel=None, *args):
+        """!pad : Prints the url of the current etherpad."""
+        res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
+        if res:
+            return "Current pad is available at: %s" % res['query']
+        return "No pad is currently set for this channel."
+
     def command_runlater(self, rest, channel=None, nick=None):
         """!saylater <minutes> <!command [arguments]> : Schedules <!command> in <minutes>."""
         now = time.time()

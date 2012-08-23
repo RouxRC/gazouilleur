@@ -46,7 +46,9 @@ class FeederProtocol():
 
     def process_elements(self, feed, url):
         items = feed.get('items', None)
+    # TODO
         elements = []
+        print items
         for i in items:
             print i
         return None
@@ -61,7 +63,7 @@ class FeederProtocol():
         fresh = True
         for i in items:
             date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-4*60*60)
-            if datetime.today() - date > timedelta(hours=24):
+            if datetime.today() - date > timedelta(hours=12):
                 fresh = False
                 break
             tweet, self.fact.cache_urls = clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
@@ -79,7 +81,7 @@ class FeederProtocol():
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             news.reverse()
-            if fresh:
+            if fresh and len(news) > len(items) / 2 :
                 reactor.callLater(10, self.start, [next_page(url)])
             text = []
             if not self.fact.displayRT:
@@ -104,7 +106,7 @@ class FeederProtocol():
         d = defer.succeed('')
         for url in urls:
             if DEBUG:
-                print "Query %s" % url
+                print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             if not self.in_cache(url):
                 d.addCallback(self.get_data_from_page, url)
                 d.addErrback(self._handle_error, (url, 'parsing'))
@@ -118,8 +120,6 @@ class FeederProtocol():
 class FeederFactory(protocol.ClientFactory):
 
     def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
-        if DEBUG:
-            print "Start %s feeder for %s every %ssec by %s connections %s" % (database, channel , delay, simul_conns, feeds)
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
@@ -137,6 +137,8 @@ class FeederFactory(protocol.ClientFactory):
         self.cache_urls = {}
 
     def start(self):
+        if DEBUG:
+            print "Start %s feeder for %s every %ssec by %s connections %s" % (self.database, self.channel, self.delay, self.simul_conns, self.feeds)
         self.runner = task.LoopingCall(self.run)
         self.runner.start(self.delay + 2)
 

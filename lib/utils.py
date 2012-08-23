@@ -43,20 +43,22 @@ def handle_quotes(args):
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
 QUOTE_CHARS = ur'[«»“”"\'’‘]'
-SPACES = ur'[\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
+SPACES = ur'[ \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
 PRE_CHARS = ur'(?:^|$|%s|%s|[<>:!=])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
 PATH_ENDING_CHARS = r'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
-URL_REGEX = re.compile('%s+((https?://|www\\.)?%s(\/%s*%s?)?(\?%s*%s)?)%s' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+URL_REGEX = re.compile('((%s+)((?:https?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+
+def _shorten_url(text):
+    for res in URL_REGEX.findall(text):
+        text = text.replace(res[0], '%shttp___t_co_xxxxxxxx%s' % (res[1], res[3]))
+    return text
 
 def countchars(text):
-    text = text.strip()
-    for res in URL_REGEX.findall(text):
-        text = text.replace(res[0], 'http___t_co_xxxxxxxx')
-    return len(text)
+    return len(_shorten_url(_shorten_url(text.strip())))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)(utm_(term|medium|source|campaign|content)|xtor)=[^&#]*)', re.I)
@@ -67,11 +69,11 @@ def clean_url(url):
             url = url.replace(i[2], '')
         else:
             url = url.replace(i[0], '')
-    return url
+    return url  
 
-def clean_redir_urls(text, urls={}):
+def _clean_redir_urls(text, urls={}, first=True):
     for res in URL_REGEX.findall(text):
-        url0 = res[0].encode('utf-8')
+        url0 = res[2].encode('utf-8')
         if not url0.startswith('http'):
             url0 = "http://%s" % url0
         if url0 in urls:
@@ -88,8 +90,16 @@ def clean_redir_urls(text, urls={}):
                 if config.DEBUG:
                     print "ERROR trying to access %s" % url0
                 url1 = url0
-        text = text.replace(url0, url1)
+        if first:
+            url1 = url1.replace('http', '##HTTP##')
+        text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
+    if not first:
+        text.replace('##HTTP##', 'http')
     return text, urls
+
+def clean_redir_urls(text, urls):
+    text, urls = _clean_redir_urls(text, urls)
+    return _clean_redir_urls(text, urls, False)
 
 re_clean_quotes = re.compile(r'%s+' % QUOTE_CHARS)
 re_uniq_rt_hash = re.compile(r'[MLR]T\s*@[a-zA-Z0-9_]{1,15}[: ,]*')
