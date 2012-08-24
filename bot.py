@@ -252,7 +252,7 @@ class IRCBot(irc.IRCClient):
         """!help [<command>] : Prints general help or help for specific <command>."""
         rest = rest.lstrip('!')
         conf = chanconf(channel)
-        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
+        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_') and c != "command_more"] if self._can_user_do(nick, channel, c, conf)]
         def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
         if rest is None or rest == '':
             return def_msg
@@ -331,6 +331,10 @@ class IRCBot(irc.IRCClient):
                 if function:
                     return function(tmprest, channel, nick)
         return "No !last like command found in my history log."
+
+    def command_more(self, rest, channel=None, nick=None):
+        """!more Alias for !lastmore."""
+        return self.command_lastmore(rest, channel, nick)
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
