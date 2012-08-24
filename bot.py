@@ -92,7 +92,7 @@ class IRCBot(irc.IRCClient):
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
             self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
-            # TODO HANDLE DMs 
+            self.feeders[channel]['mydms'] = FeederFactory(self, channel, 'dms', 177)
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf))
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
         n = self.factory.channels.index(channel) + 1
@@ -192,7 +192,7 @@ class IRCBot(irc.IRCClient):
         command, _, rest = message.lstrip('!').partition(' ')
         func = self._find_command_function(command)
         if func is None and d is None:
-            d = defer.maybeDeferred(self.command_help, command, channel)
+            d = defer.maybeDeferred(self.command_help, command, channel, nick)
         target = nick if channel == self.nickname else channel
         if d is None:
             if self._can_user_do(nick, channel, func):
@@ -441,10 +441,6 @@ class IRCBot(irc.IRCClient):
         conn = Sender(siteprotocol, conf)
         command = getattr(conn, command, None)
         return command(**kwargs)
-
-    def command_dms(self, rest, channel=None, *args):
-        """! ."""
-        return threads.deferToThread(Sender.get_directmsgs, Sender('twitter', chanconf(channel)))
 
     def command_identica(self, text, channel=None, nick=None):
         """!identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""

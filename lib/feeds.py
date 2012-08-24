@@ -15,6 +15,7 @@ except ImportError:
 from utils import *
 sys.path.append('..')
 from config import DEBUG, MONGODB
+from microblog import Sender
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 
@@ -138,6 +139,42 @@ class FeederProtocol():
                 d.addErrback(self._handle_error, "working on", url)
         return d
 
+    def processDMs(self, listdms, user):
+        if not listdms:
+            return None
+        ids = []
+        dms = []
+        for i in listdms:
+            date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
+            if datetime.today() - date > timedelta(hours=12):
+                break
+            tid = long(i.get('id', ''))
+            if tid:
+                ids.append(tid)
+                sender = i.get('sender_screen_name', '')
+                dm, self.fact.cache_urls = clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
+                dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
+        existing = [t['_id'] for t in self.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        news = [t for t in dms if t['_id'] not in existing]
+        if news:
+            news.reverse()
+            try:
+                self.db['dms'].insert(news, continue_on_error=True, safe=True)
+            except pymongo.errors.OperationFailure as e:
+                self._handle_error(e, "recording DMs batch", url)
+            self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
+        return None
+
+    def startdms(self, conf):
+        d = defer.succeed(Sender('twitter', conf))
+        if DEBUG:
+            print "[%s/dms] Query @%s's dms" % (self.fact.channel, conf['TWITTER']['USER'])
+        d.addCallback(Sender.get_directmsgs)
+        d.addErrback(self._handle_error, "gettings DMs from", conf['TWITTER']['USER'])
+        d.addCallback(self.processDMs, conf['TWITTER']['USER'])
+        d.addErrback(self._handle_error, "working on DMs from", conf['TWITTER']['USER'])
+        return d
+
 class FeederFactory(protocol.ClientFactory):
 
     def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
@@ -160,7 +197,11 @@ class FeederFactory(protocol.ClientFactory):
     def start(self):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (self.database, self.channel, self.delay, self.simul_conns, self.feeds)
-        self.runner = task.LoopingCall(self.run)
+        if self.database == "dms":
+            conf = chanconf(self.channel)
+            self.runner = task.LoopingCall(self.protocol.startdms, conf)
+        else:
+            self.runner = task.LoopingCall(self.run)
         self.runner.start(self.delay + 2)
 
     def end(self):
@@ -186,14 +227,4 @@ class FeederFactory(protocol.ClientFactory):
             else:
                 self.protocol.start(group)
         return defer.succeed(True)
-
-
-rss_feeds = ['http://www.icerocket.com/search?tab=twitter&q=gazouilleur&rss=1',
-          'http://www.icerocket.com/search?tab=twitter&q=regardscitoyens&rss=1',
-          'http://www.icerocket.com/search?tab=twitter&q=deputes&rss=1&p=2',
-          'http://www.regardscitoyens.org/feed/']
-
-if __name__ == "__main__":
-    FeederFactory(None, "#rc-test", "new", 20, 3, 15, rss_feeds).start()
-    reactor.run()
 
