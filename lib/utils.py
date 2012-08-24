@@ -90,7 +90,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 urls[url0] = url1
                 urls[url1] = url1
             except (URLError, UnicodeError, UnicodeDecodeError) as e:
-                if config.DEBUG:
+                if config.DEBUG and not first:
                     print "ERROR trying to access %s : %s" % (url0, e)
                 url1 = url00
         if first:

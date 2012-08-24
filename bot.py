@@ -394,7 +394,10 @@ class IRCBot(irc.IRCClient):
         if user == '':
             return "Please ask for a specific nickname."
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
-        res = list(self.db['logs'].find({'channel': channel, 'user': user.lower(), 'message': re_user}, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
+        query = {'user': user.lower(), 'message': re_user}
+        if channel != self.nickname:
+            query['channel'] = channel
+        res = list(self.db['logs'].find(query, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         if res:
             res.reverse()
             return " —— ".join(["%s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1]) for m in res])
@@ -543,12 +546,12 @@ class IRCBot(irc.IRCClient):
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweets(self, tweet, channel=None, nick=None):
         """!lasttweets <word> [<N>] : Prints the last or <N< last tweets matching <word> (options from !last can apply)."""
-        return self.command_lastwith("'%s' %s" % (str_re_tweets, tweet), channel, nick)
+        return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
 
     str_re_news = '^\[News — '
     def command_lastnews(self, tweet, channel=None, nick=None):
         """!lastnews <word> [<N>] : Prints the last or <N< last news matching <word> (options from !last can apply)."""
-        return self.command_lastwith("'%s' %s" % (str_re_news, tweet), channel, nick)
+        return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
 
 
   # ------------------
