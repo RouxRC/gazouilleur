@@ -613,6 +613,7 @@ class IRCBot(irc.IRCClient):
         """!title <url> : Prints the title of the webpage at <url>."""
         d = getPage(url)
         d.addCallback(self._parse_pagetitle, url)
+        d.addErrback(lambda _: "I cannot access the webpage at %s" % url)
         return d
 
     def _parse_pagetitle(self, page_contents, url):
