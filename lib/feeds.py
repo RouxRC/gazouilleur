@@ -100,7 +100,7 @@ class FeederProtocol():
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             news.reverse()
-            if fresh and len(news) > len(feed.entries) / 2 :
+            if fresh and len(news) > len(feed.entries) / 2 and url[-1:] <= "3":
                 reactor.callLater(10, self.start, [next_page(url)])
             text = []
             if not self.fact.displayRT:
