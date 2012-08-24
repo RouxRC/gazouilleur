@@ -19,7 +19,7 @@ MONGODB = {
 # GLOBAL_USERS will have rights to perform all available commands on all channels
 GLOBAL_USERS = ['Roux']
 
-# First channel will benefit of private use of !last commands
+# First channel will benefit of private use of !last commands if the option --chan is not specified
 CHANNELS = {
   'regardscitoyens': {
     'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
