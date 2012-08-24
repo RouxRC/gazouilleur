@@ -459,11 +459,13 @@ class IRCBot(irc.IRCClient):
     def command_answer(self, rest, channel=None, nick=None):
         """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         tweet_id, text = self._extract_digit(rest)
-        if not tweet_id or text == "":
+        if tweet_id < 2 or text == "":
             return "Please input a correct tweet_id and message."
-        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id)
-        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
-        return defer.DeferredList([d1, d2], consumeErrors=True)
+        dl = []
+        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
+        if chan_has_identica(channel):
+            dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
+        return defer.DeferredList(dl, consumeErrors=True)
 
     def command_dm(self, rest, channel=None, nick=None):
         """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
