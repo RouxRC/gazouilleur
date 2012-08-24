@@ -204,7 +204,7 @@ class IRCBot(irc.IRCClient):
 
     def _msg(self, target, msg):
         self.log(msg.decode('utf-8'), self.nickname, target)
-        irc.IRCClient.msg(self, target, msg)
+        irc.IRCClient.msg(self, target, msg, 450)
 
     def msg(self, target, msg, delay=0):
         reactor.callLater(delay, self._msg, target, msg)
