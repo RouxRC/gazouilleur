@@ -580,11 +580,19 @@ class IRCBot(irc.IRCClient):
         return "No pad is currently set for this channel."
 
     def command_runlater(self, rest, channel=None, nick=None):
-        """!saylater <minutes> <!command [arguments]> : Schedules <!command> in <minutes>."""
+        """!saylater <minutes> [--chan <channel>] <!command [arguments]> : Schedules <!command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
         when, task = self._extract_digit(rest)
         when = max(1, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
+        if task.startswith("--chan "):
+            tmpchan = task[7:task.find(' ', 7)]
+            tmpchan2 = '#'+tmpchan.lower().lstrip('#')
+            if tmpchan2 in self.factory.channels:
+                channel = tmpchan2
+            else:
+                return "I do not follow this channel."
+            task = task.replace("--chan %s " % tmpchan, "")
         target = nick if channel == self.nickname else channel
         if task.startswith('!'):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
