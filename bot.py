@@ -442,6 +442,10 @@ class IRCBot(irc.IRCClient):
         command = getattr(conn, command, None)
         return command(**kwargs)
 
+    def command_dms(self, rest, channel=None, *args):
+        """! ."""
+        return threads.deferToThread(Sender.get_directmsgs, Sender('twitter', chanconf(channel)))
+
     def command_identica(self, text, channel=None, nick=None):
         """!identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)

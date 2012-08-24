@@ -69,3 +69,11 @@ class Sender():
         args = {'user': user, 'text': text}
         return self._send_query(function, args)
 
+    def get_directmsgs(self):
+        try:
+            dms = self.conn.direct_messages()
+            print dms
+            return dms
+        except Exception as e:
+            print "ERROR", e
+            return []
