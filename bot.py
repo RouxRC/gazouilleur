@@ -301,7 +301,7 @@ class IRCBot(irc.IRCClient):
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
-    re_lastcommand = re.compile(r'^!last', re.I)
+    re_lastcommand = re.compile(r'^!(last|more)', re.I)
     re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
     re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
     def command_lastmore(self, rest, channel=None, nick=None):
@@ -322,7 +322,7 @@ class IRCBot(irc.IRCClient):
             ct2, text = self._extract_digit(text)
             ct += min(ct2, 5)
             tmprest = "%s %s" % (text, tmprest)
-            if command != "lastmore":
+            if not command.endswith('more'):
                 function = self._find_command_function(command)
                 if not self.re_optionsfromwith.search(rest):
                     tmprest = "%s --skip %s" % (tmprest, st+ct)
