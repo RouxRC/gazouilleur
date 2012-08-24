@@ -3,6 +3,7 @@
 
 import sys, re, urllib, md5
 from urllib2 import urlopen, URLError
+import socket
 import pymongo, htmlentitydefs
 sys.path.append('..')
 import config
@@ -40,15 +41,20 @@ def _handle_quotes(args, regexp):
 def handle_quotes(args):
     return _handle_quotes(_handle_quotes(args, re_handle_quotes), re_handle_simple_quotes)
 
+QUOTES = u'«»“”"\'’‘`'
+def remove_ext_quotes(arg):
+    quotes = QUOTES.encode('utf-8')
+    return arg.strip().lstrip(quotes).rstrip(quotes).strip()
+
 # URL recognition adapted from Twitter's
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
-QUOTE_CHARS = ur'[«»“”"\'’‘`]'
+QUOTE_CHARS = r'[%s]' % QUOTES
 PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:?!=)])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[\.-]|[^\s_\!\.\/])+\.[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
-PATH_ENDING_CHARS = r'[%s=#/]' % UTF_CHARS
+PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
 URL_REGEX = re.compile('((%s+)((?:https?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
@@ -62,7 +68,7 @@ def countchars(text):
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
-re_clean_url3 = re.compile(ur'(%s|%s|[…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
+re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
 def clean_url(url):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -89,7 +95,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
-            except (URLError, UnicodeError, UnicodeDecodeError) as e:
+            except (URLError, UnicodeError, UnicodeDecodeError, socket.timeout) as e:
                 if config.DEBUG and not first:
                     print "ERROR trying to access %s : %s" % (url0, e)
                 url1 = url00
@@ -137,7 +143,7 @@ def getFeeds(channel, database, db, nourl=False):
         # create combined queries on Icerocket from search words retrieved in db
         query = ""
         for feed in queries:
-            arg = str(feed['query']).replace('@', 'from:')
+            arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
             if not nourl:
                 arg = "(%s)OR" % urllib.quote(arg, '')
             else:
@@ -146,7 +152,7 @@ def getFeeds(channel, database, db, nourl=False):
                 query += arg
             else:
                 urls.append(formatQuery(query, nourl))
-                query = ""
+                query = arg
         if query != "":
             urls.append(formatQuery(query, nourl))
     else:

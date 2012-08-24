@@ -513,7 +513,7 @@ class IRCBot(irc.IRCClient):
 
     re_url = re.compile(r'^https?://\S+$', re.I)
     def _parse_follow_command(self, query):
-        query = query.strip()
+        query = remove_ext_quotes(query.lower())
         database = 'news'
         if not self.re_url.match(query):
             database = 'tweets'
