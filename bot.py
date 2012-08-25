@@ -563,7 +563,7 @@ class IRCBot(irc.IRCClient):
   # ------------------
   # Other commands...
 
-    re_url_pad = re.compile(r'http://.*pad', re.I)
+    re_url_pad = re.compile(r'https?://.*pad', re.I)
     def command_setpad(self, rest, channel=None, nick=None):
         """!setpad <url> : Defines <url> of the current etherpad./AUTH"""
         url = rest.strip()
