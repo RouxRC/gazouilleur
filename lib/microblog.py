@@ -23,15 +23,16 @@ class Sender():
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
         self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
-    def _send_query(self, function, args, tryout=0, previous_exception=None, print_result=False):
-        if tryout > 2: 
+    def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False):
+        if tryout > 2:
             return previous_exception
         try:
-            if not print_result:
+            if not return_result:
                 args['trim_user'] = 'true'
             args['source'] = config.BOTNAME
             res = function(**args)
-            if print_result:
+            if return_result:
+                print res
                 return res
             elif config.DEBUG:
                 print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
@@ -43,36 +44,26 @@ class Sender():
             return self._send_query(function, args, tryout+1, exception)
 
     def microblog(self, text="", tweet_id=None):
-        function = getattr(self.conn.statuses, 'update', None)
         args = {'status': text}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
-        return self._send_query(function, args)
+        return self._send_query(self.conn.statuses.update, args)
 
     def delete(self, tweet_id):
-        function = getattr(self.conn.statuses, 'destroy', None)
-        args = {'id': tweet_id}
-        return self._send_query(function, args)
+        return self._send_query(self.conn.statuses.destroy, {'id': tweet_id})
 
     def retweet(self, tweet_id):
-        function = getattr(self.conn.statuses, 'retweet', None)
-        args = {'id': tweet_id}
-        return self._send_query(function, args)
+        return self._send_query(self.conn.statuses.retweet, {'id': tweet_id})
 
     def show_status(self, tweet_id):
-        function = getattr(self.conn.statuses, 'show', None)
-        args = {'id': tweet_id}
-        return self._send_query(function, args, print_result=True)
+        return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
     def directmsg(self, user, text):
-        function = getattr(self.conn.direct_messages, 'new', None)
-        args = {'user': user, 'text': text}
-        return self._send_query(function, args)
+        return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_directmsgs(self):
-        try:
-            dms = self.conn.direct_messages()
-            return dms
-        except Exception as e:
-            print "ERROR", e
-            return []
+        return self._send_query(self.conn.direct_messages, return_result=True)
+
+    def get_stats(self):
+        return self._send_query(self.conn.account.totals, return_result=True)
+

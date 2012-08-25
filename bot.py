@@ -91,8 +91,12 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+            # Follow tweets and mentions for Twitter USER set for the channel
             self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
+            # Follow DMs sent for Twitter USER for the channel
             self.feeders[channel]['mydms'] = FeederFactory(self, channel, 'dms', 177)
+            # Run stats on the account every hour
+            # self.feeders[channel]['stats'] = None
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf))
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
         n = self.factory.channels.index(channel) + 1
@@ -494,7 +498,7 @@ class IRCBot(irc.IRCClient):
             if countchars(tweet) > 140:
                 tweet = "%s…" % tweet[:139]
             return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
-        return "Cannot find tweet %s on Twitter." % tweet_id
+        return "[identica] Cannot find tweet %s on Twitter." % tweet_id
 
     def command_rt(self, tweet_id, channel=None, nick=None):
         """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
