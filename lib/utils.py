@@ -257,8 +257,9 @@ def print_stats(db, user):
                 found = True
         rts += s ['rts_last_hour']
     res = []
-    res.append("Tweets: %d total " % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['stats%sH' % i]['tweets'], delays[i]) for i in order if 'stats%sH' % i in olds]))
-    res.append("Followers: %d total " % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['stats%sH' % i]['followers'], delays[i]) for i in order if 'stats%sH' % i in olds]))
-    res.append("RTs: %s last hour " % stat['rts_last_hour'] + " ; ".join([""]+["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order[1:] if 'stats%sH' % i in olds]))
+    res.append("Tweets: %d total " % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['stats%sH' % i]['tweets'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['tweets']]))
+    res.append("Followers: %d total " % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['stats%sH' % i]['followers'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['followers']]))
+    olds['stats1H'] = {'rts': stat['rts_last_hour']}
+    res.append("RTs: " + " ; ".join(["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['rts']]))
     return [(True, "[Stats] %s" % m) for m in res]
 
