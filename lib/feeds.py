@@ -123,6 +123,10 @@ class FeederProtocol():
     def displayTweet(self, t):
         return (True, "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
+    def _handle_error_dl(self, failure, url):
+        print "ERROR downloading %s: %s" % (url, e)
+        return None
+
     def start(self, urls=None):
         d = defer.succeed('')
         for url in urls:
@@ -130,7 +134,7 @@ class FeederProtocol():
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             if not self.in_cache(url):
                 d.addCallback(self.get_page, url)
-                d.addErrback(self._handle_error, "downloading", url)
+                d.addErrback(self._handle_error_dl, "downloading", url)
                 d.addCallback(self.get_data_from_page, url)
                 d.addErrback(self._handle_error, "parsing", url)
                 if self.fact.database == "tweets":

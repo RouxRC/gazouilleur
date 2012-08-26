@@ -51,8 +51,8 @@ def remove_ext_quotes(arg):
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
 QUOTE_CHARS = r'[%s]' % QUOTES
-PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:?!=)])' % (SPACES, QUOTE_CHARS)
-DOMAIN_CHARS = ur'(?:[^\s_\!\.\/]+\.)+[a-z]{2,3}(?::[0-9]+)?'
+PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!)])' % (SPACES, QUOTE_CHARS)
+DOMAIN_CHARS = ur'(?:[^\&=\s_\!\.\/]+\.)+[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
 PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
@@ -82,7 +82,6 @@ def clean_url(url):
 
 def _clean_redir_urls(text, urls={}, first=True):
     for res in URL_REGEX.findall(text):
-        
         url00 = res[2].encode('utf-8')
         url0 = url00
         if not url00.startswith('http'):
@@ -93,11 +92,11 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=20).geturl()
+                url1 = urlopen(url0, timeout=15).geturl()
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
-            except (URLError, UnicodeError, UnicodeDecodeError, socket.timeout) as e:
+            except Exception as e:
                 if config.DEBUG and not first:
                     print "ERROR trying to access %s : %s" % (url0, e)
                 url1 = url00

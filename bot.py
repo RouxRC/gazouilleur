@@ -94,11 +94,11 @@ class IRCBot(irc.IRCClient):
             # Run stats on the account every hour
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
             # Follow tweets and mentions for Twitter USER set for the channel
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 59, 1, 30, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
             # Follow DMs sent for Twitter USER for the channel
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
         # Follow tweets matching queries set for this channel with !follow
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf))
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 30, [], chan_displays_rt(channel, conf))
         # Follow rss matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
         n = self.factory.channels.index(channel) + 1
