@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+from datetime import datetime
 from twitter import *
 from utils import *
 sys.path.append('..')
@@ -18,6 +19,8 @@ class Sender():
             self.auth = UserPassAuth(self.conf['USER'], self.conf['PASS'])
         elif self.site == "twitter":
             self.conf = conf['TWITTER']
+            if 'USER' in self.conf:
+                self.user = self.conf['USER']
             self.domain = "api.twitter.com"
             self.api_version = "1"
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
@@ -32,7 +35,6 @@ class Sender():
             args['source'] = config.BOTNAME
             res = function(**args)
             if return_result:
-                print res
                 return res
             elif config.DEBUG:
                 print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
@@ -61,9 +63,14 @@ class Sender():
     def directmsg(self, user, text):
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
-    def get_directmsgs(self):
+    def get_dms(self, **kwargs):
         return self._send_query(self.conn.direct_messages, return_result=True)
 
-    def get_stats(self):
-        return self._send_query(self.conn.account.totals, return_result=True)
-
+    def get_stats(self, db=None):
+        timestamp = timestamp_hour(datetime.today())
+        last = db['stats'].find_one({'user': self.user.lower()}, sort=[('timestamp', pymongo.DESCENDING)])
+        if last and timestamp == last['timestamp']:
+            res = None
+        else:
+            res = self._send_query(self.conn.account.totals, return_result=True)
+        return res, last, timestamp

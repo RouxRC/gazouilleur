@@ -3,6 +3,7 @@
 
 import sys, re, urllib, md5
 from urllib2 import urlopen, URLError
+from datetime import datetime, timedelta
 import socket
 import pymongo, htmlentitydefs
 sys.path.append('..')
@@ -233,3 +234,30 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
         return False
     return True
 
+timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
+
+def print_stats(db, user):
+    now = timestamp_hour(datetime.today())
+    since = now - timedelta(days=30)
+    stats = db['stats'].find({'user': user, 'timestamp': {'$gte': since}}, sort=[('timestamp', pymongo.DESCENDING)])
+    if not stats.count():
+        return "%s %s %s" % (user, now, since)
+    stat = stats[0]
+    rts = 0
+    delays = {1: 'hour', 6: '6 hours', 24: 'day', 7*24: 'week', 30*24: 'month'}
+    order = delays.keys()
+    order.sort()
+    olds = {}
+    for s in stats:
+        delay = (now - s['timestamp']).total_seconds() / 3600
+        found = False
+        for i in order:
+            if delay >= i and 'stats%sH' % i not in olds and not found:
+                olds['stats%sH' % i] = {'tweets': stat['tweets'] - s['tweets'], 'followers': stat['followers'] - s['followers'], 'rts': rts}
+                found = True
+        rts += s ['rts_last_hour']
+    res = []
+    res.append("Tweets: %d total " % stat['tweets'] + " ; ".join(["%d last %s" %  (olds['stats%sH' % i]['tweets'], delays[i]) for i in order if 'stats%sH' % i in olds]))
+    res.append("Followers: %d total " % stat['followers'] + " ; ".join(["%+d last %s" %  (olds['stats%sH' % i]['followers'], delays[i]) for i in order if 'stats%sH' % i in olds]))
+    res.append("RTs: %s last hour " % stat['rts_last_hour'] + " ; ".join(["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order[1:] if 'stats%sH' % i in olds]))
+    return [(True, "[Stats] %s" % m) for m in res]

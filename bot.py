@@ -91,13 +91,15 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+            # Run stats on the account every hour
+            self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
             # Follow tweets and mentions for Twitter USER set for the channel
             self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 73, 1, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
             # Follow DMs sent for Twitter USER for the channel
-            self.feeders[channel]['mydms'] = FeederFactory(self, channel, 'dms', 177)
-            # Run stats on the account every hour
-            # self.feeders[channel]['stats'] = None
+            self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
+        # Follow tweets matching queries set for this channel with !follow
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 20, [], chan_displays_rt(channel, conf))
+        # Follow rss matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
         n = self.factory.channels.index(channel) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
@@ -106,9 +108,11 @@ class IRCBot(irc.IRCClient):
     def left(self, channel):
         log.msg("Left %s." % (channel,))
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
-        for f in self.feeders[channel].keys():
-            self.feeders[channel][f].end()
-        self.logger[channel].close()
+        if channel in self.feeders:
+            for f in self.feeders[channel].keys():
+                self.feeders[channel][f].end()
+        if channel in self.logger:
+            self.logger[channel].close()
 
   # ----------------------------------
   # Identification when nickname used
@@ -237,7 +241,6 @@ class IRCBot(irc.IRCClient):
             delay = self.msg(target, msg, delay)
 
     def _show_error(self, failure, target, nick=None):
-        failure.trap(Exception)
         log.msg("ERROR: %s" % failure)
         msg = "%s: Woooups, something is wrong..." % nick
         delay = random.random()*len(self.factory.channels)*2
@@ -511,6 +514,13 @@ class IRCBot(irc.IRCClient):
         if chan_has_identica(channel, conf):
             dl.append(defer.maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
         return defer.DeferredList(dl, consumeErrors=True)
+
+    def command_stats(self, rest, channel=None, nick=None):
+        """!stats : Prints stats on the Twitter account set for the channel./TWITTER"""
+        conf = chanconf(channel)
+        if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
+            return print_stats(self.db, conf["TWITTER"]["USER"].lower())
+        return "No Twitter account set for this channel."
 
   # ----------------------------
   # Twitter monitoring commands
