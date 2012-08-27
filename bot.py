@@ -342,7 +342,8 @@ class IRCBot(irc.IRCClient):
         # For private queries, give priority to first listed chan for the use of !last commands
         if channel == self.nickname:
             channel = self.factory.channels[0]
-        query = {'channel': channel, 'message': {'$not': self.re_lastcommand}, '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
+        re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
+        query = {'channel': channel, '$and': [{'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
         nb = 1
         st = 0
         current = ""
@@ -357,13 +358,7 @@ class IRCBot(irc.IRCClient):
                 if arg == self.str_re_tweets or arg == self.str_re_news:
                     clean_my_nick = True
                 re_arg = re.compile("%s" % arg, re.I)
-                if '$and' in query:
-                    query['$and'].append({'message': re_arg})
-                elif '$regex' not in query['message']:
-                    query['message']['$regex'] = re_arg
-                else:
-                    query['$and'] = [{'message': query['message']['$regex']}, {'message': re_arg}]
-                    query['message'].pop('$regex')
+                query['$and'].append({'message': re_arg})
                 current = ""
             elif current == "s":
                 st = max(st, safeint(arg))
