@@ -46,6 +46,8 @@ class Sender():
             return self._send_query(function, args, tryout+1, exception)
 
     def microblog(self, text="", tweet_id=None):
+        if self.site == "twitter":
+            text = text.replace('~', '&#126;')
         args = {'status': text}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
@@ -61,6 +63,7 @@ class Sender():
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
     def directmsg(self, user, text):
+        text = text.replace('~', '&#126;')
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
