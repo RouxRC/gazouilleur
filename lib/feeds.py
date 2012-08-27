@@ -25,7 +25,9 @@ class FeederProtocol():
         self.db = self.fact.db
 
     def _handle_error(self, traceback, msg, url):
-        self.fact.ircclient._show_error(failure.Failure("%s %s : %s" % (msg, url, traceback)), self.fact.channel)
+        if msg != "downloading":
+            self.fact.ircclient._show_error(failure.Failure("%s %s : %s" % (msg, url, traceback.getErrorMessage())), self.fact.channel)
+        print traceback.printTraceback()
 
     def in_cache(self, url):
         already_got = self.fact.cache.get(url, None)
@@ -139,7 +141,7 @@ class FeederProtocol():
                 d.addErrback(self._handle_error, "working on", url)
         return d
 
-    def processDMs(self, listdms, user):
+    def process_dms(self, listdms, user):
         if not listdms:
             return None
         ids = []
@@ -153,7 +155,7 @@ class FeederProtocol():
                 ids.append(tid)
                 sender = i.get('sender_screen_name', '')
                 dm, self.fact.cache_urls = clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
-                dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
+                dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
         existing = [t['_id'] for t in self.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         news = [t for t in dms if t['_id'] not in existing]
         if news:
@@ -165,15 +167,43 @@ class FeederProtocol():
             self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
         return None
 
-    def startdms(self, conf):
+    def process_stats(self, res, user):
+        if not res:
+            return None
+        stats, last, timestamp = res
+        if not stats:
+            return None
+        if not last:
+            last = {'tweets': 0, 'followers': 0}
+            since = timestamp - timedelta(hours=1)
+        else:
+            since = last['timestamp']
+        re_match_rts = re.compile(r'([MLR]T|%s)+\s*@?%s' % (QUOTE_CHARS, user), re.I)
+        rts = self.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, snapshot=True, fields=['_id'])
+        nb_rts = rts.count() if rts.count() else 0
+        stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
+        self.db['stats'].insert(stat)
+        if (timestamp.hour == '13' or timestamp.hour == '18'):
+            self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
+        last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
+        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == '11' or timestamp.hour == '17'):
+            reactor.callLater(3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
+        return None
+
+    def start_twitter(self, database, conf, user):
         d = defer.succeed(Sender('twitter', conf))
         if DEBUG:
-            print "[%s/dms] Query @%s's dms" % (self.fact.channel, conf['TWITTER']['USER'])
-        d.addCallback(Sender.get_directmsgs)
-        d.addErrback(self._handle_error, "gettings DMs from", conf['TWITTER']['USER'])
-        d.addCallback(self.processDMs, conf['TWITTER']['USER'])
-        d.addErrback(self._handle_error, "working on DMs from", conf['TWITTER']['USER'])
+            print "[%s/%s] Query @%s's %s" % (self.fact.channel, database, user, database)
+        def passs(*args, **kwargs):
+            raise Exception("No process existing for %s" % database)
+        source = getattr(Sender, 'get_%s' % database, passs)
+        processor = getattr(self, 'process_%s' % database, passs)
+        d.addCallback(source, db=self.db)
+        d.addErrback(self._handle_error, "gettings %s from" % database, user)
+        d.addCallback(processor, user.lower())
+        d.addErrback(self._handle_error, "working on %s from" % database, user)
         return d
+
 
 class FeederFactory(protocol.ClientFactory):
 
@@ -193,19 +223,20 @@ class FeederFactory(protocol.ClientFactory):
             os.makedirs(self.cache_dir)
         self.cache = {}
         self.cache_urls = {}
+        self.runner = None
 
     def start(self):
         if DEBUG:
             print "Start %s feeder for %s every %ssec by %s connections %s" % (self.database, self.channel, self.delay, self.simul_conns, self.feeds)
-        if self.database == "dms":
+        if self.database == "dms" or self.database == "stats":
             conf = chanconf(self.channel)
-            self.runner = task.LoopingCall(self.protocol.startdms, conf)
+            self.runner = task.LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
         else:
             self.runner = task.LoopingCall(self.run)
         self.runner.start(self.delay + 2)
 
     def end(self):
-        if self.runner:
+        if self.runner and self.runner.running:
             self.runner.stop()
 
     def run(self):
