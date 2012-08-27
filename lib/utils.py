@@ -51,7 +51,7 @@ def remove_ext_quotes(arg):
 # https://github.com/BonsaiDen/twitter-text-python/blob/master/ttp.py
 UTF_CHARS = ur'a-z0-9_\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff'
 QUOTE_CHARS = r'[%s]' % QUOTES
-PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!)])' % (SPACES, QUOTE_CHARS)
+PRE_CHARS = ur'(?:^|$|%s|%s|[…<>:!()])' % (SPACES, QUOTE_CHARS)
 DOMAIN_CHARS = ur'(?:[^\&=\s_\!\.\/]+\.)+[a-z]{2,3}(?::[0-9]+)?'
 PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHARS, '%')
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
