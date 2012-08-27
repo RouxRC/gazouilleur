@@ -259,6 +259,10 @@ def print_stats(db, user):
     res.append("Tweets: %d total " % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['stats%sH' % i]['tweets'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['tweets']]))
     res.append("Followers: %d total " % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['stats%sH' % i]['followers'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['followers']]))
     olds['stats1H'] = {'rts': stat['rts_last_hour']}
+    for i in order:
+        if rts and 'stats%sH' % i not in olds:
+            olds['stats%sH' % i] = {'rts': rts}
+            break
     res.append("RTs: " + " ; ".join(["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['rts']]))
     return [(True, "[Stats] %s" % m) for m in res]
 
