@@ -9,7 +9,7 @@ import pymongo, htmlentitydefs
 sys.path.append('..')
 import config
 
-SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2002-\u202F\u205F\u2060\u3000]'
+SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)
 cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 
@@ -42,7 +42,7 @@ def _handle_quotes(args, regexp):
 def handle_quotes(args):
     return _handle_quotes(_handle_quotes(args, re_handle_quotes), re_handle_simple_quotes)
 
-QUOTES = u'«»“”"\'’‘`'
+QUOTES = u'«»„‟“”"\'’‘`‛'
 def remove_ext_quotes(arg):
     quotes = QUOTES.encode('utf-8')
     return arg.strip().lstrip(quotes).rstrip(quotes).strip()
