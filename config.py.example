@@ -19,6 +19,9 @@ MONGODB = {
 # GLOBAL_USERS will have rights to perform all available commands on all channels
 GLOBAL_USERS = ['Roux']
 
+# Number of hours back in the past follow queries will catch-up
+BACK_HOURS = 6
+
 # First channel will be the focus of !last commands sent in private to the bot when option --chan is not specified
 CHANNELS = {
   'regardscitoyens': {

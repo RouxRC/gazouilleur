@@ -60,7 +60,7 @@ class FeederProtocol():
             date = i.get('published_parsed', '')
             if date:
                 date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', '')))
-                if datetime.today() - date > timedelta(hours=24):
+                if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
             link, self.fact.cache_urls = clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
             sourcename = unescape_html(sourcename)
@@ -87,7 +87,7 @@ class FeederProtocol():
         fresh = True
         for i in feed.entries:
             date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-4*60*60)
-            if datetime.today() - date > timedelta(hours=12):
+            if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
             tweet, self.fact.cache_urls = clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
@@ -150,7 +150,7 @@ class FeederProtocol():
         dms = []
         for i in listdms:
             date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
-            if datetime.today() - date > timedelta(hours=12):
+            if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 break
             tid = long(i.get('id', ''))
             if tid:
