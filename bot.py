@@ -242,6 +242,8 @@ class IRCBot(irc.IRCClient):
 
     def _show_error(self, failure, target, nick=None):
         log.msg("ERROR: %s" % failure)
+        if not nick:
+            return
         msg = "%s: Woooups, something is wrong..." % nick
         delay = random.random()*len(self.factory.channels)*2
         if config.DEBUG:
@@ -520,32 +522,41 @@ class IRCBot(irc.IRCClient):
   # ----------------------------
   # Twitter monitoring commands
 
-    re_url = re.compile(r'^https?://\S+$', re.I)
+    re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     def _parse_follow_command(self, query):
         query = remove_ext_quotes(query.lower())
-        database = 'news'
-        if not self.re_url.match(query):
+        if not self.re_url.search(query):
             database = 'tweets'
-        return database, query
+            url = query
+            name = 'TWEETS: %s' % query
+        else:
+            database = 'news'
+            url = self.re_url.search(query).group(1)
+            name = self.re_url.sub('', query).strip().lower()
+        return database, url, name
 
     def command_follow(self, query, channel=None, nick=None):
-        """!follow <url|text| @user> : Asks me to follow and display elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
-        database, query = self._parse_follow_command(query)
+        """!follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        database, query, name = self._parse_follow_command(query)
         if len(query) > 300:
             return "Please limit your follow queries to a maximum of 300 characters"
-        self.db['feeds'].update({'database': database, 'channel': channel, 'query': query}, {'database': database, 'channel': channel, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        if database == "news" and name == "":
+            return "Please provide a name for this url feed."
+        self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        if database == "news":
+            query = "%s <%s>" % (name, query)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
     def command_unfollow(self, query, channel=None, *args):
-        """!unfollow <url|text|@user> : Asks me to stop following and displaying elements from a RSS at <url>, or tweets matching <text> or from <@user>./AUTH"""
-        database, query = self._parse_follow_command(query)
-        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'query': query}, safe=True)
+        """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
+        database, query, name = self._parse_follow_command(query)
+        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'name': name}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
         return '"%s" query removed from %s database for %s'  % (query, database, channel)
 
     def command_list(self, database, channel=None, *args):
-        """!list [tweets|news]: Displays the list of queries followed for current channel."""
+        """!list [tweets|news] : Displays the list of queries followed for current channel."""
         database = database.strip()
         if database != "tweets" and database != "news":
             return "Please enter either !list tweets or !list news."
@@ -557,6 +568,13 @@ class IRCBot(irc.IRCClient):
         if res:
             return res
         return "No query set for %s." % database
+
+    def command_newsurl(self, name, channel=None, *args):
+       """!newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
+       res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
+       if res:
+            return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
+       return "No news feed named « %s » for this channel" % name
 
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweets(self, tweet, channel=None, nick=None):

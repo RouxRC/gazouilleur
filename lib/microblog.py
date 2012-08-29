@@ -39,7 +39,7 @@ class Sender():
             elif config.DEBUG:
                 print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
             return "[%s] Huge success!" % self.site
-        except TwitterHTTPError as e:
+        except Exception as e:
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
                 print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)

@@ -1,7 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 
-import sys, re, urllib, md5
+import sys, re, urllib, hashlib
 from urllib2 import urlopen, URLError
 from datetime import datetime, timedelta
 import socket
@@ -112,7 +112,7 @@ def clean_redir_urls(text, urls):
     return _clean_redir_urls(text, urls, False)
 
 def get_hash(url):
-    hash = md5.new(url)
+    hash = hashlib.md5(url)
     return hash.hexdigest()
 
 re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@[a-zA-Z0-9_]{1,15}[: ,]*' % QUOTE_CHARS)
@@ -140,7 +140,7 @@ def formatQuery(query, nourl=False):
 def getFeeds(channel, database, db, nourl=False):
     urls = []
     db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
+    queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)])
     if database == "tweets":
         # create combined queries on Icerocket from search words retrieved in db
         query = ""
@@ -158,7 +158,17 @@ def getFeeds(channel, database, db, nourl=False):
         if query != "":
             urls.append(formatQuery(query, nourl))
     else:
-        urls = [str(feed['query']) for feed in queries]
+        if nourl:
+            query = ""
+            for feed in queries:
+                query += " «%s»  | " % str(feed['name'].encode('utf-8'))
+                if len(query) > 300:
+                    urls.append(formatQuery(query, nourl))
+                    query = ""
+            if query != "":
+                urls.append(formatQuery(query, nourl))
+        else:
+            urls = [str(feed['query']) for feed in queries]
     return urls
 
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
@@ -248,22 +258,28 @@ def print_stats(db, user):
     delays = {1: 'hour', 6: '6 hours', 24: 'day', 7*24: 'week', 30*24: 'month'}
     order = delays.keys()
     order.sort()
-    olds = {}
+    olds = {'tweets': {}, 'followers': {}, 'rts': {}}
     for s in stats:
-        delay = (now - s['timestamp']).total_seconds() / 3600
+        d = now - s['timestamp']
+        delay = d.seconds / 60 + d.days * 24
         found = False
         for i in order:
             if delay >= i and 'stats%sH' % i not in olds and not found:
-                olds['stats%sH' % i] = {'tweets': stat['tweets'] - s['tweets'], 'followers': stat['followers'] - s['followers'], 'rts': rts}
+                if 'stats%sH' % i not in olds['tweets'] and stat['tweets'] - s['tweets'] not in olds['tweets'].values():
+                    olds['tweets']['stats%sH' % i] = stat['tweets'] - s['tweets']
+                if 'stats%sH' % i not in olds['followers'] and stat['followers'] - s['followers'] not in olds['followers'].values():
+                    olds['followers']['stats%sH' % i] = stat['followers'] - s['followers']
+                if 'stats%sH' % i not in olds['rts'] and rts not in olds['rts'].values():
+                    olds['rts']['stats%sH' % i] = rts
                 found = True
         rts += s ['rts_last_hour']
     res = []
-    res.append("Tweets: %d total " % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['stats%sH' % i]['tweets'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['tweets']]))
-    res.append("Followers: %d total " % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['stats%sH' % i]['followers'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['followers']]))
-    olds['stats1H'] = {'rts': stat['rts_last_hour']}
+    res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
+    res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
+    olds['rts']['stats1H'] = stat['rts_last_hour']
     for i in order:
-        if rts and 'stats%sH' % i not in olds:
-            olds['stats%sH' % i] = {'rts': rts}
+        if rts and 'stats%sH' % i not in olds['rts'] and rts not in olds['rts'].values():
+            olds['rts']['stats%sH' % i] = rts
             break
     res.append("RTs: " + " ; ".join(["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['rts']]))
     return [(True, "[Stats] %s" % m) for m in res]

@@ -56,6 +56,7 @@ class FeederProtocol():
             sourcename = feed.feed['title']
         ids = []
         news = []
+        links = []
         for i in feed.entries:
             date = i.get('published_parsed', '')
             if date:
@@ -63,6 +64,9 @@ class FeederProtocol():
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
             link, self.fact.cache_urls = clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
+            if link in links:
+                continue
+            links.append(link)
             sourcename = unescape_html(sourcename)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
             ids.append(link)
@@ -71,6 +75,7 @@ class FeederProtocol():
         new = [n for n in news if n['_id'] not in existing]
         if new:
             new.reverse()
+            new = new[:5]
             try:
                 self.db['news'].insert(new, continue_on_error=True, safe=True)
             except pymongo.errors.OperationFailure as e:
