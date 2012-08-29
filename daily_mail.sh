@@ -6,11 +6,12 @@
 #
 # Set below which <CHAN>'s log will be sent to <EMAILDEST>
 # To be set in a crontab 
-# 30 01 * * * bash /home/gazouilleur2/gazouilleur/daily_mail.sh
+# 30 03 * * * bash /home/gazouilleur2/gazouilleur/daily_mail.sh
+# @reboot     bash /home/gazouilleur/gazouilleur2/bot_in_env.sh
 
 BOT="gazouilleur2"
-CHAN=""
-EMAILDEST=""
+CHAN="#regardscitoyens"
+EMAILDEST="contact@regardscitoyens.org"
 
 LOGPATH=$(echo $0 | sed 's/[^\/]*$//')log/${BOT}_${CHAN}.log
 MAX_CHAR=150
