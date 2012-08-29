@@ -139,6 +139,7 @@ def formatQuery(query, nourl=False):
 
 def getFeeds(channel, database, db, nourl=False):
     urls = []
+    db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
     queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['query'], sort=[('timestamp', pymongo.ASCENDING)])
     if database == "tweets":
         # create combined queries on Icerocket from search words retrieved in db
@@ -238,6 +239,7 @@ timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=dat
 def print_stats(db, user):
     now = timestamp_hour(datetime.today())
     since = now - timedelta(days=30)
+    db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
     stats = db['stats'].find({'user': user, 'timestamp': {'$gte': since}}, sort=[('timestamp', pymongo.DESCENDING)])
     if not stats.count():
         return "%s %s %s" % (user, now, since)

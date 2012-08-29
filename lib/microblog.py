@@ -71,6 +71,7 @@ class Sender():
 
     def get_stats(self, db=None):
         timestamp = timestamp_hour(datetime.today())
+        db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         last = db['stats'].find_one({'user': self.user.lower()}, sort=[('timestamp', pymongo.DESCENDING)])
         if last and timestamp == last['timestamp']:
             res = None

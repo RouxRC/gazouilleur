@@ -127,6 +127,7 @@ class FeederProtocol():
 
     def start(self, urls=None):
         d = defer.succeed('')
+        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         for url in urls:
             if DEBUG:
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
@@ -193,6 +194,7 @@ class FeederProtocol():
 
     def start_twitter(self, database, conf, user):
         d = defer.succeed(Sender('twitter', conf))
+        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if DEBUG:
             print "[%s/%s] Query @%s's %s" % (self.fact.channel, database, user, database)
         def passs(*args, **kwargs):
