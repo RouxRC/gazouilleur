@@ -19,7 +19,7 @@ MAX_CHAR=150
 NBLINE=$(wc -l $LOGPATH | sed 's/ .*//')
 BEGINLINE=$(grep -n ^$(date -d 'yesterday' '+%Y-%m-%d') $LOGPATH | head -n 1 | sed 's/:.*//')
 TAILLINE=$(( $NBLINE - $BEGINLINE + 5))
-tail -n $TAILLINE $LOGPATH > /tmp/email_log.txt
+tail -n $TAILLINE $LOGPATH | sed 's/^/ /' | fold -w $MAX_CHAR -s | sed 's/^\([^ ]\)/                   \1/' > /tmp/email_log.txt
 echo "" >> /tmp/email_log.txt
 echo "--" >> /tmp/email_log.txt
 echo "Envoyé par $0 via la crontab de l'utilisateur gazouilleur" >> /tmp/email_log.txt
