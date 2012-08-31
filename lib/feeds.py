@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, sys, time
+import os, sys, time, hashlib
 from datetime import datetime, timedelta
 import feedparser, pymongo, urllib2
 from twisted.internet import reactor, protocol, defer, task
@@ -69,8 +69,9 @@ class FeederProtocol():
             links.append(link)
             sourcename = unescape_html(sourcename)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
-            ids.append(link)
-            news.append({'_id': "%s:%s" % (self.fact.channel, link), 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
+            _id = hashlib.md5("%s:%s:%s" % (self.fact.channel, link, title)).hexdigest()
+            ids.append(_id)
+            news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
         existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, 'link': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         new = [n for n in news if n['_id'] not in existing]
         if new:
