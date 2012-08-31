@@ -2,15 +2,15 @@
 
 #Sample script file to run the bot automatically as service within a vritualenv preset
 BOTENV=gazouilleur
-PATH=$HOME/gazouilleur2
+BOTPATH=$HOME/gazouilleur2
 
 #LOCK
-LOCK="/tmp/gazouilleur.lock"
+LOCK="/tmp/$BOTENV.lock"
 if test -e $LOCK ; then
   exit
 fi
 touch $LOCK
-cd $PATH
+cd $BOTPATH
 export WORKON_HOME=$HOME/virtualenvs
 source /usr/local/bin/virtualenvwrapper.sh
 workon $BOTENV
