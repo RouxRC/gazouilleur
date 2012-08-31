@@ -54,6 +54,7 @@ class FeederProtocol():
         sourcename = url
         if feed.feed and 'title' in feed.feed:
             sourcename = feed.feed['title']
+            sourcename = unescape_html(sourcename)
         ids = []
         news = []
         links = []
@@ -67,12 +68,11 @@ class FeederProtocol():
             if link in links:
                 continue
             links.append(link)
-            sourcename = unescape_html(sourcename)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
-            _id = hashlib.md5("%s:%s:%s" % (self.fact.channel, link, title)).hexdigest()
+            _id = hashlib.md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
-        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, 'link': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         new = [n for n in news if n['_id'] not in existing]
         if new:
             new.reverse()

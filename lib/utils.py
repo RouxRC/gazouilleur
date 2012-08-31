@@ -92,7 +92,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=15).geturl()
+                url1 = urlopen(url0, timeout=20).geturl()
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
@@ -261,17 +261,15 @@ def print_stats(db, user):
     olds = {'tweets': {}, 'followers': {}, 'rts': {}}
     for s in stats:
         d = now - s['timestamp']
-        delay = d.seconds / 60 + d.days * 24
-        found = False
+        delay = d.seconds / 3600 + d.days * 24
         for i in order:
-            if delay >= i and 'stats%sH' % i not in olds and not found:
+            if delay >= i:
                 if 'stats%sH' % i not in olds['tweets'] and stat['tweets'] - s['tweets'] not in olds['tweets'].values():
                     olds['tweets']['stats%sH' % i] = stat['tweets'] - s['tweets']
                 if 'stats%sH' % i not in olds['followers'] and stat['followers'] - s['followers'] not in olds['followers'].values():
                     olds['followers']['stats%sH' % i] = stat['followers'] - s['followers']
                 if 'stats%sH' % i not in olds['rts'] and rts not in olds['rts'].values():
                     olds['rts']['stats%sH' % i] = rts
-                found = True
         rts += s ['rts_last_hour']
     res = []
     res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
