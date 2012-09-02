@@ -94,16 +94,16 @@ class IRCBot(irc.IRCClient):
             # Run stats on the account every hour
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
             # Follow tweets and mentions for Twitter USER set for the channel
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 59, 1, 30, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 59, 30, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
             # Follow DMs sent for Twitter USER for the channel
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
         # Follow tweets matching queries set for this channel with !follow
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 30, [], chan_displays_rt(channel, conf))
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 30, [], chan_displays_rt(channel, conf))
         # Follow rss matching url queries set for this channel with !follow
-        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
+        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 40)
         n = self.factory.channels.index(channel.lower()) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
-            reactor.callLater(5*(i+1)*n, self.feeders[channel][f].start)
+            reactor.callFromThread(reactor.callLater, 5*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
         log.msg("Left %s." % (channel,))
@@ -214,7 +214,7 @@ class IRCBot(irc.IRCClient):
         irc.IRCClient.msg(self, target, msg, 450)
 
     def msg(self, target, msg, delay=0):
-        reactor.callLater(delay, self._msg, target, msg)
+        reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg)
         return delay + ANTIFLOOD + random.random()/5
 
     def _send_message(self, msgs, target, nick=None):
@@ -523,7 +523,7 @@ class IRCBot(irc.IRCClient):
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     def _parse_follow_command(self, query):
-        query = remove_ext_quotes(query.lower())
+        query = remove_ext_quotes(query)
         if not self.re_url.search(query):
             database = 'tweets'
             url = query
@@ -551,7 +551,8 @@ class IRCBot(irc.IRCClient):
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         database, query, name = self._parse_follow_command(query)
-        res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': query}, {'query': query}]}, safe=True)
+        re_query = re.compile(r'^%s$' % query, re.I)
+        res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
         return '"%s" query removed from feeds database for %s'  % (query, channel)

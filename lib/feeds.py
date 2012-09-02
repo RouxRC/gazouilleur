@@ -59,10 +59,10 @@ class FeederProtocol():
         news = []
         links = []
         for i in feed.entries:
-            date = i.get('published_parsed', '')
+            date = i.get('published_parsed', i.get('updated_parsed', ''))
             if date:
-                date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', '')))
-                if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
+                date = datetime.fromtimestamp(time.mktime(date))
+                if datetime.today() - date > timedelta(hours=config.BACK_HOURS+6):
                     break
             link, self.fact.cache_urls = clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
             if link in links:
@@ -72,7 +72,7 @@ class FeederProtocol():
             _id = hashlib.md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
-        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])]
         new = [n for n in news if n['_id'] not in existing]
         if new:
             new.reverse()
@@ -110,7 +110,7 @@ class FeederProtocol():
         if news:
             news.reverse()
             if fresh and len(news) > len(feed.entries) / 2 and url[-1:] <= "3":
-                reactor.callLater(10, self.start, [next_page(url)])
+                reactor.callFromThread(reactor.callLater, 10, self.start, next_page(url))
             text = []
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
@@ -131,22 +131,21 @@ class FeederProtocol():
     def displayTweet(self, t):
         return (True, "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
-    def start(self, urls=None):
+    def start(self, url=None):
         d = defer.succeed('')
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        for url in urls:
+        if not self.in_cache(url):
             if DEBUG:
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
-            if not self.in_cache(url):
-                d.addCallback(self.get_page, url)
-                d.addErrback(self._handle_error, "downloading", url)
-                d.addCallback(self.get_data_from_page, url)
-                d.addErrback(self._handle_error, "parsing", url)
-                if self.fact.database == "tweets":
-                    d.addCallback(self.process_tweets, url)
-                else:
-                    d.addCallback(self.process_elements, url)
-                d.addErrback(self._handle_error, "working on", url)
+            d.addCallback(self.get_page, url)
+            d.addErrback(self._handle_error, "downloading", url)
+            d.addCallback(self.get_data_from_page, url)
+            d.addErrback(self._handle_error, "parsing", url)
+            if self.fact.database == "tweets":
+                d.addCallback(self.process_tweets, url)
+            else:
+                d.addCallback(self.process_elements, url)
+            d.addErrback(self._handle_error, "working on", url)
         return d
 
     def process_dms(self, listdms, user):
@@ -195,7 +194,7 @@ class FeederProtocol():
             self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
         if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == '11' or timestamp.hour == '17'):
-            reactor.callLater(3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
+            reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         return None
 
     def start_twitter(self, database, conf, user):
@@ -216,12 +215,11 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, simul_conns=10, timeout=20, feeds=None, displayRT=False):
+    def __init__(self, ircclient, channel, database="news", delay=90, timeout=20, feeds=None, displayRT=False):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
         self.delay = delay
-        self.simul_conns = simul_conns
         self.timeout = timeout
         self.feeds = feeds
         self.displayRT = displayRT
@@ -236,7 +234,7 @@ class FeederFactory(protocol.ClientFactory):
 
     def start(self):
         if DEBUG:
-            print "Start %s feeder for %s every %ssec by %s connections %s" % (self.database, self.channel, self.delay, self.simul_conns, self.feeds)
+            print "Start %s feeder for %s every %ssec %s" % (self.database, self.channel, self.delay, self.feeds)
         if self.database == "dms" or self.database == "stats":
             conf = chanconf(self.channel)
             self.runner = task.LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
@@ -252,19 +250,9 @@ class FeederFactory(protocol.ClientFactory):
         urls = self.feeds
         if not urls:
             urls = getFeeds(self.channel, self.database, self.db)
-        # Divide into groups all the feeds to download
-        if len(urls) > self.simul_conns:
-            url_groups = [[] for x in xrange(self.simul_conns)]
-            for i, url in enumerate(urls):
-                url_groups[i % self.simul_conns].append(url)
-        else:
-            url_groups = [[url] for url in urls]
         ct = 0
-        for group in url_groups:
-            if self.database == "tweets":
-                ct += 1
-                reactor.callLater(ct, self.protocol.start, group)
-            else:
-                self.protocol.start(group)
+        for url in urls:
+            ct += 1
+            reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
         return defer.succeed(True)
 
