@@ -191,7 +191,7 @@ def chanconf(chan, conf=None):
     if conf:
         return conf
     if chan:
-        chan = chan.lstrip('#')
+        chan = chan.lstrip('#').lower()
     try:
         return config.CHANNELS[chan]
     except:

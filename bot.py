@@ -101,7 +101,7 @@ class IRCBot(irc.IRCClient):
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 127, 1, 30, [], chan_displays_rt(channel, conf))
         # Follow rss matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 10, 40)
-        n = self.factory.channels.index(channel) + 1
+        n = self.factory.channels.index(channel.lower()) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
             reactor.callLater(5*(i+1)*n, self.feeders[channel][f].start)
 
@@ -131,7 +131,6 @@ class IRCBot(irc.IRCClient):
     def noticed(self, user, channel, message):
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
-        self.log(message, user)
 
   # ------------------------
   # Users connexions logger
@@ -374,7 +373,7 @@ class IRCBot(irc.IRCClient):
                 current = ""
             elif current == "c":
                 chan = '#'+arg.lower().lstrip('#')
-                if chan in self.factory.channels:
+                if chan.lower() in self.factory.channels:
                     query['channel'] = chan
                 else:
                     return "I do not follow this channel."
@@ -538,6 +537,8 @@ class IRCBot(irc.IRCClient):
     def command_follow(self, query, channel=None, nick=None):
         """!follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
         database, query, name = self._parse_follow_command(query)
+        if query == "":
+            return "Please specify what you want to follow (!help follow for more info)."
         if len(query) > 300:
             return "Please limit your follow queries to a maximum of 300 characters"
         if database == "news" and name == "":
@@ -550,10 +551,10 @@ class IRCBot(irc.IRCClient):
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         database, query, name = self._parse_follow_command(query)
-        res = self.db['feeds'].remove({'database': database, 'channel': channel, 'name': name}, safe=True)
+        res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': query}, {'query': query}]}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
-        return '"%s" query removed from %s database for %s'  % (query, database, channel)
+        return '"%s" query removed from feeds database for %s'  % (query, channel)
 
     def command_list(self, database, channel=None, *args):
         """!list [tweets|news] : Displays the list of queries followed for current channel."""
