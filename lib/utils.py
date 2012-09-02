@@ -255,6 +255,8 @@ def print_stats(db, user):
         return "%s %s %s" % (user, now, since)
     stat = stats[0]
     rts = 0
+    fols = 0
+    twts = 0
     delays = {1: 'hour', 6: '6 hours', 24: 'day', 7*24: 'week', 30*24: 'month'}
     order = delays.keys()
     order.sort()
@@ -262,23 +264,31 @@ def print_stats(db, user):
     for s in stats:
         d = now - s['timestamp']
         delay = d.seconds / 3600 + d.days * 24
+        fols = stat['followers'] - s['followers']
+        twts = stat['tweets'] - s['tweets']
         for i in order:
-            if delay >= i:
-                if 'stats%sH' % i not in olds['tweets'] and stat['tweets'] - s['tweets'] not in olds['tweets'].values():
-                    olds['tweets']['stats%sH' % i] = stat['tweets'] - s['tweets']
-                if 'stats%sH' % i not in olds['followers'] and stat['followers'] - s['followers'] not in olds['followers'].values():
-                    olds['followers']['stats%sH' % i] = stat['followers'] - s['followers']
-                if 'stats%sH' % i not in olds['rts'] and rts not in olds['rts'].values():
-                    olds['rts']['stats%sH' % i] = rts
-        rts += s ['rts_last_hour']
-    res = []
-    res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
-    res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
+            if delay == i:
+                if 'stats%sH' % i not in olds['tweets']:
+                    olds['tweets']['stats%sH' % i] = twts if twts not in olds['tweets'].values() else 0
+                if 'stats%sH' % i not in olds['followers']:
+                    olds['followers']['stats%sH' % i] = fols if fols not in olds['followers'].values() else 0
+                if 'stats%sH' % i not in olds['rts']:
+                    olds['rts']['stats%sH' % i] = rts if rts not in olds['rts'].values() else 0
+        rts += s['rts_last_hour']
     olds['rts']['stats1H'] = stat['rts_last_hour']
     for i in order:
         if rts and 'stats%sH' % i not in olds['rts'] and rts not in olds['rts'].values():
             olds['rts']['stats%sH' % i] = rts
-            break
-    res.append("RTs: " + " ; ".join(["%d last %s" % (olds['stats%sH' % i]['rts'], delays[i]) for i in order if 'stats%sH' % i in olds and olds['stats%sH' % i]['rts']]))
+            rts = 0
+        if fols and 'stats%sH' % i not in olds['followers']  and fols not in olds['followers'].values():
+            olds['followers']['stats%sH' % i] = fols
+            fols = 0
+        if twts and 'stats%sH' % i not in olds['tweets'] and twts not in olds['tweets'].values():
+            olds['tweets']['stats%sH' % i] = twts
+            twts = 0
+    res = []
+    res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
+    res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
+    res.append("RTs: " + " ; ".join(["%d last %s" % (olds['rts']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['rts'] and olds['rts']['stats%sH' % i]]))
     return [(True, "[Stats] %s" % m) for m in res]
 
