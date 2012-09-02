@@ -6,8 +6,8 @@
 #
 # Set below which <CHAN>'s log will be sent to <EMAILDEST>
 # To be set in a crontab 
-# 30 03 * * * bash /home/gazouilleur2/gazouilleur/daily_mail.sh
-# @reboot     bash /home/gazouilleur/gazouilleur2/bot_in_env.sh
+# 30 03 * * * bash /home/gazouilleur/gazouilleur2/daily_mail.sh
+# @reboot     bash /home/gazouilleur/gazouilleur2/start.sh
 
 BOT="gazouilleur2"
 CHAN="#regardscitoyens"

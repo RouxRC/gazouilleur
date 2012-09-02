@@ -7,6 +7,7 @@ BOTPATH=$HOME/gazouilleur2
 #LOCK
 LOCK="/tmp/$BOTENV.lock"
 if test -e $LOCK ; then
+  echo "The bot seems like running. Stop it first."
   exit
 fi
 touch $LOCK
@@ -15,5 +16,5 @@ export WORKON_HOME=$HOME/virtualenvs
 source /usr/local/bin/virtualenvwrapper.sh
 workon $BOTENV
 python bot.py > run.log 2>&1
-rm $LOCK
+rm -f $LOCK
 
