@@ -349,7 +349,7 @@ class IRCBot(irc.IRCClient):
         """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
         # For private queries, give priority to first listed chan for the use of !last commands
         if channel == self.nickname:
-            channel = self.factory.channels[0]
+            channel = get_master_chan()
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
         query = {'channel': channel, '$and': [{'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
         nb = 1

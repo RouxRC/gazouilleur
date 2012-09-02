@@ -22,9 +22,9 @@ GLOBAL_USERS = ['Roux']
 # Number of hours back in the past follow queries will catch-up
 BACK_HOURS = 6
 
-# First channel will be the focus of !last commands sent in private to the bot when option --chan is not specified
 CHANNELS = {
   'regardscitoyens': {
+    'MASTER': True, # Master channel will be the focus of !last commands sent in private to the bot when option --chan is not specified
     'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
     'IDENTICA': {   # Set an IDENTICA USER and PASS to allow microblogging with Identi.ca
       'USER': 'regardscitoyens',

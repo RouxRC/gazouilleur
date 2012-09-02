@@ -197,6 +197,12 @@ def chanconf(chan, conf=None):
     except:
         return None
 
+def get_master_chan():
+    for chan in config.CHANNELS:
+        if "MASTER" in config.CHANNELS[chan]:
+            return chan.lower()
+    return config.BOTNAME.lower()
+
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
     if protocol == "IDENTICA":
