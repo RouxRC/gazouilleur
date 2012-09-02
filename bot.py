@@ -629,8 +629,8 @@ class IRCBot(irc.IRCClient):
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
-    def command_scheduled(self, rest, channel=None, *args):
-        """!scheduled : Prints the list of coming tasks scheduled./AUTH"""
+    def command_tasks(self, rest, channel=None, *args):
+        """!tasks : Prints the list of coming tasks scheduled./AUTH"""
         now = time.time()
         res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
         if res == "":
