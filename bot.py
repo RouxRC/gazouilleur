@@ -568,11 +568,12 @@ class IRCBot(irc.IRCClient):
             query = "%s <%s>" % (name, query)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
+    re_clean_query = re.compile(r'([()+])')
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         database, query, name = self._parse_follow_command(query)
-        re_query = re.compile(r'^%s$' % query, re.I)
+        re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
         res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
