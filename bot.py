@@ -568,7 +568,7 @@ class IRCBot(irc.IRCClient):
             query = "%s <%s>" % (name, query)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
-    re_clean_query = re.compile(r'([()+])')
+    re_clean_query = re.compile(r'([()+|])')
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
