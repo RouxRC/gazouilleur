@@ -59,8 +59,12 @@ PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
 URL_REGEX = re.compile('((%s+)((?:https?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
+ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
+
 def _shorten_url(text):
     for res in URL_REGEX.findall(text):
+        if ACCENTS_URL.match(res[2]):
+            continue
         text = text.replace(res[0], '%shttp___t_co_xxxxxxxx%s' % (res[1], res[3]))
     return text
 
@@ -92,7 +96,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=20).geturl()
+                url1 = urlopen(url0, timeout=30).geturl()
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
@@ -100,9 +104,14 @@ def _clean_redir_urls(text, urls={}, first=True):
                 if config.DEBUG and not first:
                     print "ERROR trying to access %s : %s" % (url0, e)
                 url1 = url00
-        if first:
+        if first and not url1 == url00:
             url1 = url1.replace('http', '##HTTP##')
-        text = text.replace(res[0], '%s%s%s' % (res[1], url1.decode('utf-8'), res[3]))
+        try:
+            url1 = url1.decode('utf-8')
+        except:
+            if config.DEBUG:
+                print "ERROR encoding %s" % url1
+        text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
     if not first:
         text = text.replace('##HTTP##', 'http')
     return text, urls
@@ -197,11 +206,11 @@ def chanconf(chan, conf=None):
     except:
         return None
 
-def get_master_chan():
+def get_master_chan(default=config.BOTNAME):
     for chan in config.CHANNELS:
         if "MASTER" in config.CHANNELS[chan]:
-            return chan.lower()
-    return config.BOTNAME.lower()
+            return "#%s" % chan.lower().lstrip('#')
+    return default.lower()
 
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
@@ -240,6 +249,8 @@ def is_user_auth(nick, channel, conf=None):
 def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
         return True if is_user_admin(nick) else False
+    if channel == config.BOTNAME.lower():
+        channel = get_master_chan()
     conf = chanconf(channel, conf)
     auth = is_user_auth(nick, channel, conf)
     if command_doc.endswith('/TWITTER'):

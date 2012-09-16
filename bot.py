@@ -162,6 +162,11 @@ class IRCBot(irc.IRCClient):
         for c in self._get_user_channels(oldnick):
             self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
 
+    def getMasterChan(self, channel):
+        if channel == self.nickname:
+            channel = get_master_chan()
+        return channel
+
   # -------------------
   # Command controller
 
@@ -329,6 +334,7 @@ class IRCBot(irc.IRCClient):
                 text = self.re_optionskip.sub(' ', text)
             ct2, text = self._extract_digit(text)
             ct += min(ct2, 5)
+            nb = max(nb, ct2)
             tmprest = "%s %s" % (text, tmprest)
             if not command.endswith('more'):
                 function = self._find_command_function(command)
@@ -347,12 +353,15 @@ class IRCBot(irc.IRCClient):
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
         """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
-        # For private queries, give priority to first listed chan for the use of !last commands
-        if channel == self.nickname:
-            channel = get_master_chan()
+        # For private queries, give priority to master chan if set in for the use of !last commands
+        master = get_master_chan(self.nickname)
+        nb = 0
+        def_nb = 1
+        if channel == self.nickname and master != self.nickname:
+            channel = master
+            def_nb = 10
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
         query = {'channel': channel, '$and': [{'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
-        nb = 1
         st = 0
         current = ""
         clean_my_nick = False
@@ -382,6 +391,8 @@ class IRCBot(irc.IRCClient):
                 nb = max(nb, min(safeint(arg), 5))
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
+        if not nb:
+            nb = def_nb
         if config.DEBUG:
             log.msg(rest, query)
         matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
@@ -451,20 +462,24 @@ class IRCBot(irc.IRCClient):
 
     def command_identica(self, text, channel=None, nick=None):
         """!identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     def command_twitteronly(self, text, channel=None, nick=None):
         """!twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
     def command_twitter(self, text, channel=None, nick=None):
         """!twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
         d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
         d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
         return defer.DeferredList([d1, d2], consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
         """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
             return "Please input a correct tweet_id and message."
@@ -476,6 +491,7 @@ class IRCBot(irc.IRCClient):
 
     def command_dm(self, rest, channel=None, nick=None):
         """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
         user, _, text = rest.partition(' ')
         user = user.lstrip('@').lower()
         if user == "" or text == "":
@@ -484,6 +500,7 @@ class IRCBot(irc.IRCClient):
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """!rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
+        channel = self.getMasterChan(channel)
         tweet_id = safeint(tweet_id)
         if not tweet_id:
             return "Please input a correct tweet_id."
@@ -501,6 +518,7 @@ class IRCBot(irc.IRCClient):
 
     def command_rt(self, tweet_id, channel=None, nick=None):
         """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
+        channel = self.getMasterChan(channel)
         tweet_id = safeint(tweet_id)
         if not tweet_id:
             return "Please input a correct tweet_id."
@@ -513,6 +531,7 @@ class IRCBot(irc.IRCClient):
 
     def command_stats(self, rest, channel=None, nick=None):
         """!stats : Prints stats on the Twitter account set for the channel./TWITTER"""
+        channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
             return print_stats(self.db, conf["TWITTER"]["USER"].lower())
@@ -536,6 +555,7 @@ class IRCBot(irc.IRCClient):
 
     def command_follow(self, query, channel=None, nick=None):
         """!follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        channel = self.getMasterChan(channel)
         database, query, name = self._parse_follow_command(query)
         if query == "":
             return "Please specify what you want to follow (!help follow for more info)."
@@ -550,6 +570,7 @@ class IRCBot(irc.IRCClient):
 
     def command_unfollow(self, query, channel=None, *args):
         """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
+        channel = self.getMasterChan(channel)
         database, query, name = self._parse_follow_command(query)
         re_query = re.compile(r'^%s$' % query, re.I)
         res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)
@@ -559,6 +580,7 @@ class IRCBot(irc.IRCClient):
 
     def command_list(self, database, channel=None, *args):
         """!list [tweets|news] : Displays the list of queries followed for current channel."""
+        channel = self.getMasterChan(channel)
         database = database.strip()
         if database != "tweets" and database != "news":
             return "Please enter either !list tweets or !list news."
@@ -573,6 +595,7 @@ class IRCBot(irc.IRCClient):
 
     def command_newsurl(self, name, channel=None, *args):
        """!newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
+       channel = self.getMasterChan(channel)
        res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
        if res:
             return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
@@ -595,6 +618,7 @@ class IRCBot(irc.IRCClient):
     re_url_pad = re.compile(r'https?://.*pad', re.I)
     def command_setpad(self, rest, channel=None, nick=None):
         """!setpad <url> : Defines <url> of the current etherpad./AUTH"""
+        channel = self.getMasterChan(channel)
         url = rest.strip()
         if self.re_url_pad.match(url):
             self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
@@ -603,6 +627,7 @@ class IRCBot(irc.IRCClient):
 
     def command_pad(self, rest, channel=None, *args):
         """!pad : Prints the url of the current etherpad."""
+        channel = self.getMasterChan(channel)
         res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
         if res:
             return "Current pad is available at: %s" % res['query']
@@ -622,6 +647,8 @@ class IRCBot(irc.IRCClient):
             else:
                 return "I do not follow this channel."
             task = task.replace("--chan %s " % tmpchan, "")
+        else:
+            channel = self.getMasterChan(channel)
         target = nick if channel == self.nickname else channel
         if task.startswith('!'):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
@@ -633,6 +660,7 @@ class IRCBot(irc.IRCClient):
 
     def command_tasks(self, rest, channel=None, *args):
         """!tasks : Prints the list of coming tasks scheduled./AUTH"""
+        channel = self.getMasterChan(channel)
         now = time.time()
         res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
         if res == "":
@@ -641,6 +669,7 @@ class IRCBot(irc.IRCClient):
 
     def command_cancel(self, rest, channel=None, *args):
         """!cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
+        channel = self.getMasterChan(channel)
         task_id = safeint(rest.lstrip('#'))
         try:
             task = self.tasks[task_id]

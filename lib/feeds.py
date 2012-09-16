@@ -25,9 +25,9 @@ class FeederProtocol():
         self.db = self.fact.db
 
     def _handle_error(self, traceback, msg, url):
-        if msg != "downloading":
-            self.fact.ircclient._show_error(failure.Failure("%s %s : %s" % (msg, url, traceback.getErrorMessage())), self.fact.channel)
-        print traceback.printTraceback()
+        if not msg.startswith("downloading"):
+            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
+        print "ERROR while %s %s : %s" % (msg, url, traceback)
 
     def in_cache(self, url):
         already_got = self.fact.cache.get(url, None)
@@ -65,6 +65,8 @@ class FeederProtocol():
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS+6):
                     break
             link, self.fact.cache_urls = clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
+            if not link.startswith('http'):
+                link = "%s/%s" % (url[:url.find('/',8)], link.lstrip('/'))
             if link in links:
                 continue
             links.append(link)
@@ -154,9 +156,13 @@ class FeederProtocol():
         ids = []
         dms = []
         for i in listdms:
-            date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
-            if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
-                break
+            try:
+                date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
+                if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
+                    break
+            except:
+                print i, listdms
+                continue
             tid = long(i.get('id', ''))
             if tid:
                 ids.append(tid)
@@ -190,10 +196,10 @@ class FeederProtocol():
         nb_rts = rts.count() if rts.count() else 0
         stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         self.db['stats'].insert(stat)
-        if (timestamp.hour == '13' or timestamp.hour == '18'):
+        if timestamp.hour == 13 or timestamp.hour == 17:
             self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
-        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == '11' or timestamp.hour == '17'):
+        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 18):
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         return None
 
@@ -207,9 +213,9 @@ class FeederProtocol():
         source = getattr(Sender, 'get_%s' % database, passs)
         processor = getattr(self, 'process_%s' % database, passs)
         d.addCallback(source, db=self.db)
-        d.addErrback(self._handle_error, "gettings %s from" % database, user)
+        d.addErrback(self._handle_error, "downloading %s for" % database, user)
         d.addCallback(processor, user.lower())
-        d.addErrback(self._handle_error, "working on %s from" % database, user)
+        d.addErrback(self._handle_error, "working on %s for" % database, user)
         return d
 
 
