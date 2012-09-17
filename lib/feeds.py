@@ -28,8 +28,12 @@ class FeederProtocol():
         if not msg.startswith("downloading"):
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
         print "ERROR while %s %s : %s" % (msg, url, traceback)
+        if '403 Forbidden' in str(traceback):
+            self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
     def in_cache(self, url):
+        if 'icerocket' in url and datetime.today() < self.fact.ircclient.breathe:
+            return True
         already_got = self.fact.cache.get(url, None)
         if already_got:
             elapsed_time = time.time() - already_got
@@ -196,10 +200,10 @@ class FeederProtocol():
         nb_rts = rts.count() if rts.count() else 0
         stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         self.db['stats'].insert(stat)
-        if timestamp.hour == 13 or timestamp.hour == 17:
+        if timestamp.hour == 13 or timestamp.hour == 18:
             self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
-        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 18):
+        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17):
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         return None
 
