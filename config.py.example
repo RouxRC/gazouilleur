@@ -36,7 +36,8 @@ CHANNELS = {
       'KEY': '---------',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
       'SECRET': '--------',
       'OAUTH_TOKEN': '--------',
-      'OAUTH_SECRET': '---------'
+      'OAUTH_SECRET': '---------',
+      'ALLOW_ALL': False    # Set to true to allow all users of the IRC channel to post on twitter
     },
     'DISPLAY_RT': False     # Set to true to follow also all RTs for queries set on this channel
     }

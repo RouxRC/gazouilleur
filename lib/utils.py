@@ -236,6 +236,10 @@ def chan_displays_my_rt(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'TWITTER' in conf and 'DISPLAY_RT' in conf['TWITTER'] and conf['TWITTER']['DISPLAY_RT']
 
+def chan_allows_twitter_for_all(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return conf and 'TWITTER' in conf and 'ALLOW_ALL' in conf['TWITTER'] and conf['TWITTER']['ALLOW_ALL']
+
 def is_user_admin(nick):
     return nick in config.ADMINS
 
@@ -254,10 +258,10 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     conf = chanconf(channel, conf)
     auth = is_user_auth(nick, channel, conf)
     if command_doc.endswith('/TWITTER'):
-        return auth and ((chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower()))
+        return chan_allows_twitter_for_all(channel, conf) or (auth and ((chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower())))
     if auth:
         return True
-    if command_doc.endswith('/AUTH') or command_doc.endswith('/TWITTER'):
+    if command_doc.endswith('/AUTH'):
         return False
     return True
 
