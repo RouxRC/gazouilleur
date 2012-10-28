@@ -1,12 +1,16 @@
 #!/bin/bash
 
 BOTENV=`grep BOTENV= start.sh  | sed 's/^.*=//'`
-LOCK=/tmp/$BOTENV.lock
+LOCK="/tmp/$BOTENV.lock"
 
-process=`ps x | grep 'python bot.py' | grep -v grep | sed 's/ .*$//'`
-if test -e $LOCK && not test -z $process; then
-  kill $process
-else
-  echo "The bot doesn't seem like running."
+if [ -e $LOCK ]; then
+  process=`ps x -f | grep 'python bot.py' | grep -v grep | grep `cat $LOCK` | awk -F " " '{print $2}'`
+  if [ ! -z $process ]; then
+    kill $process
+    rm -f $LOCK
+    exit
+  fi
 fi
-rm -f $LOCK
+
+echo "The bot doesn't seem like running."
+

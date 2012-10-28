@@ -10,7 +10,7 @@ if test -e $LOCK ; then
   echo "The bot seems like running. Stop it first."
   exit
 fi
-touch $LOCK
+echo $$ > $LOCK
 cd $BOTPATH
 export WORKON_HOME=$HOME/virtualenvs
 source /usr/local/bin/virtualenvwrapper.sh
