@@ -40,7 +40,6 @@ CHANNELS = {
       'ALLOW_ALL': False    # Set to true to allow all users of the IRC channel to post on twitter
     },
     'DISPLAY_RT': False     # Set to true to follow also all RTs for queries set on this channel
-    }
   },
   'rc-test': {
     'USERS': []
