@@ -29,7 +29,7 @@ class FeederProtocol():
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
         print "ERROR while %s %s : %s" % (msg, url, traceback)
         if '403 Forbidden' in str(traceback) and 'icerocket' in url:
-            self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
+            self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=30)
 
     def in_cache(self, url):
         if 'icerocket' in url and datetime.today() < self.fact.ircclient.breathe:
@@ -262,7 +262,7 @@ class FeederFactory(protocol.ClientFactory):
             urls = getFeeds(self.channel, self.database, self.db)
         ct = 0
         for url in urls:
-            ct += 1
+            ct += 2
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
         return defer.succeed(True)
 
