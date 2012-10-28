@@ -4,8 +4,10 @@ BOTENV=`grep BOTENV= start.sh  | sed 's/^.*=//'`
 LOCK="/tmp/$BOTENV.lock"
 
 if [ -e $LOCK ]; then
-  process=`ps x -f | grep 'python bot.py' | grep -v grep | grep `cat $LOCK` | awk -F " " '{print $2}'`
+  master=`cat $LOCK`
+  process=`ps x -f | grep 'python bot.py' | grep -v grep | grep "$master" | awk -F " " '{print $2}'`
   if [ ! -z $process ]; then
+    echo "Stopping the bot"
     kill $process
     rm -f $LOCK
     exit
