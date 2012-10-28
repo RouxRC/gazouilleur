@@ -30,6 +30,7 @@ class IRCBot(irc.IRCClient):
         self.nicks = {}
         self.tasks = []
         self.feeders = {}
+        self.lastqueries = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
@@ -89,6 +90,7 @@ class IRCBot(irc.IRCClient):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        self.lastqueries[channel] = {'n': 1, 'skip': 0}
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
@@ -320,27 +322,29 @@ class IRCBot(irc.IRCClient):
     re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
     def command_lastmore(self, rest, channel=None, nick=None):
         """!lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous !last !lastwith !lastfrom or !lastcount command (options from !last except --skip can apply; --from and --with will reset --skip to 0)."""
-        nb, rest = self._extract_digit(rest)
-        ct = 0
-        st = 0
+        master = get_master_chan(self.nickname)
+        if channel == self.nickname and master != self.nickname:
+            truechannel = master
+        else:
+            truechannel = channel
+        if not rest:
+            nb = self.lastqueries[truechannel]['n']
+        else:
+            nb, rest = self._extract_digit(rest)
         tmprest = rest
+        st = self.lastqueries[truechannel]['skip']
         last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
         for m in last:
             command, _, text = m['message'].encode('utf-8').lstrip('!').partition(' ')
             if command == "lastseen":
                 continue
-            res = self.re_optionskip.search(text)
-            if res:
-                st = safeint(res.group(1))
-                text = self.re_optionskip.sub(' ', text)
-            ct2, text = self._extract_digit(text)
-            ct += min(ct2, 5)
-            nb = max(nb, ct2)
+            text = self.re_optionskip.sub(' ', text)
+            _, text = self._extract_digit(text)
             tmprest = "%s %s" % (text, tmprest)
             if not command.endswith('more'):
                 function = self._find_command_function(command)
                 if not self.re_optionsfromwith.search(rest):
-                    tmprest = "%s --skip %s" % (tmprest, st+ct)
+                    tmprest = "%s --skip %s" % (tmprest, st)
                 if command != "lastcount":
                     tmprest = "%s %s" % (nb, tmprest)
                 if function:
@@ -355,9 +359,9 @@ class IRCBot(irc.IRCClient):
     def command_last(self, rest, channel=None, nick=None, reverse=False):
         """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
         # For private queries, give priority to master chan if set in for the use of !last commands
-        master = get_master_chan(self.nickname)
         nb = 0
         def_nb = 1
+        master = get_master_chan(self.nickname)
         if channel == self.nickname and master != self.nickname:
             channel = master
             def_nb = 10
@@ -389,11 +393,13 @@ class IRCBot(irc.IRCClient):
                     return "I do not follow this channel."
                 current = ""
             elif arg.isdigit():
-                nb = max(nb, min(safeint(arg), 5))
+                maxnb = 5 if def_nb == 1 else def_nb
+                nb = max(nb, min(safeint(arg), maxnb))
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
         if not nb:
             nb = def_nb
+        self.lastqueries[channel] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             log.msg(rest, query)
         matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
