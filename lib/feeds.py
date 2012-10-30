@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, sys, time, hashlib
+import os, sys, time, hashlib, random
 from datetime import datetime, timedelta
 import feedparser, pymongo, urllib2
 from twisted.internet import reactor, protocol, defer, task
@@ -250,7 +250,7 @@ class FeederFactory(protocol.ClientFactory):
             self.runner = task.LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
         else:
             self.runner = task.LoopingCall(self.run)
-        self.runner.start(self.delay + 2)
+        self.runner.start(self.delay)
 
     def end(self):
         if self.runner and self.runner.running:
@@ -262,7 +262,7 @@ class FeederFactory(protocol.ClientFactory):
             urls = getFeeds(self.channel, self.database, self.db)
         ct = 0
         for url in urls:
-            ct += 2
+            ct += 1 + int(random.random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
         return defer.succeed(True)
 

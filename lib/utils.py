@@ -96,7 +96,7 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=30).geturl()
+                url1 = urlopen(url0, timeout=15).geturl()
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
