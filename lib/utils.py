@@ -108,10 +108,10 @@ def _clean_redir_urls(text, urls={}, first=True):
             url1 = url1.replace('http', '##HTTP##')
         try:
             url1 = url1.decode('utf-8')
+            text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
         except:
             if config.DEBUG:
                 print "ERROR encoding %s" % url1
-        text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[3]))
     if not first:
         text = text.replace('##HTTP##', 'http')
     return text, urls
