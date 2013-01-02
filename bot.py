@@ -27,9 +27,11 @@ class IRCBot(irc.IRCClient):
         self.username = config.BOTNAME
         self.password = config.BOTPASS
         self.breathe = datetime.today()
+        self.re_lasts = re.compile(r'\d] %s — ' % self.nickname, re.I)
         self.nicks = {}
         self.tasks = []
         self.feeders = {}
+        self.filters = {}
         self.lastqueries = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
@@ -37,13 +39,14 @@ class IRCBot(irc.IRCClient):
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['feeds'].ensure_index([('channel', pymongo.ASCENDING), ('database', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['filters'].ensure_index([('channel', pymongo.ASCENDING), ('keyword', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('id', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('source', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
 
     # Double logger (mongo / files)
-    def log(self, message, user=None, channel=config.BOTNAME):
+    def log(self, message, user=None, channel=config.BOTNAME, filtered=False):
         if channel == "*" or channel == self.nickname or channel not in self.logger:
             channel = config.BOTNAME
         if user:
@@ -55,7 +58,7 @@ class IRCBot(irc.IRCClient):
             else:
                 user = nick
             host = self.nicks[channel][nick]
-            self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message})
+            self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
@@ -91,6 +94,7 @@ class IRCBot(irc.IRCClient):
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.lastqueries[channel] = {'n': 1, 'skip': 0}
+        self.filters[channel] = [keyword['keyword'] for keyword in self.db['filters'].find({'channel': channel}, fields=['keyword'])]
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
@@ -217,9 +221,21 @@ class IRCBot(irc.IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
+    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I) 
     def _msg(self, target, msg):
-        self.log(msg.decode('utf-8'), self.nickname, target)
-        irc.IRCClient.msg(self, target, msg, 450)
+        msg_utf = msg.decode('utf-8')
+        skip = False
+        if not self.re_lasts.search(msg) and self.re_tweets.search(msg) and target in self.filters:
+            low_msg_utf = msg_utf.lower()
+            for keyword in self.filters[target]:
+                if keyword in low_msg_utf:
+                    skip = True
+                    break
+        self.log(msg_utf, self.nickname, target, filtered=skip)
+        if not skip:
+            irc.IRCClient.msg(self, target, msg, 450)
+        elif config.DEBUG:
+            print "FILTERED for %s : %s %s" % (target, msg, self.filters[target])
 
     def msg(self, target, msg, delay=0):
         reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg)
@@ -357,7 +373,7 @@ class IRCBot(irc.IRCClient):
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>."""
+        """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
         nb = 0
         def_nb = 1
@@ -366,7 +382,7 @@ class IRCBot(irc.IRCClient):
             channel = master
             def_nb = 10
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
-        query = {'channel': channel, '$and': [{'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
+        query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
         st = 0
         current = ""
         clean_my_nick = False
@@ -395,6 +411,10 @@ class IRCBot(irc.IRCClient):
             elif arg.isdigit():
                 maxnb = 5 if def_nb == 1 else def_nb
                 nb = max(nb, min(safeint(arg), maxnb))
+            elif arg == "--nofilter" or arg == "--filtered":
+                query['$and'].remove({'filtered': {'$ne': True}})
+                if arg == "--filtered":
+                    query['$and'].append({'filtered': True})
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
         if not nb:
@@ -587,12 +607,15 @@ class IRCBot(irc.IRCClient):
         return '"%s" query removed from feeds database for %s'  % (query, channel)
 
     def command_list(self, database, channel=None, *args):
-        """!list [tweets|news] : Displays the list of queries followed for current channel."""
+        """!list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
         channel = self.getMasterChan(channel)
         database = database.strip()
-        if database != "tweets" and database != "news":
-            return "Please enter either !list tweets or !list news."
-        feeds = getFeeds(channel, database, self.db, nourl=True)
+        if database != "tweets" and database != "news" and database != "filters":
+            return 'Please enter either "!list tweets", "!list news" or "!list filters".'
+        if database == "filters":
+            feeds = assembleResults(self.filters[channel])
+        else:
+            feeds = getFeeds(channel, database, self.db, nourl=True)
         if database == 'tweets':
             res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         else:
@@ -616,9 +639,29 @@ class IRCBot(irc.IRCClient):
 
     str_re_news = '^\[News — '
     def command_lastnews(self, tweet, channel=None, nick=None):
-        """!lastnews <word> [<N>] : Prints the last or <N< last news matching <word> (options from !last can apply)."""
+        """!lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from !last can apply)."""
         return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
 
+    def command_filter(self, keyword, channel=None, nick=None):
+        """!filter <word> : Filters the display of tweets containing <word>./AUTH"""
+        channel = self.getMasterChan(channel)
+        keyword = keyword.lower().strip()
+        if keyword == "":
+            return "Please specify what you want to follow (!help follow for more info)."
+        self.db['filters'].update({'channel': channel, 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        self.filters[channel].append(keyword)
+        return '"%s" filter added for tweets displays on %s' % (keyword, channel)
+
+    def command_unfilter(self, keyword, channel=None, nick=None):
+        """!unfilter <word> : Removes a tweets display filter for <word>./AUTH""" 
+        channel = self.getMasterChan(channel)
+        keyword = keyword.lower().strip()
+        res = self.db['filters'].remove({'channel': channel, 'keyword': keyword}, safe=True)
+        if not res or not res['n']:
+            return "I could not find such filter in my database"
+        self.filters[channel].remove(keyword)
+        return '"%s" filter removed for tweets display on %s'  % (keyword, channel)
+    
 
   # ------------------
   # Other commands...

@@ -139,6 +139,18 @@ def unescape_html(text):
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
 
+def assembleResults(results, limit=300):
+    assemble = []
+    line = ""
+    for result in results:
+        line += " «%s»  | " % str(result.encode('utf-8'))
+        if len(line) > limit:
+            assemble.append(formatQuery(line, True))
+            line = ""
+    if line != "":
+        assemble.append(formatQuery(line, True))
+    return assemble
+
 def formatQuery(query, nourl=False):
     if query:
         query = query[:-2]
@@ -168,14 +180,7 @@ def getFeeds(channel, database, db, nourl=False):
             urls.append(formatQuery(query, nourl))
     else:
         if nourl:
-            query = ""
-            for feed in queries:
-                query += " «%s»  | " % str(feed['name'].encode('utf-8'))
-                if len(query) > 300:
-                    urls.append(formatQuery(query, nourl))
-                    query = ""
-            if query != "":
-                urls.append(formatQuery(query, nourl))
+            urls = assembleResults([feed['name'] for feed in queries])
         else:
             urls = [str(feed['query']) for feed in queries]
     return urls
