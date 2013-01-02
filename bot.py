@@ -27,11 +27,11 @@ class IRCBot(irc.IRCClient):
         self.username = config.BOTNAME
         self.password = config.BOTPASS
         self.breathe = datetime.today()
-        self.re_lasts = re.compile(r'\d] %s — ' % self.nickname, re.I)
         self.nicks = {}
         self.tasks = []
         self.feeders = {}
         self.filters = {}
+        self.silent = {}
         self.lastqueries = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
@@ -95,6 +95,7 @@ class IRCBot(irc.IRCClient):
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         self.lastqueries[channel] = {'n': 1, 'skip': 0}
         self.filters[channel] = [keyword['keyword'] for keyword in self.db['filters'].find({'channel': channel}, fields=['keyword'])]
+        self.silent[channel] = datetime.today()
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
@@ -222,23 +223,27 @@ class IRCBot(irc.IRCClient):
         d.addErrback(self._show_error, target, nick)
 
     re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I) 
-    def _msg(self, target, msg):
+    def _msg(self, target, msg, talk=False):
         msg_utf = msg.decode('utf-8')
         skip = False
-        if not self.re_lasts.search(msg) and self.re_tweets.search(msg) and target in self.filters:
+        if not talk and self.re_tweets.search(msg) and target in self.filters:
             low_msg_utf = msg_utf.lower()
             for keyword in self.filters[target]:
                 if keyword in low_msg_utf:
                     skip = True
+                    reason = keyword
                     break
+        if not talk and target in self.silent and self.silent[target] > datetime.today():
+            skip = True
+            reason = "fuckoff until %s" % self.silent[target]
         self.log(msg_utf, self.nickname, target, filtered=skip)
         if not skip:
             irc.IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
-            print "FILTERED for %s : %s %s" % (target, msg, self.filters[target])
+            print "FILTERED for %s : %s [%s]" % (target, msg, reason)
 
-    def msg(self, target, msg, delay=0):
-        reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg)
+    def msg(self, target, msg, delay=0, talk=False):
+        reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)
         return delay + ANTIFLOOD + random.random()/5
 
     def _send_message(self, msgs, target, nick=None):
@@ -259,9 +264,11 @@ class IRCBot(irc.IRCClient):
                 continue
             else:
                 uniq[msg] = None
+            talk = False
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-            delay = self.msg(target, msg, delay)
+                talk = True
+            delay = self.msg(target, msg, delay, talk)
 
     def _show_error(self, failure, target, nick=None):
         log.msg("ERROR: %s" % failure)
@@ -666,6 +673,28 @@ class IRCBot(irc.IRCClient):
   # ------------------
   # Other commands...
 
+    def _set_silence(self, channel, minutes):
+        self.silent[channel] = datetime.today() + timedelta(minutes=minutes)
+
+    def command_fuckoff(self, minutes, channel=None, nick=None):
+        """!fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
+        channel = self.getMasterChan(channel)
+        if not minutes:
+            minutes = 5
+        else:
+            when, _ = self._extract_digit(minutes)
+            minutes = max(1, when)
+        reactor.callFromThread(reactor.callLater, 1, self._set_silence, channel, minutes)
+        return "All right, I'll be back in %s minutes or if you run !comeback." % minutes
+
+    def command_comeback(self, rest, channel=None, nick=None):
+        """!comeback : Tells me to start talking again after use of !fuckoff./AUTH"""
+        channel = self.getMasterChan(channel)
+        if self.silent[channel] < datetime.today():
+            return "I wasn't away but OK :)"
+        self.silent[channel] = datetime.today()
+        return "It's good to be back!"
+
     re_url_pad = re.compile(r'https?://.*pad', re.I)
     def command_setpad(self, rest, channel=None, nick=None):
         """!setpad <url> : Defines <url> of the current etherpad./AUTH"""
@@ -697,7 +726,7 @@ class IRCBot(irc.IRCClient):
                 channel = tmpchan2
             else:
                 return "I do not follow this channel."
-            task = task.replace("--chan %s " % tmpchan, "")
+            task = task.replace("--chan %s " % tmpchan, "") 
         else:
             channel = self.getMasterChan(channel)
         target = nick if channel == self.nickname else channel
