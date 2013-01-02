@@ -63,7 +63,7 @@ class IRCBot(irc.IRCClient):
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        self.logger[channel].log(message)
+        self.logger[channel].log(message, filtered)
         if user:
             return nick, user
 
@@ -240,7 +240,7 @@ class IRCBot(irc.IRCClient):
         if not skip:
             irc.IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
-            print "FILTERED for %s : %s [%s]" % (target, msg, reason)
+            log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
 
     def msg(self, target, msg, delay=0, talk=False):
         reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)
@@ -726,7 +726,7 @@ class IRCBot(irc.IRCClient):
                 channel = tmpchan2
             else:
                 return "I do not follow this channel."
-            task = task.replace("--chan %s " % tmpchan, "") 
+            task = task.replace("--chan %s " % tmpchan, "")
         else:
             channel = self.getMasterChan(channel)
         target = nick if channel == self.nickname else channel
