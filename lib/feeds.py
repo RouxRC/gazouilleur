@@ -191,7 +191,7 @@ class FeederProtocol():
         if not stats:
             return None
         if not last:
-            last = {'tweets': 0, 'followers': 0}
+            last = {'tweets': 0, 'followers': 0} 
             since = timestamp - timedelta(hours=1)
         else:
             since = last['timestamp']
@@ -200,10 +200,11 @@ class FeederProtocol():
         nb_rts = rts.count() if rts.count() else 0
         stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         self.db['stats'].insert(stat)
-        if timestamp.hour == 13 or timestamp.hour == 18:
+        weekday = timestamp.weekday()
+        if (timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18:
             self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
-        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17):
+        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         return None
 
