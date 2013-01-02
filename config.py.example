@@ -46,6 +46,9 @@ CHANNELS = {
   }
 }
 
+# URL_STATS is optional to provide a web view on Twitter's stats.
+# This url needs tp be routed to gazouilleur's "web" directory (apache, ...)
+URL_STATS = "http://www.regardscitoyens.org/stats/"
 #DEBUG mode will display errors publicly on the channel
 DEBUG = False
 #ADMINS will get in priv msg tracebacks from errors

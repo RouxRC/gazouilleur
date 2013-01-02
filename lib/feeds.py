@@ -16,6 +16,7 @@ from utils import *
 sys.path.append('..')
 from config import DEBUG, MONGODB
 from microblog import Sender
+from stats import Stats
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 
@@ -201,11 +202,13 @@ class FeederProtocol():
         stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         self.db['stats'].insert(stat)
         weekday = timestamp.weekday()
+        laststats = Stats(self.db, config, user)
         if (timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18:
-            self.fact.ircclient._send_message(print_stats(self.db, user), self.fact.channel)
+            self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
         if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
+        reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
         return None
 
     def start_twitter(self, database, conf, user):

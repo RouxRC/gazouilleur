@@ -17,6 +17,7 @@ from filelogger import FileLogger
 from utils import *
 from microblog import *
 from feeds import FeederFactory
+from stats import Stats
 ANTIFLOOD = 0.35
 
 class IRCBot(irc.IRCClient):
@@ -568,7 +569,8 @@ class IRCBot(irc.IRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
-            return print_stats(self.db, conf["TWITTER"]["USER"].lower())
+            stats = Stats(self.db, config, conf["TWITTER"]["USER"].lower())
+            return stats.print_last()
         return "No Twitter account set for this channel."
 
   # ----------------------------

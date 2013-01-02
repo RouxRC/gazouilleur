@@ -3,3 +3,6 @@ config.py
 *.pyc
 *.log
 *.pid
+*.json
+web/img
+web/static_stats*.html

@@ -1,0 +1,3 @@
+Deny from all
+Order allow,deny
+

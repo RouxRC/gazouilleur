@@ -4,3 +4,8 @@
 # pip install twitter
 # pip install feedparser
 # pip install pyOpenSSL
+
+# The following are required only to use the URL_STATS functionality
+# pip install pylab
+# pip install matplotlib
+# pip install pystache
