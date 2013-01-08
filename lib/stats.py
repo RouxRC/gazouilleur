@@ -100,7 +100,7 @@ class Stats():
             print "ERROR: Could not write web/data/stats_%s.json : %s" % (self.user, e)
 
         try:
-            from plots import *
+            from plots import CumulativeCurve, DailyHistogram, WeekPunchCard
             imgdir = os.path.join('web', 'img')
             if not os.path.exists(imgdir):
                 os.makedirs(imgdir)
