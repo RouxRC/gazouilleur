@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import socket
 from datetime import datetime
 from twitter import *
 from utils import *
@@ -33,6 +34,7 @@ class Sender():
             if not return_result:
                 args['trim_user'] = 'true'
             args['source'] = config.BOTNAME
+            socket.setdefaulttimeout(35)
             res = function(**args)
             if return_result:
                 return res
@@ -43,7 +45,7 @@ class Sender():
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
                 print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
-            return self._send_query(function, args, tryout+1, exception)
+            return self._send_query(function, args, tryout+1, exception, return_result)
 
     def microblog(self, text="", tweet_id=None):
         if self.site == "twitter":
