@@ -134,7 +134,7 @@ def uniq_rt_hash(text):
 
 re_entities = re.compile(r'&([^;]+);')
 def unescape_html(text):
-    return re_entities.sub(lambda x: unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
+    return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
 
 def getIcerocketFeedUrl(query):
     return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
