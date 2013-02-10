@@ -513,7 +513,7 @@ class IRCBot(irc.IRCClient):
         return defer.DeferredList([d1, d2], consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
-        """!answer <tweet_id> <text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """!answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
