@@ -65,7 +65,7 @@ def _shorten_url(text):
     for res in URL_REGEX.findall(text):
         if ACCENTS_URL.match(res[2]):
             continue
-        text = text.replace(res[0], '%shttp___t_co_xxxxxxxx%s' % (res[1], res[3]))
+        text = text.replace(res[0], '%shttp___t_co_xxxxxxxxxx%s' % (res[1], res[3]))
     return text
 
 def countchars(text):
