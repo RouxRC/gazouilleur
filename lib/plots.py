@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 # punchcard drawing adapted from HgPunchcard (GPL 2+ https://bitbucket.org/birkenfeld/hgpunchcard/src/f4d38c737147cdf966909c2957a79573a6a5c517/hgpunchcard.py?at=default )
 import os
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from pylab import *
 from matplotlib.ticker import Formatter, MaxNLocator
 from matplotlib.dates import DayLocator
@@ -9,7 +12,7 @@ from matplotlib.dates import DayLocator
 days = 'Mon Tue Wed Thu Fri Sat Sun'.split()
 
 def CumulativeCurve(x_data, y_data, titl, path, filename):
-    fig = figure()
+    fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(x_data, y_data)
     ax.grid(True, fillstyle='left')
@@ -19,9 +22,10 @@ def CumulativeCurve(x_data, y_data, titl, path, filename):
     title(titl)
     fig.savefig(os.path.join(path, "%s.png" % filename))
     fig.clf()
+    plt.close(fig)
 
 def DailyHistogram(x_data, y_data, titl, path, filename):
-    fig = figure()
+    fig = plt.figure()
     ax = fig.add_subplot(111)
     n1 = 0; n2 = 0
     d1 = []; d2 = []
@@ -50,6 +54,7 @@ def DailyHistogram(x_data, y_data, titl, path, filename):
     title(titl)
     fig.savefig(os.path.join(path, "%s.png" % filename))
     fig.clf()
+    plt.close(fig)
 
 def WeekPunchCard(dates, data, titl, path, filename):
     stats = [[0] * 24 for i in range(7)]
@@ -64,7 +69,7 @@ def WeekPunchCard(dates, data, titl, path, filename):
             ys.append(y);
             rs.append(13.*n/maxvalue)
             ss.append(4.*n**2/maxvalue)
-    fig = figure(figsize=(8, titl and 3 or 2.5), facecolor='#efefef')
+    fig = plt.figure(figsize=(8, titl and 3 or 2.5), facecolor='#efefef')
     ax = fig.add_subplot('111', axisbg='#efefef')
     if titl:
         fig.subplots_adjust(left=0.06, bottom=0.04, right=0.98, top=0.95)
@@ -92,4 +97,5 @@ def WeekPunchCard(dates, data, titl, path, filename):
     ax.set_aspect('equal')
     fig.savefig(os.path.join(path, "%s.png" % filename))
     fig.clf()
+    plt.close(fig)
 

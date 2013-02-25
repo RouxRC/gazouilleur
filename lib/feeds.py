@@ -208,7 +208,7 @@ class FeederProtocol():
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
         if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
-        reactor.callLater(1, laststats.dump_data)
+        reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
         return None
 
     def start_twitter(self, database, conf, user):
