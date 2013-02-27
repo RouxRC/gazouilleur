@@ -29,8 +29,8 @@ class FeederProtocol():
         if not msg.startswith("downloading"):
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
         print "ERROR while %s %s : %s" % (msg, url, traceback)
-        if '403 Forbidden' in str(traceback) and 'icerocket' in url:
-            self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=30)
+        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and 'icerocket' in url:
+            self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
     def in_cache(self, url):
         if 'icerocket' in url and datetime.today() < self.fact.ircclient.breathe:
