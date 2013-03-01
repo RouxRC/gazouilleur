@@ -196,10 +196,15 @@ class FeederProtocol():
             since = timestamp - timedelta(hours=1)
         else:
             since = last['timestamp']
+        if 'lists' not in last:
+            last['lists'] = 0
         re_match_rts = re.compile(u'(([MLR]T|%s|♺)\s*)+@?%s' % (QUOTE_CHARS, user), re.I)
         rts = self.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, snapshot=True, fields=['_id'])
         nb_rts = rts.count() if rts.count() else 0
-        stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
+        if config.TWITTER_API_VERSION == 1:
+            stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
+        else:
+            stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('statuses_followers', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
         self.db['stats'].insert(stat)
         weekday = timestamp.weekday()
         laststats = Stats(self.db, config, user)

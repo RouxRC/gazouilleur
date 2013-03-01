@@ -23,7 +23,7 @@ class Sender():
             if 'USER' in self.conf:
                 self.user = self.conf['USER']
             self.domain = "api.twitter.com"
-            self.api_version = "1"
+            self.api_version = config.TWITTER_API_VERSION
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
         self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
@@ -71,12 +71,14 @@ class Sender():
     def get_dms(self, **kwargs):
         return self._send_query(self.conn.direct_messages, return_result=True)
 
-    def get_stats(self, db=None):
+    def get_stats(self, db=None, **kwargs):
         timestamp = timestamp_hour(datetime.today())
         db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         last = db['stats'].find_one({'user': self.user.lower()}, sort=[('timestamp', pymongo.DESCENDING)])
         if last and timestamp == last['timestamp']:
             res = None
-        else:
+        elif self.api_version == 1:
             res = self._send_query(self.conn.account.totals, return_result=True)
+        else:
+            res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         return res, last, timestamp

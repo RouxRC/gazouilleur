@@ -19,6 +19,8 @@ MONGODB = {
 # GLOBAL_USERS will have rights to perform all available commands on all channels
 GLOBAL_USERS = ['Roux']
 
+TWITTER_API_VERSION = 1.1
+TWITTER_API_LIMIT = 5
 # Number of hours back in the past follow queries will catch-up
 BACK_HOURS = 6
 
