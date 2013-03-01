@@ -64,6 +64,22 @@ class Sender():
     def show_status(self, tweet_id):
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
+    def get_retweets(self, retweets_processed={}, **kwargs):
+        tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
+        done = 0
+        retweets = []
+        for tweet in tweets:
+            if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
+                retweets_processed[tweet['id_str']] = tweet['retweet_count']
+                retweets += self.get_retweets_by_id(tweet['id'])
+                done += 1
+                if done >= config.TWITTER_API_LIMIT:
+                    break
+        return retweets, retweets_processed
+
+    def get_retweets_by_id(self, tweet_id, **kwargs):
+        return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
+
     def directmsg(self, user, text):
         text = text.replace('~', '&#126;')
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})

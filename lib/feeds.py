@@ -92,14 +92,28 @@ class FeederProtocol():
         return None
 
     def process_tweets(self, feed, url):
-        if not feed.entries:
-            return None
+        # handle tweets from icerocket's rss
+        try:
+            elements = feed.entries
+        except:
+        # handle tweets from Twitter API
+            if isinstance(feed, list) and len(feed):
+                elements = feed
+            else:
+                return None
         ids = []
         hashs = []
         tweets = []
         fresh = True
-        for i in feed.entries:
-            date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', ''))-4*60*60)
+        for i in elements:
+            try:
+                time_tweet = time.mktime(i.get('published_parsed', '')) - 4*60*60
+            except:
+                try:
+                    time_tweet = time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y')) + 2*60*60
+                except Exception as e:
+                    self._handle_error(e, "processing date from tweets batch", url)
+            date = datetime.fromtimestamp(time_tweet)
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
@@ -116,7 +130,7 @@ class FeederProtocol():
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             news.reverse()
-            if fresh and len(news) > len(feed.entries) / 2 and url[-1:] <= "3":
+            if fresh and url != "myretweets" and len(news) > len(elements) / 2 and url[-1:] <= "3":
                 reactor.callFromThread(reactor.callLater, 10, self.start, next_page(url))
             text = []
             if not self.fact.displayRT:
@@ -154,6 +168,22 @@ class FeederProtocol():
                 d.addCallback(self.process_elements, url)
             d.addErrback(self._handle_error, "working on", url)
         return d
+
+    def process_retweets(self, listretweets, user):
+        if not listretweets:
+            return None
+        retweets, retweets_processed = listretweets
+        if not retweets:
+            return None
+        self.fact.retweets_processed = retweets_processed
+        if config.DEBUG:
+            print "[INFO] RTs processed:", retweets_processed
+        feed = []
+        for retweet in retweets:
+            if "ERROR 429:" in retweet:
+                return self.fact.ircclient._send_message("WARNING: Twitter API rate exceeded, please ask %s to fix my configuration" % config.ADMINS.join(' or '), self.fact.channel)
+            feed.append({'created_at': retweet['created_at'], 'title': retweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (retweet['user']['screen_name'], retweet['id_str'])})
+        return self.process_tweets(feed, 'myretweets')
 
     def process_dms(self, listdms, user):
         if not listdms:
@@ -225,7 +255,7 @@ class FeederProtocol():
             raise Exception("No process existing for %s" % database)
         source = getattr(Sender, 'get_%s' % database, passs)
         processor = getattr(self, 'process_%s' % database, passs)
-        d.addCallback(source, db=self.db)
+        d.addCallback(source, db=self.db, retweets_processed=self.fact.retweets_processed)
         d.addErrback(self._handle_error, "downloading %s for" % database, user)
         d.addCallback(processor, user.lower())
         d.addErrback(self._handle_error, "working on %s for" % database, user)
@@ -238,10 +268,12 @@ class FeederFactory(protocol.ClientFactory):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
+        
         self.delay = delay
         self.timeout = timeout
         self.feeds = feeds
         self.displayRT = displayRT
+        self.retweets_processed = {}
         self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
@@ -254,7 +286,7 @@ class FeederFactory(protocol.ClientFactory):
     def start(self):
         if DEBUG:
             print "Start %s feeder for %s every %ssec %s" % (self.database, self.channel, self.delay, self.feeds)
-        if self.database == "dms" or self.database == "stats":
+        if self.database == "retweets" or self.database == "dms" or self.database == "stats":
             conf = chanconf(self.channel)
             self.runner = task.LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
         else:
