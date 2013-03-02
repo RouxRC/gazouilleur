@@ -5,4 +5,5 @@ config.py
 *.pid
 *.json
 web/img
+web/data
 web/static_stats*.html
