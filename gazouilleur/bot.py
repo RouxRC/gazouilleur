@@ -241,7 +241,7 @@ class IRCBot(irc.IRCClient):
         if not skip:
             irc.IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
-            log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
+            log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
 
     def msg(self, target, msg, delay=0, talk=False):
         reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)
