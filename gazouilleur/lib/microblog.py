@@ -68,11 +68,11 @@ class Sender():
         retweets = []
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
-                retweets_processed[tweet['id_str']] = tweet['retweet_count']
                 retweets += self.get_retweets_by_id(tweet['id'])
                 done += 1
-                if done >= config.TWITTER_API_LIMIT:
-                    break
+            retweets_processed[tweet['id_str']] = tweet['retweet_count']
+            if done >= config.TWITTER_API_LIMIT:
+                break
         return retweets, retweets_processed
 
     def get_retweets_by_id(self, tweet_id, **kwargs):
