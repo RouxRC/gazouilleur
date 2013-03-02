@@ -202,7 +202,7 @@ class IRCBot(irc.IRCClient):
         message = cleanblanks(message)
         nick, user = self.log(message, user, channel)
         d = None
-        if not message.startswith('!'):
+        if not message.startswith(config.COMMAND_CHARACTER):
             if self.nickname.lower() in message.lower():
                 d = defer.maybeDeferred(self.command_test)
             else:
@@ -210,7 +210,7 @@ class IRCBot(irc.IRCClient):
         message = message.encode('utf-8')
         if config.DEBUG:
             log.msg("[%s] COMMAND: %s: %s" % (channel, user, message))
-        command, _, rest = message.lstrip('!').partition(' ')
+        command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
         func = self._find_command_function(command)
         if func is None and d is None:
             d = defer.maybeDeferred(self.command_help, command, channel, nick)
@@ -289,30 +289,30 @@ class IRCBot(irc.IRCClient):
   # Default commands
 
     def command_help(self, rest, channel=None, nick=None):
-        """!help [<command>] : Prints general help or help for specific <command>."""
-        rest = rest.lstrip('!')
+        """help [<command>] : Prints general help or help for specific <command>."""
+        rest = rest.lstrip(config.COMMAND_CHARACTER)
         conf = chanconf(channel)
         commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_') and c != "command_more"] if self._can_user_do(nick, channel, c, conf)]
-        def_msg = 'My commands are:  !'+' ;  !'.join(commands)+'\nType "!help <command>" to get more details.'
+        def_msg = 'My commands are:  '+config.COMMAND_CHARACTER+(' ;  '+config.COMMAND_CHARACTER).join(commands)+'\nType "'+config.COMMAND_CHARACTER+'help <command>" to get more details.'
         if rest is None or rest == '':
             return def_msg
         elif rest in commands:
             doc = clean_doc(self._get_command_doc(rest))
             if not chan_has_identica(channel, conf):
                 doc = clean_identica(doc)
-            return doc
-        return '!%s is not a valid command. %s' % (rest, def_msg)
+            return config.COMMAND_CHARACTER + doc
+        return '%s%s is not a valid command. %s' % (config.COMMAND_CHARACTER, rest, def_msg)
 
     def command_ping(self, *args):
-        """!ping : Ping test, should answer pong."""
+        """ping : Ping test, should answer pong."""
         return 'Pong.'
 
     def command_test(self, *args):
-        """!test : Simple test to check whether I'm present, similar as !ping."""
-        return 'Hello! Type "!help" to list my commands.'
+        """test : Simple test to check whether I'm present, similar as ping."""
+        return 'Hello! Type "%shelp" to list my commands.' % config.COMMAND_CHARACTER
 
     def command_source(self, *args):
-        """!source : Gives the link to my sourcecode."""
+        """source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
   # ------------------
@@ -332,20 +332,20 @@ class IRCBot(irc.IRCClient):
         return nb, string.strip()
 
     def command_lastfrom(self, rest, channel=None, nick=None):
-        """!lastfrom <nick> [<N>] : Alias for "!last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from !last except --from can apply)."""
+        """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
         nb, fromnick = self._extract_digit(rest)
         return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
 
     def command_lastwith(self, rest, channel=None, nick=None):
-        """!lastwith <word> [<N>] : Alias for "!last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from !last can apply)."""
+        """lastwith <word> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from "last" can apply)."""
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
-    re_lastcommand = re.compile(r'^!(last|more)', re.I)
+    re_lastcommand = re.compile(r'^%s(last|more)' % config.COMMAND_CHARACTER, re.I)
     re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
     re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
     def command_lastmore(self, rest, channel=None, nick=None):
-        """!lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous !last !lastwith !lastfrom or !lastcount command (options from !last except --skip can apply; --from and --with will reset --skip to 0)."""
+        """lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
         master = get_master_chan(self.nickname)
         if channel == self.nickname and master != self.nickname:
             truechannel = master
@@ -359,7 +359,7 @@ class IRCBot(irc.IRCClient):
         st = self.lastqueries[truechannel]['skip']
         last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
         for m in last:
-            command, _, text = m['message'].encode('utf-8').lstrip('!').partition(' ')
+            command, _, text = m['message'].encode('utf-8').lstrip(config.COMMAND_CHARACTER).partition(' ')
             if command == "lastseen":
                 continue
             text = self.re_optionskip.sub(' ', text)
@@ -373,15 +373,15 @@ class IRCBot(irc.IRCClient):
                     tmprest = "%s %s" % (nb, tmprest)
                 if function:
                     return function(tmprest, channel, nick)
-        return "No !last like command found in my history log."
+        return "No %slast like command found in my history log." % config.COMMAND_CHARACTER
 
     def command_more(self, rest, channel=None, nick=None):
-        """!more Alias for !lastmore."""
+        """more : Alias for "lastmore"."""
         return self.command_lastmore(rest, channel, nick)
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """!last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
+        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
         nb = 0
         def_nb = 1
@@ -390,7 +390,7 @@ class IRCBot(irc.IRCClient):
             channel = master
             def_nb = 10
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
-        query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: (!|\[\d))')}}]}
+        query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+config.COMMAND_CHARACTER+'|\[\d))')}}]}
         st = 0
         current = ""
         clean_my_nick = False
@@ -442,7 +442,7 @@ class IRCBot(irc.IRCClient):
         return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
     def command_lastseen(self, rest, channel=None, nick=None):
-        """!lastseen <nickname> : Prints the last time <nickname> was seen logging in and out."""
+        """lastseen <nickname> : Prints the last time <nickname> was seen logging in and out."""
         user, _, msg = rest.partition(' ')
         if user == '':
             return "Please ask for a specific nickname."
@@ -460,16 +460,16 @@ class IRCBot(irc.IRCClient):
   # Count commands
 
     def command_count(self, rest, *args):
-        """!count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
+        """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
         return threads.deferToThread(lambda x: str(countchars(x))+" characters (max 140)", rest)
 
     def command_lastcount(self, rest, channel=None, nick=None):
-        """!lastcount : Prints the latest !count command and its result (options from !last except <N> can apply)."""
+        """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
         res = self.re_optionskip.search(rest)
         if res:
             st = safeint(res.group(1)) * 2
             rest = self.re_optionskip.sub(' --skip %s ' % st, rest)
-        return self.command_last("2 --with ^!count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
+        return self.command_last("2 --with ^"+config.COMMAND_CHARACTER+"count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
 
   # -------------------------------------
   # Twitter / Identi.ca sending commands
@@ -496,24 +496,24 @@ class IRCBot(irc.IRCClient):
         return command(**kwargs)
 
     def command_identica(self, text, channel=None, nick=None):
-        """!identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     def command_twitteronly(self, text, channel=None, nick=None):
-        """!twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
     def command_twitter(self, text, channel=None, nick=None):
-        """!twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
         d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
         return defer.DeferredList([d1, d2], consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
-        """!answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
@@ -525,7 +525,7 @@ class IRCBot(irc.IRCClient):
         return defer.DeferredList(dl, consumeErrors=True)
 
     def command_dm(self, rest, channel=None, nick=None):
-        """!dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         user, _, text = rest.partition(' ')
         user = user.lstrip('@').lower()
@@ -534,7 +534,7 @@ class IRCBot(irc.IRCClient):
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
-        """!rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
+        """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id = safeint(tweet_id)
         if not tweet_id:
@@ -552,7 +552,7 @@ class IRCBot(irc.IRCClient):
         return "[identica] Cannot find tweet %s on Twitter." % tweet_id
 
     def command_rt(self, tweet_id, channel=None, nick=None):
-        """!rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
+        """rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id = safeint(tweet_id)
         if not tweet_id:
@@ -565,7 +565,7 @@ class IRCBot(irc.IRCClient):
         return defer.DeferredList(dl, consumeErrors=True)
 
     def command_stats(self, rest, channel=None, nick=None):
-        """!stats : Prints stats on the Twitter account set for the channel./TWITTER"""
+        """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
@@ -590,11 +590,11 @@ class IRCBot(irc.IRCClient):
         return database, url, name
 
     def command_follow(self, query, channel=None, nick=None):
-        """!follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        """follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         database, query, name = self._parse_follow_command(query)
         if query == "":
-            return "Please specify what you want to follow (!help follow for more info)."
+            return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
         if len(query) > 300:
             return "Please limit your follow queries to a maximum of 300 characters"
         if database == "news" and name == "":
@@ -606,7 +606,7 @@ class IRCBot(irc.IRCClient):
 
     re_clean_query = re.compile(r'([()+|])')
     def command_unfollow(self, query, channel=None, *args):
-        """!unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
+        """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         database, query, name = self._parse_follow_command(query)
         re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
@@ -616,11 +616,11 @@ class IRCBot(irc.IRCClient):
         return '"%s" query removed from feeds database for %s'  % (query, channel)
 
     def command_list(self, database, channel=None, *args):
-        """!list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
+        """list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
         channel = self.getMasterChan(channel)
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
-            return 'Please enter either "!list tweets", "!list news" or "!list filters".'
+            return 'Please enter either "%slist tweets", "%slist news" or "%slist filters".' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
         if database == "filters":
             feeds = assembleResults(self.filters[channel])
         else:
@@ -634,7 +634,7 @@ class IRCBot(irc.IRCClient):
         return "No query set for %s." % database
 
     def command_newsurl(self, name, channel=None, *args):
-       """!newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
+       """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
        channel = self.getMasterChan(channel)
        res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
        if res:
@@ -643,26 +643,26 @@ class IRCBot(irc.IRCClient):
 
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweets(self, tweet, channel=None, nick=None):
-        """!lasttweets <word> [<N>] : Prints the last or <N< last tweets matching <word> (options from !last can apply)."""
+        """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
         return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
 
     str_re_news = '^\[News — '
     def command_lastnews(self, tweet, channel=None, nick=None):
-        """!lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from !last can apply)."""
+        """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
         return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
 
     def command_filter(self, keyword, channel=None, nick=None):
-        """!filter <word> : Filters the display of tweets containing <word>./AUTH"""
+        """filter <word> : Filters the display of tweets or news containing <word>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         if keyword == "":
-            return "Please specify what you want to follow (!help follow for more info)."
+            return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
         self.db['filters'].update({'channel': channel, 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel].append(keyword)
         return '"%s" filter added for tweets displays on %s' % (keyword, channel)
 
     def command_unfilter(self, keyword, channel=None, nick=None):
-        """!unfilter <word> : Removes a tweets display filter for <word>./AUTH""" 
+        """unfilter <word> : Removes a tweets display filter for <word>./AUTH""" 
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         res = self.db['filters'].remove({'channel': channel, 'keyword': keyword}, safe=True)
@@ -679,7 +679,7 @@ class IRCBot(irc.IRCClient):
         self.silent[channel] = datetime.today() + timedelta(minutes=minutes)
 
     def command_fuckoff(self, minutes, channel=None, nick=None):
-        """!fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
+        """fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
         channel = self.getMasterChan(channel)
         if not minutes:
             minutes = 5
@@ -687,10 +687,10 @@ class IRCBot(irc.IRCClient):
             when, _ = self._extract_digit(minutes)
             minutes = max(1, when)
         reactor.callFromThread(reactor.callLater, 1, self._set_silence, channel, minutes)
-        return "All right, I'll be back in %s minutes or if you run !comeback." % minutes
+        return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, config.COMMAND_CHARACTER)
 
     def command_comeback(self, rest, channel=None, nick=None):
-        """!comeback : Tells me to start talking again after use of !fuckoff./AUTH"""
+        """comeback : Tells me to start talking again after use of "fuckoff"./AUTH"""
         channel = self.getMasterChan(channel)
         if self.silent[channel] < datetime.today():
             return "I wasn't away but OK :)"
@@ -699,7 +699,7 @@ class IRCBot(irc.IRCClient):
 
     re_url_pad = re.compile(r'https?://.*pad', re.I)
     def command_setpad(self, rest, channel=None, nick=None):
-        """!setpad <url> : Defines <url> of the current etherpad./AUTH"""
+        """setpad <url> : Defines <url> of the current etherpad./AUTH"""
         channel = self.getMasterChan(channel)
         url = rest.strip()
         if self.re_url_pad.match(url):
@@ -708,7 +708,7 @@ class IRCBot(irc.IRCClient):
         return "This is not a valid pad url."
 
     def command_pad(self, rest, channel=None, *args):
-        """!pad : Prints the url of the current etherpad."""
+        """pad : Prints the url of the current etherpad."""
         channel = self.getMasterChan(channel)
         res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
         if res:
@@ -716,7 +716,7 @@ class IRCBot(irc.IRCClient):
         return "No pad is currently set for this channel."
 
     def command_runlater(self, rest, channel=None, nick=None):
-        """!saylater <minutes> [--chan <channel>] <!command [arguments]> : Schedules <!command> in <minutes> for current channel or optional <channel>."""
+        """saylater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
         when, task = self._extract_digit(rest)
         when = max(1, when) * 60
@@ -732,7 +732,7 @@ class IRCBot(irc.IRCClient):
         else:
             channel = self.getMasterChan(channel)
         target = nick if channel == self.nickname else channel
-        if task.startswith('!'):
+        if task.startswith(config.COMMAND_CHARACTER):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
@@ -741,7 +741,7 @@ class IRCBot(irc.IRCClient):
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
     def command_tasks(self, rest, channel=None, *args):
-        """!tasks : Prints the list of coming tasks scheduled./AUTH"""
+        """tasks : Prints the list of coming tasks scheduled./AUTH"""
         channel = self.getMasterChan(channel)
         now = time.time()
         res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
@@ -750,7 +750,7 @@ class IRCBot(irc.IRCClient):
         return res
 
     def command_cancel(self, rest, channel=None, *args):
-        """!cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
+        """cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
         channel = self.getMasterChan(channel)
         task_id = safeint(rest.lstrip('#'))
         try:
@@ -764,7 +764,7 @@ class IRCBot(irc.IRCClient):
             return "The task #%s does not exist yet or is already canceled." % task_id
 
     def command_title(self, url, *args):
-        """!title <url> : Prints the title of the webpage at <url>."""
+        """title <url> : Prints the title of the webpage at <url>."""
         d = getPage(url)
         d.addCallback(self._parse_pagetitle, url)
         d.addErrback(lambda _: "I cannot access the webpage at %s" % url)

@@ -24,6 +24,8 @@ TWITTER_API_LIMIT = 5
 # Number of hours back in the past follow queries will catch-up
 BACK_HOURS = 6
 
+COMMAND_CHARACTER = '!'
+
 CHANNELS = {
   'regardscitoyens': {
     'MASTER': True, # Master channel will be the focus of !last commands sent in private to the bot when option --chan is not specified
