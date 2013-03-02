@@ -230,7 +230,7 @@ class IRCBot(irc.IRCClient):
         if not talk and self.re_tweets.search(msg) and target in self.filters:
             low_msg_utf = msg_utf.lower()
             for keyword in self.filters[target]:
-                if "%s" % keyword in low_msg_utf:
+                if "%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': ')):
                     skip = True
                     reason = keyword
                     break
