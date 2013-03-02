@@ -1,14 +1,15 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os, time, json
 from datetime import datetime
 import pymongo
-from utils import *
+from gazouilleur import config
+from gazouilleur.lib.utils import *
 
 class Stats():
 
-    def __init__(self, db, config, user):
+    def __init__(self, db, user):
         self.db = db
         self.now = timestamp_hour(datetime.today())
         self.user = user

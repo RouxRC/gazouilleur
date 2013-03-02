@@ -1,10 +1,9 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys, os, os.path, codecs
+import os, os.path, codecs
 from datetime import datetime
-sys.path.append('..')
-import config
+from gazouilleur import config
 
 class FileLogger:
     def __init__(self, channel=''):

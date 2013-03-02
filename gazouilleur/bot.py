@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sys, os.path, types, re
@@ -11,13 +11,12 @@ from twisted.python import log
 from twisted.words.protocols import irc
 from twisted.web.client import getPage
 from twisted.application import internet, service
-import config
-sys.path.append('lib')
-from filelogger import FileLogger
-from utils import *
-from microblog import *
-from feeds import FeederFactory
-from stats import Stats
+from gazouilleur import config
+from gazouilleur.lib.utils import *
+from gazouilleur.lib.filelogger import FileLogger
+from gazouilleur.lib.microblog import *
+from gazouilleur.lib.feeds import FeederFactory
+from gazouilleur.lib.stats import Stats
 ANTIFLOOD = 0.35
 
 class IRCBot(irc.IRCClient):
@@ -570,7 +569,7 @@ class IRCBot(irc.IRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
-            stats = Stats(self.db, config, conf["TWITTER"]["USER"].lower())
+            stats = Stats(self.db, conf["TWITTER"]["USER"].lower())
             return stats.print_last()
         return "No Twitter account set for this channel."
 

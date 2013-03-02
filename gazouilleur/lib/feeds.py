@@ -1,8 +1,8 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, sys, time, hashlib, random
+import os, time, hashlib, random
 from datetime import datetime, timedelta
 import feedparser, pymongo, urllib2
 from twisted.internet import reactor, protocol, defer, task
@@ -12,11 +12,10 @@ try:
     import cStringIO as _StringIO
 except ImportError:
     import StringIO as _StringIO
-from utils import *
-sys.path.append('..')
-from config import DEBUG, MONGODB
-from microblog import Sender
-from stats import Stats
+from gazouilleur import config
+from gazouilleur.lib.utils import *
+from gazouilleur.lib.microblog import Sender
+from gazouilleur.lib.stats import Stats
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
 
@@ -156,7 +155,7 @@ class FeederProtocol():
         d = defer.succeed('')
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if not self.in_cache(url):
-            if DEBUG:
+            if config.DEBUG:
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             d.addCallback(self.get_page, url)
             d.addErrback(self._handle_error, "downloading", url)
@@ -237,7 +236,7 @@ class FeederProtocol():
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('statuses_followers', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
         self.db['stats'].insert(stat)
         weekday = timestamp.weekday()
-        laststats = Stats(self.db, config, user)
+        laststats = Stats(self.db, user)
         if (timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18:
             self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
         last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
@@ -249,7 +248,7 @@ class FeederProtocol():
     def start_twitter(self, database, conf, user):
         d = defer.succeed(Sender('twitter', conf))
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        if DEBUG:
+        if config.DEBUG:
             print "[%s/%s] Query @%s's %s" % (self.fact.channel, database, user, database)
         def passs(*args, **kwargs):
             raise Exception("No process existing for %s" % database)
@@ -274,7 +273,7 @@ class FeederFactory(protocol.ClientFactory):
         self.feeds = feeds
         self.displayRT = displayRT
         self.retweets_processed = {}
-        self.db = pymongo.Connection(MONGODB['HOST'], MONGODB['PORT'])[MONGODB['DATABASE']]
+        self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
         if not os.path.exists(self.cache_dir):
@@ -284,7 +283,7 @@ class FeederFactory(protocol.ClientFactory):
         self.runner = None
 
     def start(self):
-        if DEBUG:
+        if config.DEBUG:
             print "Start %s feeder for %s every %ssec %s" % (self.database, self.channel, self.delay, self.feeds)
         if self.database == "retweets" or self.database == "dms" or self.database == "stats":
             conf = chanconf(self.channel)

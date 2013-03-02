@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
@@ -6,7 +6,7 @@ import os.path as path
 from twisted.internet import reactor, defer
 from twisted.web import client
 from twisted.web.client import HTTPPageGetter, HTTPClientFactory
-from utils import get_hash
+from gazouilleur.lib.utils import get_hash
  
 class ConditionalHTTPPageGetter(HTTPPageGetter):
 

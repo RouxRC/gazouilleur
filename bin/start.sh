@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Sample script file to run the bot automatically as service within a virtualenv previously set
+# Adapt the configuration below (WORKON_HOME is the location of the virtualanvs
+BOTENV=gazouilleur
+BOTPATH=$HOME/gazouilleur
+export WORKON_HOME=$HOME/pyenvs
+
+#LOCK
+LOCK="/tmp/$BOTENV.lock"
+if test -e $LOCK ; then
+  echo "The bot seems like running. Stop it first with stop.sh"
+  exit
+fi
+echo $$ > $LOCK
+cd $BOTPATH
+source /usr/local/bin/virtualenvwrapper.sh
+workon $BOTENV
+python gazouilleur/bot.py > run.log 2>&1
+rm -f $LOCK
+

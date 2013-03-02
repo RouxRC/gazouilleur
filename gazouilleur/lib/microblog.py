@@ -1,13 +1,11 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import socket
 from datetime import datetime
 from twitter import *
-from utils import *
-sys.path.append('..')
-import config
+from gazouilleur import config
+from gazouilleur.lib.utils import *
 
 class Sender():
 

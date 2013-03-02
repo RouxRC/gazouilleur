@@ -1,13 +1,12 @@
-#!/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys, re, urllib, hashlib
+import re, urllib, hashlib
 from urllib2 import urlopen, URLError
 from datetime import datetime, timedelta
 import socket
 import pymongo, htmlentitydefs
-sys.path.append('..')
-import config
+from gazouilleur import config
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)

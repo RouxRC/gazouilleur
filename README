@@ -1,8 +1,0 @@
-
-Configure the bot by copying and adapting the config.py.example file into config.py.
-
-Create a corresponding MongoDB database and matching user accordingly to your config.py file.
-
-Start the bot by running "python bot.py" or "twistd -y bot.py" as a background daemon (will log in run.log in bot.py's directory).
-
-
