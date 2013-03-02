@@ -24,40 +24,44 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * optional fine user control
 
 
-
 ## Requirements
 
  * [MongoDB](http://www.mongodb.org/) is required: below is an example to install it on Debian/Ubuntu:
-  * Edit your apt `sources.list` file and add the following line:
-```bash
-deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen
-```
+  + Edit your apt `sources.list` file and add the following line:
 
-  * Install the GPG key for this repository, update apt lists and install MongoDB:
-```bash
-curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
-sudo apt-get update
-sudo apt-get install mongodb-10gen
-```
+  ```bash
+  deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen
+  ```
 
-  * Configure MongoDB:
-```bash
-sudo vi /etc/mongodb.conf
-```
+  + Install the GPG key for this repository, update apt lists and install MongoDB:
+
+  ```bash
+  curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
+  sudo apt-get update
+  sudo apt-get install mongodb-10gen
+  ```
+
+  + Configure MongoDB:
+
+  ```bash
+  sudo vi /etc/mongodb.conf
+  ```
 
  * Configure your python environment:
-  * It's recommended to use virtualenv with virtualenvwrapper:
-```bash
-sudo pip install virtualenv
-sudo pip install virtualenvwrapper
-```
+  + It's recommended to use virtualenv with virtualenvwrapper:
 
-  * Create a virtualenv for the bot from within this directory and install dependencies:
-```bash
-source /usr/local/bin/virtualenvwrapper.shworkon VIRTUALENV_NAME
-pip install -r requirements.txt
-add2virtualenv .
-```
+  ```bash
+  sudo pip install virtualenv
+  sudo pip install virtualenvwrapper
+  ```
+
+  + Create a virtualenv for the bot from within this directory and install dependencies:
+
+  ```bash
+  source /usr/local/bin/virtualenvwrapper.shworkon VIRTUALENV_NAME
+  pip install -r requirements.txt
+  add2virtualenv .
+  ```
 
 ## Configuration
 
@@ -65,23 +69,26 @@ add2virtualenv .
  * Choose a name for the bot and register it on the desired IRC server
  * Create a MongoDB database and its owner both having the same name as the bot ([RockMongo](http://rockmongo.com/) is a nice web tool to do things like this)
  * Copy the configuration example file and adapt your settings:
-```bash
-cp gazouilleur/config.py{.example,}
-vi gazouilleur/config.py
-```
+
+ ```bash
+ cp gazouilleur/config.py{.example,}
+ vi gazouilleur/config.py
+ ```
 
 ## Run Gazouilleur
 
  * Start or stop the bot:
-```bash
-bash bin/start.sh &
-bash bin/stop.sh
-```
+
+ ```bash
+ bash bin/start.sh &
+ bash bin/stop.sh
+ ```
 
  * Follow logs:
-```bash
-tail -fn 50 run.log
-```
+
+ ```bash
+ tail -fn 50 run.log
+ ```
 
 ### [Come over and see the bot in action on Regards Citoyens's IRC channel on Freenode!](http://webchat.freenode.net/?channels=regardscitoyens)
 
