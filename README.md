@@ -58,7 +58,8 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
   + Create a virtualenv for the bot from within this directory and install dependencies:
 
   ```bash
-  source /usr/local/bin/virtualenvwrapper.shworkon VIRTUALENV_NAME
+  source /usr/local/bin/virtualenvwrapper.sh
+  workon VIRTUALENV_NAME
   pip install -r requirements.txt
   add2virtualenv .
   ```
