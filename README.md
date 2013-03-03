@@ -59,6 +59,7 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
 
   ```bash
   source /usr/local/bin/virtualenvwrapper.sh
+  mkvirtualenv --no-site-packages VIRTUALENV_NAME
   workon VIRTUALENV_NAME
   pip install -r requirements.txt
   add2virtualenv .
