@@ -233,7 +233,7 @@ class FeederProtocol():
         if config.TWITTER_API_VERSION == 1:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
-            stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('statuses_followers', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
+            stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
         self.db['stats'].insert(stat)
         weekday = timestamp.weekday()
         laststats = Stats(self.db, user)
