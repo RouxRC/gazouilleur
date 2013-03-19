@@ -62,6 +62,12 @@ class Sender():
     def show_status(self, tweet_id):
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
+    def get_mytweets(self, user, **kwargs):
+        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': user, 'count': 75, 'include_rts': 'true'}, return_result=True)
+
+    def get_mentions(self, **kwargs):
+        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_entities': 'false'}, return_result=True)
+
     def get_retweets(self, retweets_processed={}, **kwargs):
         tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
         done = 0
