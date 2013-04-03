@@ -69,7 +69,7 @@ class FeederProtocol():
                     break
                 elif 'class=' not in line:
                     tweet['text'] += line
-            tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'])))
+            tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text']))).replace('%s: ' % tweet['user'], '')
             feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
         feed.reverse()
         return {"nexturl": nexturl, "tweets": feed}
