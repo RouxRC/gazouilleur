@@ -54,7 +54,10 @@ class FeederProtocol():
 
     def get_data_from_icerocket_search_page(self, page, url):
         feed = []
-        tree = etree.HTML(page)
+        try:
+            tree = etree.HTML(page)
+        except:
+            return {"nexturl": '', "tweets": []}
         nexturl = ''
         nexts = tree.xpath('//a[@id="next"]')
         if len(nexts):
