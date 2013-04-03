@@ -102,14 +102,16 @@ class IRCBot(irc.IRCClient):
             # Run stats on the account every hour
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
             # Follow tweets and mentions for Twitter USER set for the channel
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf))
+ # old version with Icerocket RSS dead feeds
+ #            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], chan_displays_my_rt(channel, conf))
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
             self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 65, displayRT=chan_displays_my_rt(channel, conf))
             self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 400, displayRT=chan_displays_my_rt(channel, conf))
             self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 400, displayRT=chan_displays_my_rt(channel, conf))
             # Follow DMs sent for Twitter USER for the channel
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
         # Follow tweets matching queries set for this channel with !follow
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 167, 20, [], chan_displays_rt(channel, conf))
+        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 257, 25, [], chan_displays_rt(channel, conf), True)
         # Follow rss matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 20)
         n = self.factory.channels.index(channel.lower()) + 1
@@ -243,7 +245,10 @@ class IRCBot(irc.IRCClient):
         if not skip:
             irc.IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
-            log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
+            try:
+                log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
+            except:
+                log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
 
     def msg(self, target, msg, delay=0, talk=False):
         reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)

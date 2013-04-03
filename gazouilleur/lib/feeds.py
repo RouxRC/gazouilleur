@@ -8,6 +8,7 @@ import feedparser, pymongo, urllib2
 from twisted.internet import reactor, protocol, defer, task
 from twisted.python import failure
 from httpget import conditionalGetPage
+from lxml import etree
 try:
     import cStringIO as _StringIO
 except ImportError:
@@ -43,6 +44,35 @@ class FeederProtocol():
 
     def get_page(self, nodata, url):
         return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
+
+    re_tweet_infos = re.compile(r'&amp;in_reply_to_status_id=(\d+)&amp;in_reply_to=([^"]*)">')
+    def _get_tweet_infos(self, text):
+        match = self.re_tweet_infos.search(text)
+        if match:
+            return match.group(2), match.group(1)
+        return '', ''
+
+    def get_data_from_icerocket_search_page(self, page, url):
+        feed = []
+        tree = etree.HTML(page)
+        nexturl = ''
+        nexts = tree.xpath('//a[@id="next"]')
+        if len(nexts):
+            nexturl = nexts[0].attrib['href']
+        divs = tree.xpath('//table[@class="content"]//p')
+        for div in divs:
+            tweet = {'text': '', 'user': '', 'id_str': ''}
+            for line in div:
+                line = etree.tostring(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
+                if 'class="author"' in line:
+                    tweet['user'], tweet['id_str'] = self._get_tweet_infos(line)
+                    break
+                elif 'class=' not in line:
+                    tweet['text'] += line
+            tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'])))
+            feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
+        feed.reverse()
+        return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
         try:
@@ -92,12 +122,16 @@ class FeederProtocol():
 
     def process_tweets(self, feed, url):
         # handle tweets from icerocket's rss
+        nexturl = ""
         try:
             elements = feed.entries
         except:
         # handle tweets from Twitter API
             if isinstance(feed, list) and len(feed):
                 elements = feed
+            elif isinstance(feed, dict) and "nexturl" in feed:
+                nexturl = feed["nexturl"]
+                elements = feed["tweets"]
             else:
                 return None
         ids = []
@@ -108,10 +142,10 @@ class FeederProtocol():
             try:
                 time_tweet = time.mktime(i.get('published_parsed', '')) - 4*60*60
             except:
-                try:
+                if i.get('created_at', '') == "now":
+                    time_tweet = time.time()
+                else:
                     time_tweet = time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y')) + 2*60*60
-                except Exception as e:
-                    self._handle_error(e, "processing date from tweets batch", url)
             date = datetime.fromtimestamp(time_tweet)
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
@@ -129,8 +163,11 @@ class FeederProtocol():
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             news.reverse()
-            if fresh and not url.startswith("my") and len(news) > len(elements) / 2 and url[-1:] <= "3":
-                reactor.callFromThread(reactor.callLater, 10, self.start, next_page(url))
+            if fresh and not url.startswith("my") and len(news) > len(elements) / 2:
+                if nexturl && "p=3" not in nexturl:
+                    reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
+                elif not nexturl and url[-1:] <= "3":
+                    reactor.callFromThread(reactor.callLater, 41, self.start, next_page(url))
             text = []
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
@@ -141,10 +178,7 @@ class FeederProtocol():
                         text.append(self.displayTweet(t))
             else:
                 text = [self.displayTweet(t) for t in news]
-            try:
-                self.db['tweets'].insert(news, continue_on_error=True, safe=True)
-            except Exception as e:
-                self._handle_error(e, "recording tweets batch", url)
+            self.db['tweets'].insert(news, continue_on_error=True, safe=True)
             self.fact.ircclient._send_message(text, self.fact.channel)
         return None
 
@@ -159,7 +193,10 @@ class FeederProtocol():
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             d.addCallback(self.get_page, url)
             d.addErrback(self._handle_error, "downloading", url)
-            d.addCallback(self.get_data_from_page, url)
+            if self.fact.icerocket_page:
+                d.addCallback(self.get_data_from_icerocket_search_page, url)
+            else:
+                d.addCallback(self.get_data_from_page, url)
             d.addErrback(self._handle_error, "parsing", url)
             if self.fact.database == "tweets":
                 d.addCallback(self.process_tweets, url)
@@ -191,7 +228,7 @@ class FeederProtocol():
         for tweet in listtweets:
             if "ERROR 429:" in tweet:
                 return self.fact.ircclient._send_message("WARNING: Twitter API rate exceeded, please ask %s to fix my configuration" % config.ADMINS.join(' or '), self.fact.channel)
-            feed.append({'created_at': tweet['created_at'], 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])})
+            feed.append({'created_at': tweet['created_at'], 'title': unescape_html(tweet['text']), 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])})
         return self.process_tweets(feed, 'my%s' % feedtype)
 
     def process_dms(self, listdms, user):
@@ -217,10 +254,7 @@ class FeederProtocol():
         news = [t for t in dms if t['_id'] not in existing]
         if news:
             news.reverse()
-            try:
-                self.db['dms'].insert(news, continue_on_error=True, safe=True)
-            except pymongo.errors.OperationFailure as e:
-                self._handle_error(e, "recording DMs batch", url)
+            self.db['dms'].insert(news, continue_on_error=True, safe=True)
             self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
         return None
 
@@ -273,7 +307,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, timeout=20, feeds=None, displayRT=False):
+    def __init__(self, ircclient, channel, database="news", delay=90, timeout=20, feeds=None, displayRT=False, icerocketPage=False):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
@@ -283,6 +317,7 @@ class FeederFactory(protocol.ClientFactory):
         self.feeds = feeds
         self.displayRT = displayRT
         self.retweets_processed = {}
+        self.icerocket_page = icerocketPage
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)

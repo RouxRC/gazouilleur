@@ -18,6 +18,9 @@ shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
 
+re_clean_html = re.compile(r'<[^>]*>')
+clean_html = lambda x: re_clean_html.sub('', x)
+
 re_clean_identica = re.compile(r'(and posts a ♻ status)? on Identi\.ca( and)?( as a)?', re.I)
 clean_identica = lambda x: re_clean_identica.sub('', x)
 
@@ -135,8 +138,9 @@ re_entities = re.compile(r'&([^;]+);')
 def unescape_html(text):
     return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
 
-def getIcerocketFeedUrl(query):
-    return 'http://www.icerocket.com/search?tab=twitter&q=%s&rss=1' % query
+def getIcerocketFeedUrl(query, rss=False):
+    rss_arg = "&rss=1" if rss else "";
+    return 'http://www.icerocket.com/search?tab=twitter&q=%s%s' % (query, rss_arg)
 
 def assembleResults(results, limit=300):
     assemble = []
