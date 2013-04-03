@@ -164,9 +164,9 @@ class FeederProtocol():
         if news:
             news.reverse()
             if fresh and not url.startswith("my") and len(news) > len(elements) / 2:
-                if nexturl && "p=3" not in nexturl:
+                if nexturl and "p=3" not in nexturl:
                     reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
-                elif not nexturl and url[-1:] <= "3":
+                elif (not nexturl) and url[-1:] <= "3":
                     reactor.callFromThread(reactor.callLater, 41, self.start, next_page(url))
             text = []
             if not self.fact.displayRT:
