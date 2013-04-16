@@ -419,7 +419,7 @@ class IRCBot(irc.IRCClient):
             elif current == "c":
                 chan = '#'+arg.lower().lstrip('#')
                 if chan.lower() in self.factory.channels:
-                    query['channel'] = chan
+                    query['channel'] = re.compile(r'^%s$' % chan, re.I)
                 else:
                     return "I do not follow this channel."
                 current = ""
