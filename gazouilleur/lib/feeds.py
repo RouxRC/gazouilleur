@@ -18,7 +18,7 @@ from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Sender
 from gazouilleur.lib.stats import Stats
 
-re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)$', re.I)
+re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
 
 class FeederProtocol():
     def __init__(self, factory):
@@ -29,11 +29,11 @@ class FeederProtocol():
         if not msg.startswith("downloading"):
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
         print "ERROR while %s %s : %s" % (msg, url, traceback)
-        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and 'icerocket' in url:
+        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and ('icerocket' in url or 'topsy' in url):
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
     def in_cache(self, url):
-        if 'icerocket' in url and datetime.today() < self.fact.ircclient.breathe:
+        if ('icerocket' in url or 'topsy' in url) and datetime.today() < self.fact.ircclient.breathe:
             return True
         already_got = self.fact.cache.get(url, None)
         if already_got:
@@ -45,33 +45,46 @@ class FeederProtocol():
     def get_page(self, nodata, url):
         return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
 
-    re_tweet_infos = re.compile(r'&amp;in_reply_to_status_id=(\d+)&amp;in_reply_to=([^"]*)">')
-    def _get_tweet_infos(self, text):
-        match = self.re_tweet_infos.search(text)
-        if match:
+    re_tweet_infos_icerocket = re.compile(r'&amp;in_reply_to_status_id=(\d+)&amp;in_reply_to=([^"]*)">')
+    def _get_tweet_infos(self, text, regexp, reverse=False):
+        match = regexp.search(text)
+        if match and reverse:
             return match.group(2), match.group(1)
+        elif match:
+            return match.group(1), match.group(2)
         return '', ''
 
-    def get_data_from_icerocket_search_page(self, page, url):
+    def get_data_from_tweets_search_page(self, page, url):
         feed = []
         try:
             tree = etree.HTML(page)
         except:
             return {"nexturl": '', "tweets": []}
         nexturl = ''
-        nexts = tree.xpath('//a[@id="next"]')
+        if 'icerocket' in url:
+            nexts = tree.xpath('//a[@id="next"]')
+            divs = tree.xpath('//table[@class="content"]//p')
+        elif 'topsy' in url:
+            nexts = tree.xpath('//div[@class="pager-box-body"]/a')
+            divs = tree.xpath('//div[@class="twitter-post-big"]')
         if len(nexts):
             nexturl = nexts[0].attrib['href']
-        divs = tree.xpath('//table[@class="content"]//p')
+        if nexturl.startswith("/"):
+            nexturl = url[:url.find('/', 7)] + nexturl
         for div in divs:
             tweet = {'text': '', 'user': '', 'id_str': ''}
-            for line in div:
-                line = etree.tostring(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
-                if 'class="author"' in line:
-                    tweet['user'], tweet['id_str'] = self._get_tweet_infos(line)
-                    break
-                elif 'class=' not in line:
-                    tweet['text'] += line
+            if 'icerocket' in url:
+                for line in div:
+                    line = etree.tostring(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
+                    if 'class="author"' in line:
+                        tweet['user'], tweet['id_str'] = self._get_tweet_infos(line, self.re_tweet_infos_icerocket, True)
+                        break
+                    elif 'class=' not in line:
+                        tweet['text'] += line
+            elif 'topsy' in url:
+                linkstring = etree.tostring(div.xpath('div[@class="actions"]/a')[0]).replace('\n', ' ')
+                tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring, re_tweet_url)
+                tweet['text'] = etree.tostring(div.xpath('div[@class="body"]/span')[0]).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text']))).replace('%s: ' % tweet['user'], '')
             feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
         feed.reverse()
@@ -124,7 +137,7 @@ class FeederProtocol():
         return None
 
     def process_tweets(self, feed, url):
-        # handle tweets from icerocket's rss
+        # handle tweets from icerocket or topsy fake rss
         nexturl = ""
         try:
             elements = feed.entries
@@ -167,7 +180,7 @@ class FeederProtocol():
         if news:
             news.reverse()
             if fresh and not url.startswith("my") and len(news) > len(elements) / 2:
-                if nexturl and "p=3" not in nexturl:
+                if nexturl and "p=3" not in nexturl and "page=10" not in nexturl:
                     reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
                 elif (not nexturl) and url[-1:] <= "3":
                     reactor.callFromThread(reactor.callLater, 41, self.start, next_page(url))
@@ -196,8 +209,8 @@ class FeederProtocol():
                 print "[%s/%s] Query %s" % (self.fact.channel, self.fact.database, url)
             d.addCallback(self.get_page, url)
             d.addErrback(self._handle_error, "downloading", url)
-            if self.fact.icerocket_page:
-                d.addCallback(self.get_data_from_icerocket_search_page, url)
+            if self.fact.tweets_search_page:
+                d.addCallback(self.get_data_from_tweets_search_page, url)
             else:
                 d.addCallback(self.get_data_from_page, url)
             d.addErrback(self._handle_error, "parsing", url)
@@ -310,7 +323,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database="news", delay=90, timeout=20, feeds=None, displayRT=False, icerocketPage=False):
+    def __init__(self, ircclient, channel, database="news", delay=90, timeout=20, feeds=None, displayRT=False, tweetsSearchPage=False):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
@@ -320,7 +333,7 @@ class FeederFactory(protocol.ClientFactory):
         self.feeds = feeds
         self.displayRT = displayRT
         self.retweets_processed = {}
-        self.icerocket_page = icerocketPage
+        self.tweets_search_page = tweetsSearchPage
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)

@@ -104,12 +104,13 @@ class IRCBot(irc.IRCClient):
             # Follow tweets and mentions for Twitter USER set for the channel
  # old version with Icerocket RSS dead feeds
  #            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], chan_displays_my_rt(channel, conf))
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
+#            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
+            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
             self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 65, displayRT=chan_displays_my_rt(channel, conf))
             self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 400, displayRT=chan_displays_my_rt(channel, conf))
             self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 400, displayRT=chan_displays_my_rt(channel, conf))
             # Follow DMs sent for Twitter USER for the channel
-            self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
+             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
         # Follow tweets matching queries set for this channel with !follow
         self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 257, 25, [], chan_displays_rt(channel, conf), True)
         # Follow rss matching url queries set for this channel with !follow

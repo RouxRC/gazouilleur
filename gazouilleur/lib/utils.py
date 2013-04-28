@@ -138,6 +138,9 @@ re_entities = re.compile(r'&([^;]+);')
 def unescape_html(text):
     return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
 
+def getTopsyFeedUrl(query):
+    return 'http://topsy.com/s/%s/tweet?order=date&window=realtime' % query
+
 def getIcerocketFeedUrl(query, rss=False):
     rss_arg = "&rss=1" if rss else "";
     return 'http://www.icerocket.com/search?tab=twitter&q=%s%s' % (query, rss_arg)
@@ -158,7 +161,8 @@ def formatQuery(query, nourl=False):
     if query:
         query = query[:-2]
     if not nourl:
-        query = getIcerocketFeedUrl(query)
+        #query = getIcerocketFeedUrl(query)
+        query = getTopsyFeedUrl(query)
     return query
 
 def getFeeds(channel, database, db, nourl=False):
@@ -166,7 +170,7 @@ def getFeeds(channel, database, db, nourl=False):
     db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
     queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)])
     if database == "tweets":
-        # create combined queries on Icerocket from search words retrieved in db
+        # create combined queries on Icerocket/Topsy from search words retrieved in db
         query = ""
         for feed in queries:
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')

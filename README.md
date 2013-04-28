@@ -6,7 +6,7 @@ Gazouilleur is an IRC bot offering Twitter interactions on multiple channels in 
  * measure and visualise its statistics
  * send on both Twitter and Identi.ca messages, answers, retweets or direct messages
  * remove messages from Twitter
- * follow or unfollow on demand the results of any search query on Twitter (through IceRocket.com's RSS feeds)
+ * follow or unfollow on demand the results of any search query on Twitter (through parsing html results on Topsy.com, previously IceRocket.com)
 
 Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGarage](https://www.laquadrature.net/fr/chat-old) developped by [Bram](http://blog.worlddomination.be/projects/ungarage.html), Gazouilleur was developped for the daily organisational and collaborative needs of [Regards Citoyens](http://www.regardscitoyens.org/).
 
