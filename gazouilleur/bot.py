@@ -586,12 +586,12 @@ class IRCBot(irc.IRCClient):
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     def _parse_follow_command(self, query):
-        query = remove_ext_quotes(query)
         if not self.re_url.search(query):
             database = 'tweets'
             url = query
             name = 'TWEETS: %s' % query
         else:
+            query = remove_ext_quotes(query)
             database = 'news'
             url = self.re_url.search(query).group(1)
             name = self.re_url.sub('', query).strip().lower()
@@ -616,6 +616,7 @@ class IRCBot(irc.IRCClient):
     def command_unfollow(self, query, channel=None, *args):
         """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
+        query = query.lstrip('«').rstrip('»')
         database, query, name = self._parse_follow_command(query)
         re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
         res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)

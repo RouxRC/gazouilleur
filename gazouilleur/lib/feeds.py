@@ -66,7 +66,7 @@ class FeederProtocol():
             divs = tree.xpath('//table[@class="content"]//p')
         elif 'topsy' in url:
             nexts = tree.xpath('//div[@class="pager-box-body"]/a')
-            divs = tree.xpath('//div[@class="twitter-post-big"]')
+            divs = tree.xpath('//div[@class="twitter-post-big"] | //div[@class="twitter-post-small"]')
         if len(nexts):
             nexturl = nexts[0].attrib['href']
         if nexturl.startswith("/"):
@@ -180,7 +180,7 @@ class FeederProtocol():
         if news:
             news.reverse()
             if fresh and not url.startswith("my") and len(news) > len(elements) / 2:
-                if nexturl and "p=3" not in nexturl and "page=10" not in nexturl:
+                if nexturl and "p=3" not in nexturl and "page=6" not in nexturl:
                     reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
                 elif (not nexturl) and url[-1:] <= "3":
                     reactor.callFromThread(reactor.callLater, 41, self.start, next_page(url))

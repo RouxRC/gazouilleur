@@ -159,7 +159,7 @@ def assembleResults(results, limit=300):
 
 def formatQuery(query, nourl=False):
     if query:
-        query = query[:-2]
+        query = query[:-4]
     if not nourl:
         #query = getIcerocketFeedUrl(query)
         query = getTopsyFeedUrl(query)
@@ -175,10 +175,12 @@ def getFeeds(channel, database, db, nourl=False):
         for feed in queries:
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
             if not nourl:
-                arg = "(%s)OR" % urllib.quote(arg, '')
+                arg = "(%s)+OR+" % urllib.quote(arg, '')
             else:
                 arg = " «%s»  | " % arg
-            if len(query+arg) < 200:
+	    if " OR " in arg:
+                urls.append(formatQuery(arg, nourl))
+            elif len(query+arg) < 200:
                 query += arg
             else:
                 urls.append(formatQuery(query, nourl))
