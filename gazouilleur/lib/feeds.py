@@ -56,6 +56,7 @@ class FeederProtocol():
 
     def get_data_from_tweets_search_page(self, page, url):
         feed = []
+        ids = []
         try:
             tree = etree.HTML(page)
         except:
@@ -86,8 +87,9 @@ class FeederProtocol():
                 tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring, re_tweet_url)
                 tweet['text'] = etree.tostring(div.xpath('div[@class="body"]/span')[0]).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text']))).replace('%s: ' % tweet['user'], '')
-            feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
-        feed.reverse()
+            if tweet['id_str'] not in ids:
+                ids.append(tweet['id_str'])
+                feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
         return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
@@ -363,7 +365,7 @@ class FeederFactory(protocol.ClientFactory):
             urls = getFeeds(self.channel, self.database, self.db)
         ct = 0
         for url in urls:
-            ct += 1 + int(random.random()*500)/100
+            ct += 3 + int(random.random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
         return defer.succeed(True)
 

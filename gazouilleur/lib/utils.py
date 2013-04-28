@@ -175,12 +175,14 @@ def getFeeds(channel, database, db, nourl=False):
         for feed in queries:
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
             if not nourl:
-                arg = "(%s)+OR+" % urllib.quote(arg, '')
+                if not arg.startswith('from:') and not arg.startswith('#'):
+                   arg = "(%s)" % arg
+                arg = "%s+OR+" % urllib.quote(arg, '')
             else:
                 arg = " «%s»  | " % arg
 	    if " OR " in arg:
                 urls.append(formatQuery(arg, nourl))
-            elif len(query+arg) < 200:
+            elif query.count('+OR+') < 4:
                 query += arg
             else:
                 urls.append(formatQuery(query, nourl))
