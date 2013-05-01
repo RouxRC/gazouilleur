@@ -64,17 +64,18 @@ class FeederProtocol():
         nexturl = ''
         if 'icerocket' in url:
             nexts = tree.xpath('//a[@id="next"]')
-            divs = tree.xpath('//table[@class="content"]//p')
+            divs = tree.xpath('//div[@class="media-body"]')
         elif 'topsy' in url:
             nexts = tree.xpath('//div[@class="pager-box-body"]/a')
             divs = tree.xpath('//div[@class="twitter-post-big"] | //div[@class="twitter-post-small"]')
         if len(nexts):
             nexturl = nexts[0].attrib['href']
-        if nexturl.startswith("/"):
-            nexturl = url[:url.find('/', 7)] + nexturl
+        if not nexturl.startswith("http"):
+            nexturl = url[:url.find('/', 7)+1] + nexturl.lstrip('/')
         for div in divs:
             tweet = {'text': '', 'user': '', 'id_str': ''}
             if 'icerocket' in url:
+                ''' Old IceRocket's html parsing
                 for line in div:
                     line = etree.tostring(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
                     if 'class="author"' in line:
@@ -82,11 +83,14 @@ class FeederProtocol():
                         break
                     elif 'class=' not in line:
                         tweet['text'] += line
+                '''
+                tweet['user'], tweet['id_str'] = self._get_tweet_infos(div.xpath('h4/div/a')[0].attrib['href'], re_tweet_url)
+                tweet['text'] = etree.tostring(div.xpath('div[@class="message"]')[0])
             elif 'topsy' in url:
                 linkstring = etree.tostring(div.xpath('div[@class="actions"]/a')[0]).replace('\n', ' ')
                 tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring, re_tweet_url)
-                tweet['text'] = etree.tostring(div.xpath('div[@class="body"]/span')[0]).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
-            tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text']))).replace('%s: ' % tweet['user'], '')
+                tweet['text'] = etree.tostring(div.xpath('div[@class="body"]/span')[0])
+            tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'].replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')))).replace('%s: ' % tweet['user'], '')
             if tweet['id_str'] not in ids:
                 ids.append(tweet['id_str'])
                 feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
@@ -182,7 +186,7 @@ class FeederProtocol():
         if news:
             news.reverse()
             if fresh and not url.startswith("my") and len(news) > len(elements) / 2:
-                if nexturl and "p=3" not in nexturl and "page=6" not in nexturl:
+                if nexturl and "p=4" not in nexturl and "page=6" not in nexturl:
                     reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
                 elif (not nexturl) and url[-1:] <= "3":
                     reactor.callFromThread(reactor.callLater, 41, self.start, next_page(url))

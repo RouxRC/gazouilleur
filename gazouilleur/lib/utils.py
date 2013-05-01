@@ -161,8 +161,8 @@ def formatQuery(query, nourl=False):
     if query:
         query = query[:-4]
     if not nourl:
-        #query = getIcerocketFeedUrl(query)
-        query = getTopsyFeedUrl(query)
+        query = getIcerocketFeedUrl(query)
+        #query = getTopsyFeedUrl(query)
     return query
 
 def getFeeds(channel, database, db, nourl=False):
