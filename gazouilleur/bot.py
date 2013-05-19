@@ -136,6 +136,7 @@ class IRCBot(irc.IRCClient):
             self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
             self.msg("NickServ", 'identify %s %s' % (config.BOTNAME, config.BOTPASS,))
             log.msg("Reclaimed ident as %s." % (config.BOTNAME,))
+        self.nickname = config.BOTNAME
 
     def nickChanged(self, nick):
         log.msg("Identified as %s." % (nick,))
