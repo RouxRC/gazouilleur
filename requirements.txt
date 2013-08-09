@@ -5,6 +5,7 @@ twitter
 feedparser
 pyOpenSSL
 # The following are only required to use the URL_STATS functionality. You can comment them if you don't need it
-pylab
+# numpy apparently needs to be installed before separately for matplotlib to be installed properly, so first run:
+# pip install numpy
 matplotlib
 pystache
