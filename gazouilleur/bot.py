@@ -237,7 +237,7 @@ class IRCBot(irc.IRCClient):
         if not talk and self.re_tweets.search(msg) and target in self.filters:
             low_msg_utf = msg_utf.lower()
             for keyword in self.filters[target]:
-                if "%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': ')):
+                if keyword and ("%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': '))):
                     skip = True
                     reason = keyword
                     break
@@ -251,6 +251,7 @@ class IRCBot(irc.IRCClient):
             try:
                 log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
             except:
+                print "ERROR encoding filtered msg", msg, reason
                 log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
 
     def msg(self, target, msg, delay=0, talk=False):
