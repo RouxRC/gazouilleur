@@ -71,18 +71,18 @@ class IRCBot(irc.IRCClient):
   # Connexion loggers
 
     def connectionMade(self):
-        irc.IRCClient.connectionMade(self)
         log.msg('Connection made')
         self.logger = {config.BOTNAME: FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
+        irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
-        irc.IRCClient.connectionLost(self, reason)
         for channel in self.factory.channels:
             self.left(channel)
         log.msg('Connection lost because: %s.' % (reason,))
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME].close()
+        irc.IRCClient.connectionLost(self, reason)
 
     def signedOn(self):
         log.msg("Signed on as %s." % (self.nickname,))
@@ -144,6 +144,7 @@ class IRCBot(irc.IRCClient):
             self._reclaimNick()
 
     def noticed(self, user, channel, message):
+        log.msg("SERVER NOTICE[%s/%s]: %s" % (user, channel, message))
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
 
@@ -236,7 +237,7 @@ class IRCBot(irc.IRCClient):
         if not talk and self.re_tweets.search(msg) and target in self.filters:
             low_msg_utf = msg_utf.lower()
             for keyword in self.filters[target]:
-                if "%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': ')):
+                if keyword and ("%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': '))):
                     skip = True
                     reason = keyword
                     break
@@ -250,6 +251,7 @@ class IRCBot(irc.IRCClient):
             try:
                 log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
             except:
+                print "ERROR encoding filtered msg", msg, reason
                 log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
 
     def msg(self, target, msg, delay=0, talk=False):

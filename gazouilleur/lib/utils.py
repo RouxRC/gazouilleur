@@ -98,13 +98,16 @@ def _clean_redir_urls(text, urls={}, first=True):
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=15).geturl()
+                if 't.co' in url0 or 'google' in url0:
+                    url1 = urlopen(url0, timeout=8).geturl()
+                else:
+                    url1 = url0  # squizz resolve temporarily before making it async
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
             except Exception as e:
                 if config.DEBUG and not first:
-                    print "ERROR trying to access %s : %s" % (url0, e)
+                    print "ERROR trying to resolve %s : %s" % (url0, e)
                 url1 = url00
         if first and not url1 == url00:
             url1 = url1.replace('http', '##HTTP##')
