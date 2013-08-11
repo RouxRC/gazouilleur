@@ -7,7 +7,7 @@ import os, sys
 try:
     from gazouilleur import config
 except ImportError:
-    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it and edit it to prepare your bot.\n")
+    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.\n")
     exit(1)
 except SyntaxError as e:
     import traceback
@@ -58,18 +58,21 @@ if config.URL_STATS:
     except ImportError as e:
         sys.stderr.write("ERROR: Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
         exit(1)
-        
+
 # Check MongoDB
 try:
     db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
+    assert(db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD']))
 except pymongo.errors.AutoReconnect as e:
     sys.stderr.write("ERROR: MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo /etc/init.d/mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s\n" % (e, config.BOTNAME))
     exit(1)
-# TODO check authenticate mongo
+except AssertionError:
+    sys.stderr.write("ERROR: Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically.\n" % config.MONGODB['DATABASE'])
+    exit(1)
 
 # Chek Twitter Rights
 #try:
-    
+
 #except:
     #exit(1)
 

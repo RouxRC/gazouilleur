@@ -56,5 +56,5 @@ bash bin/configure.sh
 echo "Installation complete!"
 echo "----------------------"
 echo "Please configure Gazouilleur by editing gazouilleur/config.py"
-echo "Then create the Mongo database with appropriate rights by running: bash bin/createDB.sh"
+echo "Then create the Mongo database with appropriate rights by running: \`bash bin/configureDB.sh\`"
 echo "You will then be able to start the bot by running: bash bin/start.sh"
