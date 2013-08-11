@@ -24,23 +24,24 @@ TWITTER_API_LIMIT = 5
 # Number of hours back in the past follow queries will catch-up
 BACK_HOURS = 6
 
+# Character to use to prefix commands to the bot. Careful since using ordinar characters can naturally result in weird behaviors
 COMMAND_CHARACTER = '!'
 
 CHANNELS = {
   'regardscitoyens': {
-    'MASTER': True, # Master channel will be the focus of !last commands sent in private to the bot when option --chan is not specified
+    'MASTER': True, # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
     'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
-    'IDENTICA': {   # Set an IDENTICA USER and PASS to allow microblogging with Identi.ca
+    'IDENTICA': {   # Optionnally set an IDENTICA USER and PASS to allow microblogging with Identi.ca
       'USER': 'regardscitoyens',
       'PASS': '---------'
     },
     'TWITTER': {    # Set a TWITTER USER to follow its tweets and mentions
       'USER': 'RegardsCitoyens',
-      'DISPLAY_RT': True,   # Set to true to follow also all RTs for USER
-      'KEY': '---------',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
-      'SECRET': '--------',
-      'OAUTH_TOKEN': '--------',
-      'OAUTH_SECRET': '---------',
+      'DISPLAY_RT': True,   # Set to true to follow also all RTs of USER's tweets
+      'KEY': 'xxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
+      'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'OAUTH_TOKEN': 'xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'ALLOW_ALL': False    # Set to true to allow all users of the IRC channel to post on twitter
     },
     'DISPLAY_RT': False     # Set to true to follow also all RTs for queries set on this channel
@@ -51,7 +52,8 @@ CHANNELS = {
 }
 
 # URL_STATS is optional to provide a web view on Twitter's stats.
-# This url needs tp be routed to gazouilleur's "web" directory (apache, ...)
+# This url needs tp be routed to gazouilleur's "web" directory
+# For instance if /var/www/ is already served by apache via `ln -s /var/www/twitter-stats ##GAZOUILLEURPATH##/web`
 URL_STATS = "http://www.regardscitoyens.org/stats/"
 #DEBUG mode will display errors publicly on the channel
 DEBUG = False
