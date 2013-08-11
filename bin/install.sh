@@ -3,41 +3,41 @@
 # Install possible missing packages
 echo "Install dependencies..."
 echo "-----------------------"
-echo ""
+echo
 sudo apt-get update > /dev/null || exit 1
 sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev >> install.log || exit 1
-echo ""
+echo
 
 # Install apt repositories for ScrapyD and MongoDB
 echo "Add source repositories..."
 echo "--------------------------"
-echo ""
+echo
 curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
 sudo cp /etc/apt/sources.list{,.gazouilleurbackup-`date +%Y%m%d-%H%M`}
 if ! grep "downloads-distro.mongodb.org" /etc/apt/sources.list > /dev/null; then
 cp /etc/apt/sources.list /tmp/sources.list
-  echo "" >> /tmp/sources.list
+  echo >> /tmp/sources.list
   echo "# MONGODB repository, automatically added by Gazouilleur's install" >> /tmp/sources.list
   echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" >> /tmp/sources.list
   sudo mv /tmp/sources.list /etc/apt/sources.list
 fi
 sudo apt-get update >> install.log || exit 1
-echo ""
+echo
 
 # Install MongoDB
 echo "Install and start MongoDB..."
 echo "----------------------------"
-echo ""
+echo
 sudo apt-get -y install mongodb-10gen >> install.log || exit 1
 sudo pip -q install pymongo >> install.log || exit 1
 #possible config via : vi /etc/mongodb.conf
 sudo service mongodb restart || exit 1
-echo ""
+echo
 
 # Install Gazouilleur's VirtualEnv
 echo "Install VirtualEnv..."
 echo "---------------------"
-echo ""
+echo
 sudo pip -q install virtualenv >> install.log || exit 1
 sudo pip -q install virtualenvwrapper >> install.log || exit 1
 source /usr/local/bin/virtualenvwrapper.sh
@@ -48,15 +48,10 @@ pip install -q numpy >> install.log || exit 1
 pip install -r requirements.txt >> install.log || exit 1
 add2virtualenv .
 deactivate
-echo ""
+echo
 
 # Copy default config
-echo "Prepare config..."
-echo "-----------------"
-echo ""
-for file in gazouilleur/config.py bin/start.sh; do
-  sed "s|##GAZOUILLEURPATH##|"`pwd`"|" $file.example > $file || exit 1
-done
+bash bin/configure.sh
 
 echo "Installation complete!"
 echo "----------------------"
