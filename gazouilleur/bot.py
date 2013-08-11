@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import gazouilleur.lib.tests
+
 import sys, os.path, types, re
 import random, time
 from datetime import datetime
@@ -8,19 +10,10 @@ import lxml.html
 import pymongo
 from twisted.internet import reactor, defer, protocol, threads
 from twisted.python import log
-from twisted.words.protocols import irc
+from twisted.words.protocols.irc import IRCClient
 from twisted.web.client import getPage
 from twisted.application import internet, service
-try:
-    from gazouilleur import config
-except ImportError:
-    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it and edit it to prepare your bot\n")
-    exit(1)
-except SyntaxError as e:
-    import traceback
-    _, _, exc_traceback = sys.exc_info()
-    sys.stderr.write("ERROR: Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s\n" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
-    exit(1)
+from gazouilleur import config
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import *
@@ -28,7 +21,7 @@ from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 ANTIFLOOD = 0.35
 
-class IRCBot(irc.IRCClient):
+class IRCBot(IRCClient):
 
     def __init__(self):
         #NickServ identification handled automatically by twisted
@@ -83,7 +76,7 @@ class IRCBot(irc.IRCClient):
         log.msg('Connection made')
         self.logger = {config.BOTNAME: FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
-        irc.IRCClient.connectionMade(self)
+        IRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
         for channel in self.factory.channels:
@@ -91,7 +84,7 @@ class IRCBot(irc.IRCClient):
         log.msg('Connection lost because: %s.' % (reason,))
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME].close()
-        irc.IRCClient.connectionLost(self, reason)
+        IRCClient.connectionLost(self, reason)
 
     def signedOn(self):
         log.msg("Signed on as %s." % (self.nickname,))
@@ -255,7 +248,7 @@ class IRCBot(irc.IRCClient):
             reason = "fuckoff until %s" % self.silent[target]
         self.log(msg_utf, self.nickname, target, filtered=skip)
         if not skip:
-            irc.IRCClient.msg(self, target, msg, 450)
+            IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
             try:
                 log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
