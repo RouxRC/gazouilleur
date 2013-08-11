@@ -15,7 +15,7 @@ except ImportError:
     import StringIO as _StringIO
 from gazouilleur import config
 from gazouilleur.lib.utils import *
-from gazouilleur.lib.microblog import Sender
+from gazouilleur.lib.microblog import Microblog, check_twitter_results
 from gazouilleur.lib.stats import Stats
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
@@ -26,9 +26,11 @@ class FeederProtocol():
         self.db = self.fact.db
 
     def _handle_error(self, traceback, msg, url):
+        print "ERROR while %s %s : %s" % (msg, url, traceback.getErrorMessage())
         if not msg.startswith("downloading"):
-            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel)
-        print "ERROR while %s %s : %s" % (msg, url, traceback)
+            if not msg.startswith("examining") or config.DEBUG:
+                print traceback
+            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, url, traceback.getErrorMessage()))), self.fact.channel, admins=True)
         if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and ('icerocket' in url or 'topsy' in url):
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
@@ -312,16 +314,18 @@ class FeederProtocol():
         return None
 
     def start_twitter(self, database, conf, user):
-        d = defer.succeed(Sender('twitter', conf))
+        d = defer.succeed(Microblog('twitter', conf))
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if config.DEBUG:
             print "[%s/%s] Query @%s's %s" % (self.fact.channel, database, user, database)
         def passs(*args, **kwargs):
             raise Exception("No process existing for %s" % database)
-        source = getattr(Sender, 'get_%s' % database, passs)
+        source = getattr(Microblog, 'get_%s' % database, passs)
         processor = getattr(self, 'process_%s' % database, passs)
         d.addCallback(source, db=self.db, retweets_processed=self.fact.retweets_processed)
         d.addErrback(self._handle_error, "downloading %s for" % database, user)
+        d.addCallback(check_twitter_results)
+        d.addErrback(self._handle_error, "examining %s for" % database, user)
         d.addCallback(processor, user.lower())
         d.addErrback(self._handle_error, "working on %s for" % database, user)
         return d

@@ -16,7 +16,7 @@ from twisted.application import internet, service
 from gazouilleur import config
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
-from gazouilleur.lib.microblog import *
+from gazouilleur.lib.microblog import Microblog
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 ANTIFLOOD = 0.35
@@ -232,7 +232,7 @@ class IRCBot(IRCClient):
         d.addCallback(self._send_message, target, nick)
         d.addErrback(self._show_error, target, nick)
 
-    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I) 
+    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
     def _msg(self, target, msg, talk=False):
         msg_utf = msg.decode('utf-8')
         skip = False
@@ -273,7 +273,7 @@ class IRCBot(IRCClient):
         delay = 0
         for res, msg in msgs:
             if not res:
-                self._show_error(msg, target, nick)
+                self._show_error(msg, target, admins=True)
             elif msg in uniq or (uniq and nb_m == 2 and msg.endswith("account is set for this channel.")):
                 continue
             else:
@@ -284,19 +284,23 @@ class IRCBot(IRCClient):
                 talk = True
             delay = self.msg(target, msg, delay, talk)
 
-    def _show_error(self, failure, target, nick=None):
-        log.msg("ERROR: %s" % failure)
-        if not nick:
+    def _show_error(self, failure, target, nick=None, admins=False):
+        if not admins:
+            log.msg("ERROR: %s" % failure)
+        if not nick and not admins:
             return
-        msg = "%s: Woooups, something is wrong..." % nick
+        msg = "Woooups, something is wrong..."
         delay = random.random()*len(self.factory.channels)*2
+        adminmsg = "%s \n%s" % (msg, failure.getErrorMessage())
         if config.DEBUG:
-            msg = "%s \n%s" % (msg, failure.getErrorMessage())
-        for m in msg.split('\n'):
-            if config.ADMINS:
+            msg = adminmsg
+        if config.ADMINS and (nick or admins):
+            for m in adminmsg.split('\n'):
                 for user in config.ADMINS:
                     delay = self.msg(user, m, delay)
-            delay = self.msg(target, m, delay)
+        if nick:
+            for m in msg.split('\n'):
+                delay = self.msg(target, "%s: %s" % (nick,m ), delay)
 
   # -----------------
   # Default commands
@@ -504,26 +508,28 @@ class IRCBot(IRCClient):
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140:
                 return "Too long (%s characters)" % ct
-        conn = Sender(siteprotocol, conf)
+        conn = Microblog(siteprotocol, conf)
         command = getattr(conn, command, None)
         return command(**kwargs)
 
     def command_identica(self, text, channel=None, nick=None):
-        """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./IDENTICA"""
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     def command_twitteronly(self, text, channel=None, nick=None):
-        """twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER/IDENTICA"""
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
-        d1 = defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
-        d2 = defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
-        return defer.DeferredList([d1, d2], consumeErrors=True)
+        dl = []
+        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text))
+        if chan_has_identica(channel):
+            dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
+        return defer.DeferredList(dl, consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
         """answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
@@ -555,7 +561,7 @@ class IRCBot(IRCClient):
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
 
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
-        conn = Sender('twitter', conf)
+        conn = Microblog('twitter', conf)
         res = conn.show_status(tweet_id)
         if res and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
@@ -676,7 +682,7 @@ class IRCBot(IRCClient):
         return '"%s" filter added for tweets displays on %s' % (keyword, channel)
 
     def command_unfilter(self, keyword, channel=None, nick=None):
-        """unfilter <word> : Removes a tweets display filter for <word>./AUTH""" 
+        """unfilter <word> : Removes a tweets display filter for <word>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         res = self.db['filters'].remove({'channel': channel, 'keyword': keyword}, safe=True)
@@ -684,7 +690,7 @@ class IRCBot(IRCClient):
             return "I could not find such filter in my database"
         self.filters[channel].remove(keyword)
         return '"%s" filter removed for tweets display on %s'  % (keyword, channel)
-    
+
 
   # ------------------
   # Other commands...

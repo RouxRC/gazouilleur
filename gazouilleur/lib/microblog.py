@@ -7,7 +7,7 @@ from twitter import *
 from gazouilleur import config
 from gazouilleur.lib.utils import *
 
-class Sender():
+class Microblog():
 
     def __init__(self, site, conf):
         self.site = site.lower()
@@ -40,10 +40,30 @@ class Sender():
                 print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
             return "[%s] Huge success!" % self.site
         except Exception as e:
+            exc_str = str(e)
+            pos = exc_str.find('status 40')+7
+            if pos != 6:
+                code = int(exc_str[pos:pos+3])
+                if code == 404:
+                    err = "[%s] ERROR: Not Found: %s." % (self.site, code)
+                elif code == 501:
+                    err = "[%s] WARNING: Not responding: %s." % (self.site, code)
+                else:
+                    err = "[%s] WARNING: Forbidden: %s. Please check your configuration or adapt your TWITTER_API_LIMIT." % (self.site, code)
+                if config.DEBUG:
+                    print err
+                return err
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
                 print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
             return self._send_query(function, args, tryout+1, exception, return_result)
+
+    def ping(self):
+        socket.setdefaulttimeout(35)
+        try:
+            return self.conn.account.verify_credentials(include_entities='false', skip_status='true') is not None and check_twitter_results(self.get_dms())
+        except Exception as e:
+            return False
 
     def microblog(self, text="", tweet_id=None):
         if self.site == "twitter":
@@ -72,6 +92,7 @@ class Sender():
         tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
         done = 0
         retweets = []
+        check_twitter_results(tweets)
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
                 retweets += self.get_retweets_by_id(tweet['id'])
@@ -102,3 +123,15 @@ class Sender():
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         return res, last, timestamp
+
+def check_twitter_results(data):
+    text = data
+    if not isinstance(text, str):
+        try:
+            text = text[0]
+        except:
+            pass
+    if text and isinstance(text, str) and ("WARNING" in text or "ERROR" in text):
+        raise(Exception(text))
+    return data
+

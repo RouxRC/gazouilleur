@@ -72,6 +72,8 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * Create a MongoDB database and its owner both having the same name as the bot ([RockMongo](http://rockmongo.com/) is a nice web tool to do things like this)
  * Copy the configuration example file and adapt your settings:
 
+ TODO Create app with rights on dev.twitter.com
+
  ```bash
  cp gazouilleur/config.py{.example,}
  vi gazouilleur/config.py
