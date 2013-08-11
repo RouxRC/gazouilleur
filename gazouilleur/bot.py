@@ -11,7 +11,16 @@ from twisted.python import log
 from twisted.words.protocols import irc
 from twisted.web.client import getPage
 from twisted.application import internet, service
-from gazouilleur import config
+try:
+    from gazouilleur import config
+except ImportError:
+    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it and edit it to prepare your bot\n")
+    exit(1)
+except SyntaxError as e:
+    import traceback
+    _, _, exc_traceback = sys.exc_info()
+    sys.stderr.write("ERROR: Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s\n" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
+    exit(1)
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import *
