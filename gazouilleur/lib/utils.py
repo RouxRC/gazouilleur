@@ -65,7 +65,7 @@ ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
 
 def _shorten_url(text):
     for res in URL_REGEX.findall(text):
-        if ACCENTS_URL.match(res[2]):
+        if ACCENTS_URL.match(res[2]) or "@" in res[2] and not res[2].startswith('http'):
             continue
         text = text.replace(res[0], '%shttp%s___t_co_xxxxxxxxxx%s' % (res[1], res[3], res[4]))
     return text
