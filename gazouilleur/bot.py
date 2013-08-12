@@ -95,6 +95,8 @@ class IRCBot(IRCClient):
         log.msg("Joined %s." % (channel,))
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        if channel == "#gazouilleur":
+            return
         self.lastqueries[channel] = {'n': 1, 'skip': 0}
         self.filters[channel] = [keyword['keyword'] for keyword in self.db['filters'].find({'channel': channel}, fields=['keyword'])]
         self.silent[channel] = datetime.today()
@@ -211,6 +213,8 @@ class IRCBot(IRCClient):
         message = cleanblanks(message)
         nick, user = self.log(message, user, channel)
         d = None
+        if channel == "#gazouilleur":
+            return
         if not message.startswith(config.COMMAND_CHARACTER):
             if self.nickname.lower() in message.lower():
                 d = defer.maybeDeferred(self.command_test)
@@ -801,6 +805,7 @@ class IRCBot(IRCClient):
 class IRCBotFactory(protocol.ReconnectingClientFactory):
     protocol = IRCBot
     channels = ["#" + c.lower() for c in config.CHANNELS.keys()]
+    channels.append("#gazouilleur")
 
 
 # Run as 'python bot.py' ...
