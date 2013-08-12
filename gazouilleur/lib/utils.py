@@ -271,17 +271,20 @@ def is_user_auth(nick, channel, conf=None):
 
 def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
-         return True if is_user_admin(nick) else False
+        return is_user_admin(nick)
     if channel == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
     auth = is_user_auth(nick, channel, conf)
+    identica = chan_has_identica(channel, conf)
+    twitter = chan_has_twitter(channel, conf)
+    tw_rights = chan_allows_twitter_for_all(channel, conf) or auth
     if "/IDENTICA" in command_doc:
         if "/TWITTER" in command_doc:
-            return chan_has_twitter(channel, conf) and chan_has_identica(channel, conf) and (chan_allows_twitter_for_all(channel, conf) or auth)
-        return chan_has_identica(channel, conf) and (chan_allows_twitter_for_all(channel, conf) or auth)
+            return identica and twitter and tw_rights
+        return identica and tw_rights
     if "/TWITTER" in command_doc:
-        return chan_has_twitter(channel, conf) and (chan_allows_twitter_for_all(channel, conf) or auth)
+        return twitter and tw_rights
     if auth:
         return True
     if command_doc.endswith('/AUTH'):
