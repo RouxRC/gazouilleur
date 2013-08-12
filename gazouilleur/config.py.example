@@ -2,12 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Example config of the actual bot gazouilleur on #RegardsCitoyens 's chan on freenode.net
+# This is python syntax, be careful to respect it follwoing the examples 
 
-BOTNAME = 'gazouilleur2'
-BOTPASS = '--------'
+
+# 1) Choose your IRC server and bot name
+# Remember to register it with a botpass
 HOST = 'irc.freenode.net'
 PORT = 6667
+BOTNAME = 'gazouilleur2'
+BOTPASS = '--------'
 
+
+# 2) Configure access to your MongoDB
+# Except for specific mongo config, this should not be modified
 MONGODB = {
   'HOST': 'localhost',
   'PORT': 27017,
@@ -16,17 +23,28 @@ MONGODB = {
   'PSWD': BOTPASS
 }
 
-# GLOBAL_USERS will have rights to perform all available commands on all channels
-GLOBAL_USERS = ['Roux']
 
-TWITTER_API_VERSION = 1.1
-TWITTER_API_LIMIT = 5
-# Number of hours back in the past follow queries will catch-up
-BACK_HOURS = 6
-
-# Character to use to prefix commands to the bot. Careful since using ordinar characters can naturally result in weird behaviors
+# 3) Configure Gazouilleur's features
+# Which character to use for prefix commands to the bot.
+# Careful: using ordinar characters can naturally result in weird behaviors
 COMMAND_CHARACTER = '!'
+# Define GLOBAL_USERS with rights to perform all available commands on all channels
+GLOBAL_USERS = ['Roux']
+# Define how imany hours back in time Gazouilleur should try to catch up on followed news and tweets after an offtime
+BACK_HOURS = 6
+# Define which version of Twitter's API to use. V1 being closed, there is currently no other choice 
+TWITTER_API_VERSION = 1.1
+# Define how many time every 15 minutes some specific limited-rate queries to Twitter's API will be performed
+# Default value should be calibrated. Modify only if you know what you're doing
+TWITTER_API_LIMIT = 5
 
+
+# 4) Define in which IRC channels Gazouilleur should operate
+# One entry per channel with various optionnal options
+# One and only one channel should have MASTER set to True
+# When setting a Twitter account for a channel, you will need to
+# create the corresponding app on https://dev.twitter.com and
+# give it "Read, write, and direct messages" rights.
 CHANNELS = {
   'regardscitoyens': {
     'MASTER': True, # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
@@ -35,27 +53,36 @@ CHANNELS = {
       'USER': 'regardscitoyens',
       'PASS': '---------'
     },
-    'TWITTER': {    # Set a TWITTER USER to follow its tweets and mentions
+    'TWITTER': {    # Optionnally set a TWITTER account for the channel to send tweets and follow its mentions, dms and stats
       'USER': 'RegardsCitoyens',
-      'DISPLAY_RT': True,   # Set to true to follow also all RTs of USER's tweets
-      'KEY': 'xxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
+      'DISPLAY_RT': True,   # Set to true to display also all RTs of the Twitter account's tweets
+      'KEY': 'xxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET from dev.twitter.com
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      'ALLOW_ALL': False    # Set to true to allow all users of the IRC channel to post on twitter
-    },
-    'DISPLAY_RT': False     # Set to true to follow also all RTs for queries set on this channel
+      'ALLOW_ALL': False    # Set to true to allow any user on the channel to post tweets with the account
+    },                      # If set to False or omitted, only GLOBAL_USERS and the USERS set for the chnnel will.
+    'DISPLAY_RT': False     # Set to true to display also all RTs for search queries set on the channel
   },
-  'rc-test': {
+  'gazouilleur-test': {     # Add more IRC channels
     'USERS': []
   }
 }
+# By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with their folks :)
+# If you do not like that, feel free to comment the last line of IRCBotFactory « channels.append("#gazouilleur") » in gazouilleur/bot.py
 
+
+# 5) Optionnally add web statistics of the Twitter accounts
 # URL_STATS is optional to provide a web view on Twitter's stats.
-# This url needs tp be routed to gazouilleur's "web" directory
-# For instance if /var/www/ is already served by apache via `ln -s /var/www/twitter-stats ##GAZOUILLEURPATH##/web`
+# It requires the installation of a web server (apache, ...) and to install matplotlib 
+# You can comment or remove it if you do not need it.
+# This url needs to be routed to Gazouilleur's "web" directory
+# For instance if /var/www/ is already served by apache, run `ln -s ##GAZOUILLEURPATH##/web /var/www/twitter-stats`
 URL_STATS = "http://www.regardscitoyens.org/stats/"
-#DEBUG mode will display errors publicly on the channel
+
+
+# 6) Developer's options
+# DEBUG mode will make log a lot more verbose and display errors publicly on the channel
 DEBUG = False
-#ADMINS will get in priv msg tracebacks from errors
+# ADMINS will get in private messages info about errors
 ADMINS = GLOBAL_USERS
