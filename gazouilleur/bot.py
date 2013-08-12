@@ -213,7 +213,7 @@ class IRCBot(IRCClient):
         message = cleanblanks(message)
         nick, user = self.log(message, user, channel)
         d = None
-        if channel == "#gazouilleur":
+        if channel == "#gazouilleur" and not message.startswith("%schans" % config.COMMAND_CHARACTER):
             return
         if not message.startswith(config.COMMAND_CHARACTER):
             if self.nickname.lower() in message.lower():
@@ -803,6 +803,8 @@ class IRCBot(IRCClient):
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
 
+    def command_chans(self, *args):
+        return "I'm currently hanging out in %s." % " ; ".join(self.factory.channels)
 
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):
