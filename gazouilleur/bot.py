@@ -43,7 +43,9 @@ class IRCBot(IRCClient):
         self.db['feeds'].ensure_index([('channel', pymongo.ASCENDING), ('database', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['filters'].ensure_index([('channel', pymongo.ASCENDING), ('keyword', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('id', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['lasttweets'].ensure_index([('channel', pymongo.ASCENDING)], background=True)
         self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['tweets'].ensure_index([('uniq_rt_hash', pymongo.ASCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('source', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
 
@@ -512,6 +514,8 @@ class IRCBot(IRCClient):
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140:
                 return "Too long (%s characters)" % ct
+        if command in ['microblog', 'retweet']:
+            kwargs['channel'] = channel
         conn = Microblog(siteprotocol, conf)
         command = getattr(conn, command, None)
         return command(**kwargs)
@@ -539,7 +543,7 @@ class IRCBot(IRCClient):
         return defer.DeferredList(dl, consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
-        """answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
@@ -549,6 +553,13 @@ class IRCBot(IRCClient):
         if chan_has_identica(channel):
             dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return defer.DeferredList(dl, consumeErrors=True)
+
+    def command_answerlast(self, rest, channel=None, nick=None):
+        """answerlast <text> [--nolimit] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
+        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
+        if not lasttweetid:
+            return "Sorry, no last tweet id found for this chan."
+        return self.command_answer("%s %s" % (str(lasttweetid["tweet_id"]), rest), channel, nick)
 
     def command_dm(self, rest, channel=None, nick=None):
         """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
@@ -566,6 +577,13 @@ class IRCBot(IRCClient):
         if not tweet_id:
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
+
+    def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
+        """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
+        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
+        if not lasttweetid:
+            return "Sorry, no last tweet id found for this chan."
+        return self.command_rmtweet(str(lasttweetid['tweet_id']), channel, nick)
 
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
         conn = Microblog('twitter', conf)
@@ -804,7 +822,7 @@ class IRCBot(IRCClient):
         return '%s -- "%s"' % (url, title)
 
     def command_chans(self, *args):
-        return "I'm currently hanging out in %s." % " ; ".join(self.factory.channels)
+        return "I'm currently hanging out in %s. Come visit!" % " ; ".join(self.factory.channels)
 
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):

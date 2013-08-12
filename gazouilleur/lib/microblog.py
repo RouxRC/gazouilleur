@@ -25,7 +25,7 @@ class Microblog():
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
         self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
-    def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False):
+    def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
         if tryout > 2:
             return previous_exception
         try:
@@ -38,6 +38,8 @@ class Microblog():
                 return res
             elif config.DEBUG:
                 print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
+            if self.site == 'twitter' and channel and 'id_str' in res:
+                save_lasttweet_id(channel, res['id_str'])
             return "[%s] Huge success!" % self.site
         except Exception as e:
             exc_str = str(e)
@@ -49,13 +51,16 @@ class Microblog():
                 elif code == 501:
                     err = "[%s] WARNING: Not responding: %s." % (self.site, code)
                 else:
-                    err = "[%s] WARNING: Forbidden: %s. Please check your configuration or adapt your TWITTER_API_LIMIT." % (self.site, code)
+                    err = "[%s] WARNING: Forbidden: %s. Take a breather, check your commands, verify the config or adapt TWITTER_API_LIMIT." % (self.site, code)
                 if config.DEBUG:
                     print err
                 return err
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
-                print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
+                try:
+                    print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
+                except:
+                    print exception, e, args
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):
@@ -65,19 +70,19 @@ class Microblog():
         except Exception as e:
             return False
 
-    def microblog(self, text="", tweet_id=None):
+    def microblog(self, text="", tweet_id=None, channel=None):
         if self.site == "twitter":
             text = text.replace('~', '&#126;')
         args = {'status': text}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
-        return self._send_query(self.conn.statuses.update, args)
+        return self._send_query(self.conn.statuses.update, args, channel=channel)
 
     def delete(self, tweet_id):
         return self._send_query(self.conn.statuses.destroy, {'id': tweet_id})
 
-    def retweet(self, tweet_id):
-        return self._send_query(self.conn.statuses.retweet, {'id': tweet_id})
+    def retweet(self, tweet_id, channel=None):
+        return self._send_query(self.conn.statuses.retweet, {'id': tweet_id}, channel=channel)
 
     def show_status(self, tweet_id):
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)

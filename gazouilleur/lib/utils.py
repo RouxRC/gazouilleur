@@ -209,6 +209,12 @@ def next_page(url):
     p += 1
     return "%s&p=%s" % (url, p)
 
+def save_lasttweet_id(channel, tweet_id):
+    db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])
+    db[config.MONGODB['DATABASE']].authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+    db[config.MONGODB['DATABASE']]['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
+    db.close()
+
 def safeint(n):
     try:
         return int(n.strip())

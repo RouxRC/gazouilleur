@@ -68,7 +68,8 @@ CHANNELS = {
     'USERS': []
   }
 }
-# By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with their folks :)
+# By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with his folks :)
+# The only functionnability left to the bots in this channel is to list his other channels.
 # If you do not like that, feel free to comment the last line of IRCBotFactory « channels.append("#gazouilleur") » in gazouilleur/bot.py
 
 
