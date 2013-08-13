@@ -116,6 +116,8 @@ def _clean_redir_urls(text, urls={}, first=True):
             except Exception as e:
                 if config.DEBUG and not first:
                     print "ERROR trying to resolve %s : %s" % (url0, e)
+                if "403" in str(e):
+                    urls[url0] = url00
                 url1 = url00
         if first and not url1 == url00:
             url1 = url1.replace('http', '##HTTP##')
