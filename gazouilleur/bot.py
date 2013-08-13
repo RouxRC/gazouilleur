@@ -766,6 +766,7 @@ class IRCBot(IRCClient):
             return "Current pad is available at: %s" % res['query']
         return "No pad is currently set for this channel."
 
+    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % config.COMMAND_CHARACTER, re.I)
     def command_runlater(self, rest, channel=None, nick=None):
         """saylater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
@@ -785,9 +786,14 @@ class IRCBot(IRCClient):
         target = nick if channel == self.nickname else channel
         rank = len(self.tasks)
         if task.startswith(config.COMMAND_CHARACTER):
+            if self.re_clean_twitter_task.match(task):
+                count = countchars(self.re_clean_twitter_task.sub('', task))
+                if count > 140:
+                    return("I can already tell you this won't work, it's too long (%s characters)" % count)
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
+        log.msg("[%s] Task #%s planned at %s by %s: %s" % (channel, rank, then, nick, task))
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
