@@ -5,6 +5,7 @@ config.py
 *.log
 *.pid
 *.json
+gazouilleur/identica_auth_config.py
 web/img
 web/data
 web/static_stats*.html

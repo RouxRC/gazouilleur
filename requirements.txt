@@ -2,6 +2,7 @@ lxml
 twisted
 pymongo
 twitter
+git+https://github.com/xray7224/PyPump.git
 feedparser
 pyOpenSSL
 # The following are only required to use the URL_STATS functionality. You can comment them if you don't need it

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Example config of the actual bot gazouilleur on #RegardsCitoyens 's chan on freenode.net
-# This is python syntax, be careful to respect it follwoing the examples 
+# This is python syntax, be careful to respect it following the examples 
 
 
 # 1) Choose your IRC server and bot name
@@ -30,30 +30,30 @@ MONGODB = {
 COMMAND_CHARACTER = '!'
 # Define GLOBAL_USERS with rights to perform all available commands on all channels
 GLOBAL_USERS = ['Roux']
-# Define how imany hours back in time Gazouilleur should try to catch up on followed news and tweets after an offtime
+# Define how many hours back in time Gazouilleur should try to catch up on followed news and tweets after an offtime
 BACK_HOURS = 6
-# Define which version of Twitter's API to use. V1 being closed, there is currently no other choice 
+# Define which version of Twitter's API to use. V1 now being closed, there is currently no other choice 
 TWITTER_API_VERSION = 1.1
 # Define how many time every 15 minutes some specific limited-rate queries to Twitter's API will be performed
-# Default value should be calibrated. Modify only if you know what you're doing
+# Default value should be properly calibrated. Modify only if you know what you're doing.
 TWITTER_API_LIMIT = 5
 
 
-# 4) Define in which IRC channels Gazouilleur should operate
-# One entry per channel with various optionnal options
-# One and only one channel should have MASTER set to True
-# When setting a Twitter account for a channel, you will need to
-# create the corresponding app on https://dev.twitter.com and
-# give it "Read, write, and direct messages" rights.
+# 4) Define in which IRC channels Gazouilleur should operate respecting the following rules:
+# - One entry per channel with various optionnal options
+# - One and only one channel should have MASTER set to True
+# - When setting a Twitter account for a channel, you will need to create the corresponding app on https://dev.twitter.com
+# Be sure to give it "Read, write, and direct messages" rights.
+# - When setting an Identi.ca account for a channel, you will need to run `python bin/auth_identica.py` to authorize it.
 CHANNELS = {
   'regardscitoyens': {
     'MASTER': True, # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
     'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
-    'IDENTICA': {   # Optionnally set an IDENTICA USER and PASS to allow microblogging with Identi.ca
-      'USER': 'regardscitoyens',
-      'PASS': '---------'
+    'IDENTICA': {   # Optionnally set an IDENTICA USER to allow microblogging with Identi.ca
+      'USER': 'regardscitoyens'    # A password is no longer required since the migration from Status.net to Pump.io.
+                                   # Please run `python bin/auth_identica.py` to get OAuth config.
     },
-    'TWITTER': {    # Optionnally set a TWITTER account for the channel to send tweets and follow its mentions, dms and stats
+    'TWITTER': {    # Optionnally set a TWITTER account for the channel to send tweets and follow its mentions, DMs and stats
       'USER': 'RegardsCitoyens',
       'DISPLAY_RT': True,   # Set to true to display also all RTs of the Twitter account's tweets
       'KEY': 'xxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET from dev.twitter.com
@@ -69,7 +69,7 @@ CHANNELS = {
   }
 }
 # By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with his folks :)
-# The only functionnability left to the bots in this channel is to list his other channels.
+# The only functionnality left to the bots in this channel is to list his other channels.
 # If you do not like that, feel free to comment the last line of IRCBotFactory « channels.append("#gazouilleur") » in gazouilleur/bot.py
 
 

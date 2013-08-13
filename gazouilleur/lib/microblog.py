@@ -4,6 +4,7 @@
 import socket
 from datetime import datetime
 from twitter import *
+from pypump import PyPump
 from gazouilleur import config
 from gazouilleur.lib.utils import *
 
@@ -11,11 +12,19 @@ class Microblog():
 
     def __init__(self, site, conf):
         self.site = site.lower()
+        # Identi.ca service only supported for commands "ping" and "microblog"
         if self.site == "identica":
             self.conf = conf['IDENTICA']
             self.domain = "identi.ca"
             self.api_version = "api"
-            self.auth = UserPassAuth(self.conf['USER'], self.conf['PASS'])
+            # Old Status.net Identi.ca connection:
+            #self.auth = UserPassAuth(self.conf['USER'], self.conf['PASS'])
+            #self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
+            # New Pump.io Identi.ca connection:
+            self.user = "%s@%s" % (self.conf['USER'].lower(), self.domain)
+            from gazouilleur.identica_auth_config import identica_auth
+            self.conf.update(identica_auth[self.conf['USER'].lower()])
+            self.conn = PyPump(self.user, key=self.conf['key'], secret=self.conf['secret'], token=self.conf['token'], token_secret=self.conf['token_secret'])
         elif self.site == "twitter":
             self.conf = conf['TWITTER']
             if 'USER' in self.conf:
@@ -23,7 +32,7 @@ class Microblog():
             self.domain = "api.twitter.com"
             self.api_version = config.TWITTER_API_VERSION
             self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
-        self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
+            self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
 
     def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
         if tryout > 2:
@@ -66,13 +75,25 @@ class Microblog():
     def ping(self):
         socket.setdefaulttimeout(35)
         try:
+            if self.site == "identica":
+                return str(self.conn.Person(self.user)) == self.user
             return self.conn.account.verify_credentials(include_entities='false', skip_status='true') is not None and check_twitter_results(self.get_dms())
         except Exception as e:
             return False
 
     def microblog(self, text="", tweet_id=None, channel=None):
-        if self.site == "twitter":
-            text = text.replace('~', '&#126;')
+        if self.site == "identica":
+            try:
+                note = self.conn.Note(text)
+                note.to = (self.conn.Public, self.conn.Followers, self.conn.Following)
+                note.send()
+                return "[identica] Huge success!"
+            except Exception as e:
+                exception = "[identica] %s" % sending_error(e)
+                if config.DEBUG:
+                    print exception, e
+                return exception 
+        text = text.replace('~', '&#126;')
         args = {'status': text}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id

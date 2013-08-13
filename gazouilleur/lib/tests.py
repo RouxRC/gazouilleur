@@ -34,9 +34,9 @@ except KeyError as e:
     sys.stderr.write("ERROR: A field is missing from one channel set in `gazouilleur/config.py`: %s.\n" % e)
     exit(1)
 try:
-    [c['IDENTICA'][k] for k in ['USER', 'PASS'] for c in config.CHANNELS.values() if "IDENTICA" in c]
-except KeyError as e:
-    sys.stderr.write("ERROR: A field is missing from IDENTICA config in `gazouilleur/config.py`: %s.\n" % e)
+    [c['IDENTICA']['USER'] for c in config.CHANNELS.values() if "IDENTICA" in c]
+except KeyError:
+    sys.stderr.write("ERROR: USER field is missing from IDENTICA config in `gazouilleur/config.py`.\n")
     exit(1)
 try:
     [c['TWITTER'][k] for k in ['USER', 'DISPLAY_RT', 'KEY', 'SECRET', 'OAUTH_TOKEN', 'OAUTH_SECRET'] for c in config.CHANNELS.values() if "TWITTER" in c]
@@ -46,7 +46,7 @@ except KeyError as e:
 
 # Check dependencies
 try:
-    import pymongo, lxml, twisted, twitter, feedparser
+    import pymongo, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
     sys.stderr.write("ERROR: Could not load module%s.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % str(e).replace('No module named', ''))
     exit(1)
@@ -70,8 +70,23 @@ except AssertionError:
     sys.stderr.write("ERROR: Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically.\n" % config.MONGODB['DATABASE'])
     exit(1)
 
-# Check Twitter config
+# Check Identi.ca config
+if [1 for c in config.CHANNELS.values() if "IDENTICA" in c]:
+    try:
+        from gazouilleur.identica_auth_config import identica_auth
+    except ImportError:
+        sys.stderr.write("ERROR: Could not find `gazouilleur/identica_auth_config.py`.\nERROR: Please run `python bin/auth_identica.py` to generate your OAuth Identi.ca keys and create it automatically.\n")
+        exit(1)
 from gazouilleur.lib.microblog import Microblog
+for chan, conf in config.CHANNELS.iteritems():
+    if "IDENTICA" not in conf:
+        continue
+    conn = Microblog("identica", conf)
+    if not conn.ping():
+        sys.stderr.write("ERROR: Cannot connect to Identi.ca with the auth configuration provided in `gazouilleur/identica_auth_config.py` for channel %s and user @%s.\nERROR: Please \n" % (chan, conf["IDENTICA"]["USER"].lower()))
+        exit(1)
+
+# Check Twitter config
 for chan, conf in config.CHANNELS.iteritems():
     if "TWITTER" not in conf:
         continue
