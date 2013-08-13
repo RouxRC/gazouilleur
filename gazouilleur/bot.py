@@ -512,11 +512,14 @@ class IRCBot(IRCClient):
             return "No %s account is set for this channel." % siteprotocol
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_nolimit(kwargs['text'])
-            ct = countchars(kwargs['text'])
+            try:
+                ct = countchars(kwargs['text'])
+            except:
+                ct = 100
             if ct < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
-            elif ct > 140:
-                return "Too long (%s characters)" % ct
+            elif ct > 140 and siteprotocol == "twitter":
+                return "Sorry, but that's too long (%s characters)" % ct
         if command in ['microblog', 'retweet']:
             kwargs['channel'] = channel
         conn = Microblog(siteprotocol, conf)
