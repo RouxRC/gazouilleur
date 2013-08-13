@@ -204,7 +204,7 @@ class IRCBot(IRCClient):
     def _can_user_do(self, nick, channel, command, conf=None):
         return has_user_rights_in_doc(nick, channel, self._get_command_doc(command))
 
-    def privmsg(self, user, channel, message):
+    def privmsg(self, user, channel, message, tasks=None):
         try:
             message = message.decode('utf-8')
         except UnicodeDecodeError:
@@ -235,7 +235,7 @@ class IRCBot(IRCClient):
                 d = defer.maybeDeferred(func, rest, channel, nick)
             else:
                return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
-        d.addCallback(self._send_message, target, nick)
+        d.addCallback(self._send_message, target, nick, tasks=tasks)
         d.addErrback(self._show_error, target, nick)
 
     re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
@@ -266,7 +266,7 @@ class IRCBot(IRCClient):
         reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)
         return delay + ANTIFLOOD + random.random()/5
 
-    def _send_message(self, msgs, target, nick=None):
+    def _send_message(self, msgs, target, nick=None, tasks=None):
         if msgs is None:
             return
         if not isinstance(msgs, types.ListType):
@@ -288,6 +288,8 @@ class IRCBot(IRCClient):
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
                 talk = True
+            if tasks is not None:
+                msg += " [Task #%s]" % tasks
             delay = self.msg(target, msg, delay, talk)
 
     def _show_error(self, failure, target, nick=None, admins=False):
@@ -777,11 +779,11 @@ class IRCBot(IRCClient):
         else:
             channel = self.getMasterChan(channel)
         target = nick if channel == self.nickname else channel
+        rank = len(self.tasks)
         if task.startswith(config.COMMAND_CHARACTER):
-            taskid = reactor.callLater(when, self.privmsg, nick, channel, task)
+            taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
-        rank = len(self.tasks)
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
