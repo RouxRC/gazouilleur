@@ -15,6 +15,14 @@ cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
 shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
 
+re_parenth = re.compile(r'([\(\)])')
+re_leftacc = re.compile(r'(\{)([^\}]*)$')
+re_righacc = re.compile(r'^([^\{]*)(\})')
+re_leftbrk = re.compile(r'(\[)([^\]]*)$')
+re_righbrk = re.compile(r'^([^\[]*)(\])')
+def clean_regexp(text):
+    return re_leftacc.sub(r'\\\1\2', re_leftbrk.sub(r'\\\1\2', re_righacc.sub(r'\1\\\2', re_righbrk.sub(r'\1\\\2', re_parenth.sub(r'\\\1', text)))))
+
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
 
