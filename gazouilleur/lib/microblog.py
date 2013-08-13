@@ -121,7 +121,10 @@ class Microblog():
         check_twitter_results(tweets)
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
-                retweets += self.get_retweets_by_id(tweet['id'])
+                new_rts = self.get_retweets_by_id(tweet['id'])
+                if "ERRROR 429" in new_rts:
+                    break
+                retweets += new_rts
                 done += 1
             retweets_processed[tweet['id_str']] = tweet['retweet_count']
             if done >= config.TWITTER_API_LIMIT:
