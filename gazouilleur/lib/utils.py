@@ -255,7 +255,7 @@ def chan_has_protocol(chan, protocol, conf=None):
 
 def chan_has_identica(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'IDENTICA' in conf and 'USER' in conf['IDENTICA'] and 'PASS' in conf['IDENTICA']
+    return conf and 'IDENTICA' in conf and 'USER' in conf['IDENTICA']
 
 def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
