@@ -78,8 +78,9 @@ def _shorten_url(text):
         text = text.replace(res[0], '%shttp%s___t_co_xxxxxxxxxx%s' % (res[1], res[3], res[4]))
     return text
 
+re_clean_twitter_command = re.compile(r'^\s*((%s(identica|(twitt|answ)er(only)?)|\d{14}\d*)\s*)+' % config.COMMAND_CHARACTER, re.I)
 def countchars(text):
-    return len(_shorten_url(_shorten_url(text.strip())).decode('utf-8'))
+    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.strip()).strip())).decode('utf-8'))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)

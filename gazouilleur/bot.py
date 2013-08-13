@@ -536,7 +536,7 @@ class IRCBot(IRCClient):
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
-    re_answer = re.compile('^\d{16}')
+    re_answer = re.compile('^\d{14}')
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         if self.re_answer.match(text.strip()):
