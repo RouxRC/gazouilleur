@@ -1,7 +1,7 @@
 lxml
 twisted
 pymongo
-twitter
+twitter>=1.10
 git+https://github.com/xray7224/PyPump.git
 feedparser
 pyOpenSSL

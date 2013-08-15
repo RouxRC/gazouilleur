@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import socket
+import json
 from datetime import datetime
 from twitter import *
 from pypump import PyPump
@@ -10,7 +11,7 @@ from gazouilleur.lib.utils import *
 
 class Microblog():
 
-    def __init__(self, site, conf):
+    def __init__(self, site, conf, bearer_token=None, get_token=False):
         self.site = site.lower()
         # Identi.ca service only supported for commands "ping" and "microblog"
         if self.site == "identica":
@@ -30,9 +31,25 @@ class Microblog():
             if 'USER' in self.conf:
                 self.user = self.conf['USER']
             self.domain = "api.twitter.com"
-            self.api_version = config.TWITTER_API_VERSION
-            self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
-            self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
+            if get_token:
+                self.api_version = None
+                self.format = ""
+                self.auth = OAuth2(self.conf['KEY'], self.conf['SECRET'])
+            else:
+                self.api_version = config.TWITTER_API_VERSION
+                self.format = "json"
+                if bearer_token:
+                    self.auth = OAuth2(bearer_token=bearer_token)
+                else:
+                    self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
+            self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth, format=self.format)
+
+    def get_oauth2_token(self):
+        res = self.conn.oauth2.token(grant_type="client_credentials")
+        obj = json.loads(res)
+        if "token_type" not in obj or obj["token_type"] != "bearer" or "access_token" not in obj:
+            raise Exception("Wrong token type given by twitter, weird : %s" % res)
+        return obj["access_token"]
 
     def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
         if tryout > 2:
@@ -51,8 +68,8 @@ class Microblog():
                 save_lasttweet_id(channel, res['id_str'])
             return "[%s] Huge success!" % self.site
         except Exception as e:
-            exc_str = str(e)
-            pos = exc_str.find('status 40')+7
+            exc_str = str(e).lower()
+            pos = exc_str.find('status 4') + 7
             if pos != 6:
                 code = int(exc_str[pos:pos+3])
                 if code == 404:
@@ -61,8 +78,6 @@ class Microblog():
                     err = "[%s] WARNING: Not responding: %s." % (self.site, code)
                 else:
                     err = "[%s] WARNING: Forbidden: %s. Take a breather, check your commands, verify the config or adapt TWITTER_API_LIMIT." % (self.site, code)
-                if config.DEBUG:
-                    print err
                 return err
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
@@ -109,25 +124,31 @@ class Microblog():
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
     def get_mytweets(self, **kwargs):
-        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 75, 'include_rts': 'true'}, return_result=True)
+        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 'true'}, return_result=True)
 
     def get_mentions(self, **kwargs):
         return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_entities': 'false'}, return_result=True)
 
-    def get_retweets(self, retweets_processed={}, **kwargs):
+    def get_retweets(self, retweets_processed={}, bearer_token=None, **kwargs):
         tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
         done = 0
         retweets = []
         check_twitter_results(tweets)
+        if bearer_token:
+            helper = Microblog("twitter", {"TWITTER": self.conf}, bearer_token=bearer_token)
+            limitfactor = 4
+        else:
+            helper = self
+            limitfactor = 1
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
-                new_rts = self.get_retweets_by_id(tweet['id'])
-                if "ERRROR 429" in new_rts:
+                new_rts = helper.get_retweets_by_id(tweet['id'])
+                if "Forbidden: " in new_rts:
                     break
                 retweets += new_rts
                 done += 1
             retweets_processed[tweet['id_str']] = tweet['retweet_count']
-            if done >= config.TWITTER_API_LIMIT:
+            if done >= limitfactor*config.TWITTER_API_LIMIT:
                 break
         return retweets, retweets_processed
 
@@ -151,7 +172,14 @@ class Microblog():
             res = self._send_query(self.conn.account.totals, return_result=True)
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
+        check_twitter_results(res)
         return res, last, timestamp
+
+    def search(self, query, count=50, max_id=None):
+        args = {'q': query, 'count': count, 'include_entities': 'false', 'result_type': 'recent'}
+        if max_id:
+            args['max_id'] = max_id
+        return self._send_query(self.conn.search.tweets, args, return_result=True)
 
 def check_twitter_results(data):
     text = data
@@ -160,7 +188,19 @@ def check_twitter_results(data):
             text = text[0]
         except:
             pass
-    if text and isinstance(text, str) and ("WARNING" in text or "ERROR" in text):
+    if text and isinstance(text, str) and ("WARNING" in text or "RROR" in text):
         raise(Exception(text))
     return data
 
+def grab_extra_meta(source, result):
+    for meta in ["in_reply_to_status_id_str", "in_reply_to_screen_name", "lang", "geo", "coordinates", "source"]:
+        if meta in source:
+            result[meta] = source [meta]
+    for meta in ['name', 'friends_count', 'followers_count', 'statuses_count', 'listed_count']:
+        key = "user_%s" % meta.replace('_count', '')
+        if key in source:
+            result[key] = source[key]
+        elif 'user' in source and meta in source['user']:
+            result[key] = source['user'][meta]
+    return result
+    

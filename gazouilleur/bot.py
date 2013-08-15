@@ -19,9 +19,10 @@ from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
-ANTIFLOOD = 0.35
 
 class IRCBot(IRCClient):
+
+    lineRate = 0.75
 
     def __init__(self):
         #NickServ identification handled automatically by twisted
@@ -105,25 +106,44 @@ class IRCBot(IRCClient):
         self.feeders[channel] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-            # Run stats on the account every hour
+        # Get OAuth2 tokens for twitter search
+            try:
+                oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
+                log.msg("[%s] Got OAuth2 token for %s on Twitter." % (channel, conf['TWITTER']['USER']))
+        # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's API App only extra limitrate
+                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
+            except Exception as e:
+                oauth2_token = None
+                log.msg("[%s] ERROR: Could not get an OAuth2 token from Twitter for user @%s: %s" % (channel, conf['TWITTER']['USER'], e))
+        # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
+                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180, displayRT=chan_displays_rt(channel, conf))
+        # Follow Stats for Twitter USER
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
-            # Follow tweets and mentions for Twitter USER set for the channel
- # old version with Icerocket RSS dead feeds
- #            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], chan_displays_my_rt(channel, conf))
-            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
-#            self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], chan_displays_my_rt(channel, conf), True)
-            self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 65, displayRT=chan_displays_my_rt(channel, conf))
-            self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 400, displayRT=chan_displays_my_rt(channel, conf))
-            self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 400, displayRT=chan_displays_my_rt(channel, conf))
-            # Follow DMs sent for Twitter USER for the channel
-            self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 177)
-        # Follow tweets matching queries set for this channel with !follow
-        self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 257, 25, [], chan_displays_rt(channel, conf), True)
-        # Follow rss matching url queries set for this channel with !follow
+        # Follow Tweets sent by Twitter USER
+            self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, displayRT=chan_displays_my_rt(channel, conf), twitter_token=oauth2_token)
+            # Deprecated 
+            # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='icerocket')
+            # ... or via IceRocket.com old RSS feeds
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], displayRT=chan_displays_my_rt(channel, conf))
+            # ... or via Topsy.com
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='topsy')
+        # Follow Mentions of Twitter USER in tweets
+            self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 90, displayRT=chan_displays_my_rt(channel, conf))
+        # Follow ReTweets of tweets sent by Twitter USER
+            self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 360, displayRT=chan_displays_my_rt(channel, conf))
+        # Follow DMs sent to Twitter USER
+            self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 90)
+        else:
+        # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
+            self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, displayRT=chan_displays_rt(channel, conf), tweetsSearchPage='icerocket')
+        # ... or via Topsy.com
+        #   self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, displayRT=chan_displays_rt(channel, conf), tweetsSearchPage='icerocket')
+        # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 20)
         n = self.factory.channels.index(channel.lower()) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
-            reactor.callFromThread(reactor.callLater, 30*(i+1)*n, self.feeders[channel][f].start)
+            reactor.callFromThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
         log.msg("Left %s." % (channel,))
@@ -262,9 +282,8 @@ class IRCBot(IRCClient):
                 print "ERROR encoding filtered msg", msg, reason
                 log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
 
-    def msg(self, target, msg, delay=0, talk=False):
-        reactor.callFromThread(reactor.callLater, delay, self._msg, target, msg, talk)
-        return delay + ANTIFLOOD + random.random()/5
+    def msg(self, target, msg, talk=False):
+        return self._msg(target, msg, talk)
 
     def _send_message(self, msgs, target, nick=None, tasks=None):
         if msgs is None:
@@ -276,7 +295,6 @@ class IRCBot(IRCClient):
         if nb_m == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
             msgs = [(True, "[identi.ca/twitter] Huge success!")]
         uniq = {}
-        delay = 0
         for res, msg in msgs:
             if not res:
                 self._show_error(msg, target, admins=True)
@@ -290,7 +308,7 @@ class IRCBot(IRCClient):
                 talk = True
             if tasks is not None:
                 msg += " [Task #%s]" % tasks
-            delay = self.msg(target, msg, delay, talk)
+            self.msg(target, msg, talk)
 
     def _show_error(self, failure, target, nick=None, admins=False):
         if not admins:
@@ -298,17 +316,16 @@ class IRCBot(IRCClient):
         if not nick and not admins:
             return
         msg = "Woooups, something is wrong..."
-        delay = random.random()*len(self.factory.channels)*2
         adminmsg = "%s \n%s" % (msg, failure.getErrorMessage())
         if config.DEBUG:
             msg = adminmsg
         if config.ADMINS and (nick or admins):
             for m in adminmsg.split('\n'):
                 for user in config.ADMINS:
-                    delay = self.msg(user, m, delay)
+                    self.msg(user, m)
         if nick:
             for m in msg.split('\n'):
-                delay = self.msg(target, "%s: %s" % (nick,m ), delay)
+                self.msg(target, "%s: %s" % (nick,m ))
 
   # -----------------
   # Default commands
@@ -675,7 +692,7 @@ class IRCBot(IRCClient):
         if database == "filters":
             feeds = assembleResults(self.filters[channel])
         else:
-            feeds = getFeeds(channel, database, self.db, nourl=True)
+            feeds = getFeeds(channel, database, self.db, url_format=False)
         if database == 'tweets':
             res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         else:

@@ -92,7 +92,7 @@ for chan, conf in config.CHANNELS.iteritems():
         continue
     conn = Microblog("twitter", conf)
     if not conn.ping():
-        sys.stderr.write("ERROR: Cannot connect to Twitter with the auth configuration provided in `gazouilleur/config.py` for channel %s and user @%s.\nERROR: Please check you properly set the 4 auth fields and gave \"Read, write, and direct messages\" rights to gazouilleur's app on https://dev.twitter.com\n" % (chan, conf["TWITTER"]["USER"]))
+        sys.stderr.write("ERROR: Cannot connect to Twitter with the auth configuration provided in `gazouilleur/config.py` for channel %s and user @%s.\nERROR: Please check you properly set the 4 auth fields and gave \"Read, write, and direct messages\" rights to gazouilleur's app on https://dev.twitter.com and wait at most 15 minutes\n" % (chan, conf["TWITTER"]["USER"]))
         exit(1)
 
 # Check IRC server
