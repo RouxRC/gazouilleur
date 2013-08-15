@@ -40,7 +40,7 @@ class FeederProtocol():
             if not msg.startswith("examining") or (config.DEBUG and "429" not in str(traceback)):
                 print traceback
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, traceback.getErrorMessage()))), self.fact.channel, admins=True)
-        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and self.fact.tweets_search_page):
+        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
     def in_cache(self, url):
