@@ -148,7 +148,7 @@ def get_hash(url):
     return hash.hexdigest()
 
 re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@[a-zA-Z0-9_]{1,15}[: ,]*' % QUOTE_CHARS)
-re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s])+' % (QUOTE_CHARS, '%'))
+re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s…])+' % (QUOTE_CHARS, '%'))
 def uniq_rt_hash(text):
     text = re_uniq_rt_hash.sub(' ', text)
     text = re_clean_spec_chars.sub(' ', text)
