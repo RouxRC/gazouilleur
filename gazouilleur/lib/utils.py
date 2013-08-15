@@ -41,7 +41,7 @@ def sending_error(error):
     if res:
         if res.group(3):
             return re_sending_error.sub(r'ERROR \1: \3', error)
-        return re_sending_error.sub(r'ERRROR \1', error)
+        return re_sending_error.sub(r'ERROR \1', error)
     return "ERROR undefined"
 
 re_handle_quotes = re.compile(r'("[^"]*")')
