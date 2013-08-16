@@ -106,7 +106,7 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
         url00 = res[2].encode('utf-8')
         url0 = url00
         if not url00.startswith('http'):
-            if "@" in url00:
+            if "@" in url00 or url00.startswith('#'):
                 continue
             url0 = "http://%s" % url00
         if url0 in urls:
