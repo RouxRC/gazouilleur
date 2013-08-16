@@ -199,11 +199,14 @@ class Microblog():
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
             return None
-        track = ",".join(track)
-        follow = ",".join(follow)
+        args = {'filter_level': 'none'}
+        if track:
+            args['track'] = ",".join(track)
+        if follow:
+            args['follow']= ",".join(follow)
         if config.DEBUG:
-            loggvar("track: %s / follow:%s" % (track, follow), action="stream")
-        return self.conn.statuses.filter(track=track, follow=follow, filter_level='none')
+            loggvar(args, action="stream")
+        return self.conn.statuses.filter(**args)
 
     def search_users(self, list_users, cache_users={}):
         good = {}
