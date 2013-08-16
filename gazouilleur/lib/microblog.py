@@ -101,7 +101,11 @@ class Microblog():
         try:
             if self.site == "identica":
                 return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
-            return self.conn.account.verify_credentials(include_entities='false', skip_status='true') is not None and check_twitter_results(self.get_dms())
+            creds = self.conn.account.verify_credentials(include_entities='false', skip_status='true')
+            dms = isinstance(check_twitter_results(self.get_dms()), list)
+            if config.DEBUG and not (creds and dms):
+                raise Exception("%s\n%s" % (creds, dms))
+            return creds is not None and dms
         except Exception as e:
             if config.DEBUG:
                 loggerr("Ping failed: %s" % e, action=self.site)
