@@ -434,8 +434,9 @@ class FeederProtocol():
         if len(skip):
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
-
-        return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, follow, track)
+        conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
+        users, self.fact.ircclient.twitter_users = conn.search_users(follow, self.fact.ircclient.twitter_users)
+        return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
 
     def follow_stream(self, conf, follow, track):
         conn = Microblog("twitter", conf, streaming=True)
@@ -445,30 +446,35 @@ class FeederProtocol():
         try:
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status == "closing":
+                    self._flush_tweets(tweets)
                     self.log("Feeder closed.", action="stream", hint=True)
                     break
-                if not tweet:
-                    continue
-                elif tweet.get("disconnect"):
-                    self.log("Disconnected %s" % tweet, action="stream", error=True)
-                    break
-                elif not tweet.get('text'):
-                    if not tweet.get('delete'):
+                elif not tweet or not tweet.get('text'):
+                    if tweet and not tweet.get('delete'):
                         self.log(tweet, action="stream")
                     continue
+                elif tweet.get("disconnect"):
+                    self._flush_tweets(tweets)
+                    self.log("Disconnected %s" % tweet, action="stream", error=True)
+                    break
                 tweets.append(tweet)
                 ct += 1
                 if ct > 9 or time.time() > flush:
-                    tweets.reverse()
-                    if config.DEBUG:
-                        self.log("Flush %s tweets." % len(tweet), action="stream", hint=True)
-                    reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
+                    self._flush_tweets(tweets)
                     ct = 0
                     tweets = []
                     flush = time.time() + 29
         except Exception as e:
             self.log(e, error=True, action="stream")
+            self._handle_error(e.traceback, "while followoing", "stream")
         return
+
+    def _flush_tweets(self, tweets):
+        tweets.reverse()
+        if config.DEBUG:
+            self.log("Flush %s tweets." % len(tweets), action="stream", hint=True)
+        reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
+
 
 class FeederFactory(protocol.ClientFactory):
 
