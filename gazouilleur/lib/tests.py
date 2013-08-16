@@ -60,7 +60,7 @@ except KeyError as e:
     exit(1)
 
 try:
-    from gazouilleur.lib import feeds, filelogger, httpget, log, microblog, plots, stats, utils
+    from gazouilleur.lib import feeds, filelogger, httpget, log, microblog, stats, utils
 except Exception as e:
     logerr("Oups, looks like something is wrong somewhere in the code, shoudln't be committed...")
     _, _, exc_traceback = sys.exc_info()
@@ -68,7 +68,7 @@ except Exception as e:
     exit(1)
 
 # Check plotting dependencies if webstats activated
-if config.URL_STATS:
+if hasattr(config, 'URL_STATS'):
     try:
         import pystache, pylab, matplotlib
         import gazouilleur.lib.plots
