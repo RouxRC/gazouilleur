@@ -653,9 +653,10 @@ class IRCBot(IRCClient):
   # ----------------------------
   # Twitter monitoring commands
     def _restart_stream(self, channel):
+        oauth2_token = self.feeders[channel]["stream"].twitter_token or None
         if "stream" in self.feeders[channel]:
             self.feeders[channel]["stream"].end()
-            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel))
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel), twitter_token=oauth2_token)
             self.feeders[channel]["stream"].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
