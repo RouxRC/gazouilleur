@@ -451,7 +451,7 @@ class FeederProtocol():
         flush = time.time() + 29
         try:
             for tweet in conn.search_stream(follow, track):
-                if self.fact.status == "closing":
+                if self.fact.statusstartswith("clos"):
                     self._flush_tweets(tweets)
                     self.log("Feeder closed.", "stream", hint=True)
                     break
