@@ -211,7 +211,7 @@ class Microblog():
             else:
                 todo.append(name)
         users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
-        if "Forbidden" in users:
+        if "Forbidden" in users or "404" in users:
             return good, cache_users
         for u in users:
             name = u['screen_name'].lower()
@@ -219,6 +219,22 @@ class Microblog():
                 good[name] = u['id_str']
         cache_users.update(good)
         return good, cache_users
+
+    re_twitter_account = re.compile('@[A-Za-z0-9_]{1,15}')
+    def test_microblog_users(self, text, cache_users={}):
+        match = self.re_twitter_account.findall(text)
+        if not len(match):
+            return True, cache_users, "No user quoted"
+        check = []
+        for m in match:
+            user = m.lower().lstrip('@')
+            if user not in cache_users:
+                check.append(user)
+        good, cache_users = self.search_users(check, cache_users)
+        for user in check:
+            if user not in good.keys():
+                return False, cache_users, "Sorry but @%s doesn't seem like a real account. Please correct your tweet of force by adding --force" % user
+        return True, cache_users, "All users quoted passed"
 
 def check_twitter_results(data):
     text = data

@@ -521,10 +521,11 @@ class IRCBot(IRCClient):
   # -------------------------------------
   # Twitter / Identi.ca sending commands
 
+    re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
-    def _match_nolimit(self, text):
-        if self.re_nolimit.search(text):
-            return self.re_nolimit.sub(' ', text).strip(), True
+    def _match_reg(self, text, regexp):
+        if regexp.search(text):
+            return regexp.sub(' ', text).strip(), True
         return text, False
 
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
@@ -532,18 +533,23 @@ class IRCBot(IRCClient):
         if not chan_has_protocol(channel, siteprotocol, conf):
             return "No %s account is set for this channel." % siteprotocol
         if 'text' in kwargs:
-            kwargs['text'], nolimit = self._match_nolimit(kwargs['text'])
+            kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
+            kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
             try:
                 ct = countchars(kwargs['text'])
             except:
                 ct = 100
             if ct < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
-            elif ct > 140 and siteprotocol == "twitter":
-                return "Sorry, but that's too long (%s characters)" % ct
+            elif ct > 140 and siteprotocol == "twitter" and not nolimit:
+                return "Sorry, but that's too long (%s characters) add --nolimit to override" % ct
         if command in ['microblog', 'retweet']:
             kwargs['channel'] = channel
         conn = Microblog(siteprotocol, conf)
+        if 'text' in kwargs and not force and siteprotocol == "twitter" and command != "directmsg":
+            bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
+            if not bl:
+                return msg
         command = getattr(conn, command, None)
         return command(**kwargs)
 
@@ -553,13 +559,13 @@ class IRCBot(IRCClient):
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     def command_twitteronly(self, text, channel=None, nick=None):
-        """twitteronly <text> [--nolimit] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER/IDENTICA"""
+        """twitteronly <text> [--nolimit] [--force] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
         channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
     re_answer = re.compile('^\d{14}')
     def command_twitter(self, text, channel=None, nick=None):
-        """twitter <text> [--nolimit] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """twitter <text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
         if self.re_answer.match(text.strip()):
             return "Mmmm... Didn't you mean !answer instead?"
         channel = self.getMasterChan(channel)
@@ -570,7 +576,7 @@ class IRCBot(IRCClient):
         return defer.DeferredList(dl, consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None):
-        """answer <tweet_id> <@author text> [--nolimit] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """answer <tweet_id> <@author text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
@@ -581,8 +587,8 @@ class IRCBot(IRCClient):
             dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return defer.DeferredList(dl, consumeErrors=True)
 
-    def command_answerlast(self, rest, channel=None, nick=None):
-        """answerlast <text> [--nolimit] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
+    def ccmmand_answerlast(self, rest, channel=None, nick=None):
+        """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
         lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
         if not lasttweetid:
             return "Sorry, no last tweet id found for this chan."
