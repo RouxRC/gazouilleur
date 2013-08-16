@@ -220,7 +220,7 @@ class Microblog():
         cache_users.update(good)
         return good, cache_users
 
-    re_twitter_account = re.compile('@[A-Za-z0-9_]{1,15}')
+    re_twitter_account = re.compile('(^|\W)@[A-Za-z0-9_]{1,15}')
     def test_microblog_users(self, text, cache_users={}):
         match = self.re_twitter_account.findall(text)
         if not len(match):
