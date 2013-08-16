@@ -231,7 +231,7 @@ class FeederProtocol():
                 nb_rts = len(news) - good
                 if nb_rts:
                     nb_rts_str = " (%s RTs filtered)" % nb_rts
-                self.log("Displaying %s tweets%s" % (good, nb_rts_str), "search", hint=True)
+                self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
             self.db['tweets'].insert(news, continue_on_error=True, safe=True)
         defer.returnValue(None)
 
@@ -417,15 +417,21 @@ class FeederProtocol():
         track = []
         follow = []
         skip = []
+        k = 0
+        f = 0
         for query in queries:
             q = str(query['query'].encode('utf-8'))
             if self.re_twitter_account.match(q):
                 q = q.lstrip('@')
                 follow.append(q)
+                f += 1
             elif " OR " in q or " -" in q or '"' in q or len(q) > 60:
                 skip.append(q)
                 continue
             track.append(q)
+            k += 1
+            if k > 395 or f > 4995:
+                break
         user = conf["TWITTER"]["USER"]
         if user not in follow:
             follow.append(user)
@@ -447,15 +453,15 @@ class FeederProtocol():
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status == "closing":
                     self._flush_tweets(tweets)
-                    self.log("Feeder closed.", action="stream", hint=True)
+                    self.log("Feeder closed.", "stream", hint=True)
                     break
                 elif not tweet or not tweet.get('text'):
                     if tweet and not tweet.get('delete'):
-                        self.log(tweet, action="stream")
+                        self.log(tweet, "stream")
                     continue
                 elif tweet.get("disconnect"):
                     self._flush_tweets(tweets)
-                    self.log("Disconnected %s" % tweet, action="stream", error=True)
+                    self.log("Disconnected %s" % tweet, "stream", error=True)
                     break
                 tweets.append(tweet)
                 ct += 1
@@ -465,14 +471,14 @@ class FeederProtocol():
                     tweets = []
                     flush = time.time() + 29
         except Exception as e:
-            self.log(e, error=True, action="stream")
+            self.log(e, "stream", error=True)
             self._handle_error(e.traceback, "while followoing", "stream")
         return
 
     def _flush_tweets(self, tweets):
         tweets.reverse()
         if config.DEBUG:
-            self.log("Flush %s tweets." % len(tweets), action="stream", hint=True)
+            self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
         reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
 
 
