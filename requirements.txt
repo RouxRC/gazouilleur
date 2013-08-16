@@ -1,7 +1,10 @@
 lxml
 twisted
 pymongo
-twitter>=1.10
+# Switch to personal branch fixing POST for Twitter Streaming API until pull request in next release
+#twitter>=1.10
+git+https://github.com/RouxRC/twitter.git
+# Waiting for a stable release for PyPump 
 git+https://github.com/xray7224/PyPump.git
 feedparser
 pyOpenSSL
