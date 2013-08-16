@@ -587,7 +587,7 @@ class IRCBot(IRCClient):
             dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return defer.DeferredList(dl, consumeErrors=True)
 
-    def ccmmand_answerlast(self, rest, channel=None, nick=None):
+    def command_answerlast(self, rest, channel=None, nick=None):
         """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
         lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
         if not lasttweetid:
