@@ -4,7 +4,7 @@
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
-from twitter import Twitter, OAuth, OAuth2
+from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
 from gazouilleur.lib.log import *
@@ -12,11 +12,11 @@ from gazouilleur.lib.utils import *
 
 class Microblog():
 
-    def __init__(self, site, conf, bearer_token=None, get_token=False):
+    def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False):
         self.site = site.lower()
+        self.conf = conf[site.upper()]
         # Identi.ca service only supported for commands "ping" and "microblog"
         if self.site == "identica":
-            self.conf = conf['IDENTICA']
             self.domain = "identi.ca"
             self.api_version = "api"
             # Old Status.net Identi.ca connection:
@@ -28,7 +28,6 @@ class Microblog():
             self.conf.update(identica_auth[self.conf['USER'].lower()])
             self.conn = PyPump(self.user, key=self.conf['key'], secret=self.conf['secret'], token=self.conf['token'], token_secret=self.conf['token_secret'])
         elif self.site == "twitter":
-            self.conf = conf['TWITTER']
             if 'USER' in self.conf:
                 self.user = self.conf['USER']
             self.domain = "api.twitter.com"
@@ -43,7 +42,16 @@ class Microblog():
                     self.auth = OAuth2(bearer_token=bearer_token)
                 else:
                     self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
-            self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth, format=self.format)
+            args = {"api_version": self.api_version, "auth": self.auth, "secure": True}
+            if streaming:
+                self.domain = "stream.twitter.com"
+                conn = TwitterStream
+                args["block"] = False
+            else:
+                conn = Twitter
+                args['format'] = self.format
+            args['domain'] = self.domain
+            self.conn = conn(**args)
 
     def get_oauth2_token(self):
         res = self.conn.oauth2.token(grant_type="client_credentials")
@@ -183,6 +191,13 @@ class Microblog():
         if max_id:
             args['max_id'] = max_id
         return self._send_query(self.conn.search.tweets, args, return_result=True)
+
+    def search_stream(self, follow=[], track=[]):
+        if not "stream" in self.domain or not len(follow) + len(track):
+            return None
+        print ",".join(follow), ",".join(track)
+        return self.conn.statuses.filter(track=",".join(track), filter_level='none') #, follow="alphoenix,libertic,bjperson,adan_officiel") #filter(follow=",".join(follow), track=",".join(track), filter_level=None)
+
 
 def check_twitter_results(data):
     text = data
