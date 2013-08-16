@@ -540,6 +540,7 @@ class FeederFactory(protocol.ClientFactory):
             
 
     def run_twitter_search(self):
+        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         nqueries = self.db["feeds"].find({'database': self.database, 'channel': self.channel}).count()
         randorder = range(nqueries)
         shuffle(randorder)
