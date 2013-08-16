@@ -2,20 +2,26 @@
 # -*- coding: utf-8 -*-
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, time, hashlib, random
+import os, time
+import pymongo
+from random import shuffle, random
+from hashlib import md5
 from datetime import datetime, timedelta
-import feedparser, pymongo, urllib, urllib2
-from twisted.internet import reactor, protocol, defer, task
+from urllib import unquote
+from feedparser import parse as parse_feed
+from twisted.internet import reactor, protocol, defer
+from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool
 from twisted.python.threadpool import ThreadPool 
 from twisted.python import failure
 from httpget import conditionalGetPage
-from lxml import etree
+from lxml.etree import HTML as html_tree, tostring as html2str
 try:
-    import cStringIO as _StringIO
+    from cStringIO import StringIO
 except ImportError:
-    import StringIO as _StringIO
+    from StringIO import StringIO
 from gazouilleur import config
+from gazouilleur.lib.log import logg
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
@@ -31,14 +37,14 @@ class FeederProtocol():
         # Allow Ctrl-C to get you out cleanly:
         reactor.addSystemEventTrigger('after', 'shutdown', self.threadpool.stop)
 
-    def log(self, msg, action="", error=""):
-        self.fact.log(msg, action, error=error)
+    def log(self, msg, action="", error=False, hint=False):
+        self.fact.log(msg, action, error=error, hint=hint)
 
     def _handle_error(self, traceback, msg, details):
         self.log("while %s %s : %s" % (msg, details, traceback.getErrorMessage().replace(str(traceback), '').replace('\n', '')), self.fact.database, error=True)
         if not msg.startswith("downloading"):
             if not msg.startswith("examining") or (config.DEBUG and "429" not in str(traceback)):
-                print traceback
+                colr(traceback, 'red', False)
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, traceback.getErrorMessage()))), self.fact.channel, admins=True)
         if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
@@ -69,7 +75,7 @@ class FeederProtocol():
         feed = []
         ids = []
         try:
-            tree = etree.HTML(page)
+            tree = html_tree(page)
         except:
             return {"nexturl": '', "tweets": []}
         nexturl = ''
@@ -88,7 +94,7 @@ class FeederProtocol():
             if 'icerocket' in url:
                 ''' Old IceRocket's html parsing
                 for line in div:
-                    line = etree.tostring(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
+                    line = html2str(line).replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')
                     if 'class="author"' in line:
                         tweet['user'], tweet['id_str'] = self._get_tweet_infos(line, self.re_tweet_infos_icerocket, True)
                         break
@@ -96,11 +102,11 @@ class FeederProtocol():
                         tweet['text'] += line
                 '''
                 tweet['user'], tweet['id_str'] = self._get_tweet_infos(div.xpath('h4/div/a')[0].attrib['href'], re_tweet_url)
-                tweet['text'] = etree.tostring(div.xpath('div[@class="message"]')[0])
+                tweet['text'] = html2str(div.xpath('div[@class="message"]')[0])
             elif 'topsy' in url:
-                linkstring = etree.tostring(div.xpath('div[@class="actions"]/a')[0]).replace('\n', ' ')
+                linkstring = html2str(div.xpath('div[@class="actions"]/a')[0]).replace('\n', ' ')
                 tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring, re_tweet_url)
-                tweet['text'] = etree.tostring(div.xpath('div[@class="body"]/span')[0])
+                tweet['text'] = html2str(div.xpath('div[@class="body"]/span')[0])
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'].replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')))).replace('%s: ' % tweet['user'], '')
             if tweet['id_str'] not in ids:
                 ids.append(tweet['id_str'])
@@ -109,9 +115,9 @@ class FeederProtocol():
 
     def get_data_from_page(self, page, url):
         try:
-            feed = feedparser.parse(_StringIO.StringIO(page+''))
+            feed = parse_feed(StringIO(page+''))
         except TypeError:
-            feed = feedparser.parse(_StringIO.StringIO(str(page)))
+            feed = parse_feed(StringIO(str(page)))
         self.fact.cache[url] = time.time()
         return feed
 
@@ -139,7 +145,7 @@ class FeederProtocol():
                 continue
             links.append(link)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
-            _id = hashlib.md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
+            _id = md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
         existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])]
@@ -224,7 +230,7 @@ class FeederProtocol():
                 count_rts_str = ""
                 if count_rts:
                     count_rts_str = " (%s RTs filtered)" % count_rts
-                self.log("Displaying %s tweets%s" % (len(news) - count_rts, count_rts_str), "search")
+                self.log("Displaying %s tweets%s" % (len(news) - count_rts, count_rts_str), "search", hint=True)
             self.db['tweets'].insert(news, continue_on_error=True, safe=True)
         defer.returnValue(None)
 
@@ -259,7 +265,7 @@ class FeederProtocol():
         if retweets:
             self.fact.retweets_processed = retweets_processed
         if config.DEBUG:
-            self.log("INFO: RTs processed: %s" % retweets_processed, "retweets")
+            self.log("INFO: RTs processed: %s" % retweets_processed, "retweets", hint=True)
         return self.process_twitter_feed(retweets, "retweets")
 
     def process_mentions(self, listmentions, *args):
@@ -374,11 +380,11 @@ class FeederProtocol():
         d = defer.succeed(True)
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if config.DEBUG and not max_id:
-            self.log("Start search feeder for Twitter %s" % query_list, "search")
+            self.log("Start search feeder for Twitter %s" % query_list, "search", hint=True)
         for i in range(len(query_list)):
             if query_list:
                 query = query_list[i]
-            text = "results of Twitter search for %s" % urllib.unquote(query)
+            text = "results of Twitter search for %s" % unquote(query)
             if max_id:
                 text += " before id %s" % max_id
             d.addCallback(self.search_twitter, query, max_id=max_id, page=i, randorder=randorder)
@@ -396,7 +402,7 @@ class FeederProtocol():
             except:
                 return None
         if config.DEBUG:
-            text = urllib.unquote(query)
+            text = unquote(query)
             if max_id:
                 text += " before id %s" % max_id
             self.log("Query Twitter search for %s" % text, "search")
@@ -427,23 +433,22 @@ class FeederFactory(protocol.ClientFactory):
         self.cache_urls = {}
         self.runner = None
 
-    def log(self, msg, action="", error=""):
-        if action:
-            action = "/%s" % action
-        if error:
-            error = "ERROR "
-        print "%s[%s%s] %s" % (error, self.channel, action, msg)
+    def log(self, msg, action="", error=False, hint=False):
+        color = None
+        if hint:
+            color= 'yellow'
+        return logg(msg, channel=self.channel, action=action, error=error, color=color)
 
     def start(self):
         if config.DEBUG:
-            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds))
+            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), hint=True)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             conf = chanconf(self.channel)
-            self.runner = task.LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
+            self.runner = LoopingCall(self.protocol.start_twitter, self.database, conf, conf['TWITTER']['USER'].lower())
         elif self.database == "tweets" and not self.tweets_search_page:
-            self.runner = task.LoopingCall(self.run_twitter_search)
+            self.runner = LoopingCall(self.run_twitter_search)
         else:
-            self.runner = task.LoopingCall(self.run_rss_feeds)
+            self.runner = LoopingCall(self.run_rss_feeds)
         self.runner.start(self.delay)
 
     def end(self):
@@ -454,7 +459,7 @@ class FeederFactory(protocol.ClientFactory):
     def run_twitter_search(self):
         nqueries = self.db["feeds"].find({'database': self.database, 'channel': self.channel}).count()
         randorder = range(nqueries)
-        random.shuffle(randorder)
+        shuffle(randorder)
         urls = getFeeds(self.channel, self.database, self.db, randorder=randorder)
         return self.protocol.start_twitter_search(urls, randorder=randorder)
 
@@ -464,7 +469,7 @@ class FeederFactory(protocol.ClientFactory):
             urls = getFeeds(self.channel, self.database, self.db, add_url=self.tweets_search_page)
         ct = 0
         for url in urls:
-            ct += 3 + int(random.random()*500)/100
+            ct += 3 + int(random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
         return defer.succeed(True)
 

@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import re, urllib, hashlib
-from urllib2 import urlopen, URLError
-from datetime import datetime, timedelta
-import socket
+from urllib2 import urlopen
+from datetime import timedelta
 import pymongo, htmlentitydefs
-from gazouilleur import config
 from twisted.internet import defer, reactor
 from twisted.internet.threads import deferToThreadPool
+from gazouilleur import config
+from gazouilleur.lib.log import loggerr
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)
@@ -121,7 +121,7 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
                 urls[url1] = url1
             except Exception as e:
                 if config.DEBUG and not first:
-                    print "ERROR trying to resolve %s : %s" % (url0, e)
+                    loggerr("trying to resolve %s : %s" % (url0, e))
                 if "403" in str(e) or "Error 30" in str(e):
                     urls[url0] = url00
                 url1 = url00
@@ -132,7 +132,7 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
             text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[4]))
         except:
             if config.DEBUG:
-                print "ERROR encoding %s" % url1
+                logerr("encoding %s" % url1)
     if not first:
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, urls))

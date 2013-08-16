@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import gazouilleur.lib.tests
+from gazouilleur import config
 
 import sys, os.path, types, re
 import random, time
@@ -9,11 +10,11 @@ from datetime import datetime
 import lxml.html
 import pymongo
 from twisted.internet import reactor, defer, protocol, threads
-from twisted.python import log
 from twisted.words.protocols.irc import IRCClient
 from twisted.web.client import getPage
 from twisted.application import internet, service
-from gazouilleur import config
+from twisted.python import log
+from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog
@@ -76,7 +77,7 @@ class IRCBot(IRCClient):
   # Connexion loggers
 
     def connectionMade(self):
-        log.msg('Connection made')
+        loggirc('Connection made')
         self.logger = {config.BOTNAME: FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
         IRCClient.connectionMade(self)
@@ -84,18 +85,18 @@ class IRCBot(IRCClient):
     def connectionLost(self, reason):
         for channel in self.factory.channels:
             self.left(channel)
-        log.msg('Connection lost because: %s.' % (reason,))
+        loggirc2('Connection lost because: %s.' % reason)
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME].close()
         IRCClient.connectionLost(self, reason)
 
     def signedOn(self):
-        log.msg("Signed on as %s." % (self.nickname,))
+        loggirc("Signed on as %s." % self.nickname)
         for channel in self.factory.channels:
             self.join(channel)
 
     def joined(self, channel):
-        log.msg("Joined %s." % (channel,))
+        loggirc("Joined.", channel)
         self.logger[channel] = FileLogger(channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         if channel == "#gazouilleur":
@@ -109,12 +110,12 @@ class IRCBot(IRCClient):
         # Get OAuth2 tokens for twitter search
             try:
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
-                log.msg("[%s] Got OAuth2 token for %s on Twitter." % (channel, conf['TWITTER']['USER']))
+                loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's API App only extra limitrate
                 self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
             except Exception as e:
                 oauth2_token = None
-                log.msg("[%s] ERROR: Could not get an OAuth2 token from Twitter for user @%s: %s" % (channel, conf['TWITTER']['USER'], e))
+                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
                 self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180, displayRT=chan_displays_rt(channel, conf))
         # Follow Stats for Twitter USER
@@ -146,7 +147,7 @@ class IRCBot(IRCClient):
             reactor.callFromThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
-        log.msg("Left %s." % (channel,))
+        loggirc2("Left.", channel)
         self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         if channel in self.feeders:
             for f in self.feeders[channel].keys():
@@ -161,16 +162,16 @@ class IRCBot(IRCClient):
         if config.BOTPASS and config.BOTPASS != '':
             self.msg("NickServ", 'regain %s %s' % (config.BOTNAME, config.BOTPASS,))
             self.msg("NickServ", 'identify %s %s' % (config.BOTNAME, config.BOTPASS,))
-            log.msg("Reclaimed ident as %s." % (config.BOTNAME,))
+            loggirc("Reclaimed ident as %s." % config.BOTNAME)
         self.nickname = config.BOTNAME
 
     def nickChanged(self, nick):
-        log.msg("Identified as %s." % (nick,))
+        loggirc("Identified as %s." % nick)
         if nick != config.BOTNAME:
             self._reclaimNick()
 
     def noticed(self, user, channel, message):
-        log.msg("SERVER NOTICE[%s/%s]: %s" % (user, channel, message))
+        loggirc("SERVER NOTICE [%s]: %s" % (user, message), channel)
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
 
@@ -244,7 +245,7 @@ class IRCBot(IRCClient):
                 return
         message = message.encode('utf-8')
         if config.DEBUG:
-            log.msg("[%s] COMMAND: %s: %s" % (channel, user, message))
+            loggvar("COMMAND: %s: %s" % (user, message), channel)
         command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
         func = self._find_command_function(command)
         if func is None and d is None:
@@ -277,10 +278,10 @@ class IRCBot(IRCClient):
             IRCClient.msg(self, target, msg, 450)
         elif config.DEBUG:
             try:
-                log.msg("FILTERED for %s : %s [%s]" % (target, str(msg), reason))
+                loggvar("FILTERED: %s [%s]" % (str(msg), reason), target)
             except:
-                print "ERROR encoding filtered msg", msg, reason
-                log.msg("FILTERED for %s : %s [%s]" % (target, msg, reason))
+                print colr("ERROR encoding filtered msg", 'red'), msg, reason
+                loggvar("FILTERED: %s [%s]" % (msg, reason), target)
 
     def msg(self, target, msg, talk=False):
         return self._msg(target, msg, talk)
@@ -312,7 +313,7 @@ class IRCBot(IRCClient):
 
     def _show_error(self, failure, target, nick=None, admins=False):
         if not admins:
-            log.msg("ERROR: %s" % failure)
+            loggerr(failure, target)
         if not nick and not admins:
             return
         msg = "Woooups, something is wrong..."
@@ -472,7 +473,7 @@ class IRCBot(IRCClient):
             nb = def_nb
         self.lastqueries[channel] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
-            log.msg(rest, query)
+            loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
         matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
         if len(matches) == 0:
             more = " more" if st > 1 else ""
@@ -810,7 +811,7 @@ class IRCBot(IRCClient):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
-        log.msg("[%s] Task #%s planned at %s by %s: %s" % (channel, rank, then, nick, task))
+        loggvar("Task #%s planned at %s by %s: %s" % (rank, then, nick, task), channel, "tasks")
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 

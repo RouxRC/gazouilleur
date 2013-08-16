@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import socket
-import json
+from socket import setdefaulttimeout
+from json import loads as load_json
 from datetime import datetime
-from twitter import *
+from twitter import Twitter, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
+from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
 class Microblog():
@@ -46,7 +47,7 @@ class Microblog():
 
     def get_oauth2_token(self):
         res = self.conn.oauth2.token(grant_type="client_credentials")
-        obj = json.loads(res)
+        obj = load_json(res)
         if "token_type" not in obj or obj["token_type"] != "bearer" or "access_token" not in obj:
             raise Exception("Wrong token type given by twitter, weird : %s" % res)
         return obj["access_token"]
@@ -58,12 +59,12 @@ class Microblog():
             if not return_result:
                 args['trim_user'] = 'true'
             args['source'] = config.BOTNAME
-            socket.setdefaulttimeout(35)
+            setdefaulttimeout(35)
             res = function(**args)
             if return_result:
                 return res
             elif config.DEBUG:
-                print "[%s] %s %s" % (self.site, res['text'].encode('utf-8'), args)
+                loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
             return "[%s] Huge success!" % self.site
@@ -82,18 +83,20 @@ class Microblog():
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
                 try:
-                    print "%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args)
+                    loggerr("%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args), action=self.site)
                 except:
                     print exception, e, args
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):
-        socket.setdefaulttimeout(35)
+        setdefaulttimeout(35)
         try:
             if self.site == "identica":
-                return str(self.conn.Person(self.user)) == self.user
+                return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
             return self.conn.account.verify_credentials(include_entities='false', skip_status='true') is not None and check_twitter_results(self.get_dms())
         except Exception as e:
+            if config.DEBUG:
+                loggerr("Ping failed: %s" % e, action=self.site)
             return False
 
     def microblog(self, text="", tweet_id=None, channel=None):
@@ -106,7 +109,7 @@ class Microblog():
             except Exception as e:
                 exception = "[identica] %s" % sending_error(e)
                 if config.DEBUG:
-                    print exception, e
+                    loggerr("%s %s" % (exception, e), action=self.site)
                 return exception 
         text = text.replace('~', '&#126;')
         args = {'status': text}

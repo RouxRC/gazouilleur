@@ -3,7 +3,7 @@
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os.path as path
-from twisted.internet import reactor, defer
+from twisted.internet import reactor
 try:
     from twisted.web.client import _parse as parse_url
 except:

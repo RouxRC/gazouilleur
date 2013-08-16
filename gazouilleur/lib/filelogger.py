@@ -1,20 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, os.path, codecs
+import os
+from codecs import open
 from datetime import datetime
-from gazouilleur import config
+from gazouilleur.config import BOTNAME
 
 class FileLogger:
     def __init__(self, channel=''):
-        filename = config.BOTNAME
+        filename = BOTNAME
         if channel:
             filename += '_' + channel
         filename += '.log'
         if not os.path.isdir('log'):
             os.mkdir('log')
-        self.file = codecs.open(os.path.join('log', filename), "a", encoding="utf-8")
-        self.file_filtered = codecs.open(os.path.join('log', filename.replace('.log', '_filtered.log')), "a", encoding="utf-8")
+        self.file = open(os.path.join('log', filename), "a", encoding="utf-8")
+        self.file_filtered = open(os.path.join('log', filename.replace('.log', '_filtered.log')), "a", encoding="utf-8")
 
     def log(self, message, filtered=False):
         if filtered:
