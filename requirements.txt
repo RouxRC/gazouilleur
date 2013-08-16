@@ -1,15 +1,17 @@
 lxml
 twisted
 pymongo
-# Switch to personal branch fixing POST for Twitter Streaming API until pull request in next release
+# Switch preferably to personal branch fixing POST for Twitter Streaming API until pull request in next release
+# To reinsttall cleanly, do: `pip uninstall twitter; git clone #git+https://github.com/RouxRC/twitter.git; cd twitter; python setup.py build; python setup.py install`
 #twitter>=1.10
-git+https://github.com/RouxRC/twitter.git
+git+git://github.com/RouxRC/twitter.git#twitter-1.10.0.fork-post
 # Waiting for a stable release for PyPump 
-git+https://github.com/xray7224/PyPump.git
+git+git://github.com/xray7224/PyPump.git
 feedparser
 pyOpenSSL
 # Hey @Yomguithereal, told you I was gonna use it sometime, but you need to release! :)
-git+https://github.com/Yomguithereal/colifrapy.git
+#git+git://github.com/Yomguithereal/colifrapy.git switch until pull request for debian compat
+git+git://github.com/RouxRC/colifrapy.git
 # The following are only required to use the URL_STATS functionality. You can comment them if you don't need it
 # numpy apparently needs to be installed before separately for matplotlib to be installed properly, so first run:
 # pip install numpy
