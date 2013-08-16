@@ -118,6 +118,8 @@ class IRCBot(IRCClient):
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
                 self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180, displayRT=chan_displays_rt(channel, conf))
+        # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel, conf))
         # Follow Stats for Twitter USER
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
@@ -643,6 +645,11 @@ class IRCBot(IRCClient):
 
   # ----------------------------
   # Twitter monitoring commands
+    def _restart_stream(self, channel):
+        if "stream" in self.feeders[channel]:
+            self.feeders[channel]["stream"].end()
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel))
+            self.feeders[channel]["stream"].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     def _parse_follow_command(self, query):
@@ -670,6 +677,8 @@ class IRCBot(IRCClient):
         self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         if database == "news":
             query = "%s <%s>" % (name, query)
+        if database == "tweets":
+            self._restart_stream(channel)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
@@ -682,6 +691,8 @@ class IRCBot(IRCClient):
         res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
+        if database == "tweets":
+            self._restart_stream(channel)
         return '"%s" query removed from feeds database for %s'  % (query, channel)
 
     def command_list(self, database, channel=None, *args):
