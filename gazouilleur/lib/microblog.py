@@ -195,9 +195,30 @@ class Microblog():
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
             return None
-        print ",".join(follow), ",".join(track)
-        return self.conn.statuses.filter(track=",".join(track), filter_level='none') #, follow="alphoenix,libertic,bjperson,adan_officiel") #filter(follow=",".join(follow), track=",".join(track), filter_level=None)
+        track = ",".join(track)
+        follow = ",".join(follow)
+        if config.DEBUG:
+            loggvar("track: %s / follow:%s" % (track, follow), action="stream")
+        return self.conn.statuses.filter(track=track, follow=follow, filter_level='none')
 
+    def search_users(self, list_users, cache_users={}):
+        good = {}
+        todo = []
+        for name in list_users:
+            name = name.lower().lstrip('@')
+            if name in cache_users:
+                good[name] = cache_users[name]
+            else:
+                todo.append(name)
+        users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
+        if "Forbidden" in users:
+            return good, cache_users
+        for u in users:
+            name = u['screen_name'].lower()
+            if name in list_users:
+                good[name] = u['id_str']
+        cache_users.update(good)
+        return good, cache_users
 
 def check_twitter_results(data):
     text = data

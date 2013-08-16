@@ -37,6 +37,7 @@ class IRCBot(IRCClient):
         self.filters = {}
         self.silent = {}
         self.lastqueries = {}
+        self.twitter_users = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
@@ -119,7 +120,7 @@ class IRCBot(IRCClient):
         # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
                 self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180, displayRT=chan_displays_rt(channel, conf))
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel, conf))
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
