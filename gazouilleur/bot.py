@@ -289,6 +289,7 @@ class IRCBot(IRCClient):
     def msg(self, target, msg, talk=False):
         return self._msg(target, msg, talk)
 
+    re_clean_protocol = re.compile(r'^\[[^\]]+\]\s*')
     def _send_message(self, msgs, target, nick=None, tasks=None):
         if msgs is None:
             return
@@ -296,8 +297,8 @@ class IRCBot(IRCClient):
             msgs = str(msgs).strip()
             msgs = [(True, m) for m in msgs.split('\n')]
         nb_m = len(msgs)
-        if nb_m == 2 and msgs[0][0] and msgs[0][1].endswith('Huge success!') and msgs[1][0] and msgs[1][1].endswith('Huge success!'):
-            msgs = [(True, "[identi.ca/twitter] Huge success!")]
+        if nb_m == 2 and msgs[0][0] == msgs[1][0] and self.re_clean_protocol.match(msgs[0][1]) and self.re_clean_protocol.match(msgs[1][1]) and self.re_clean_protocol.sub('', msgs[0][1]) == self.re_clean_protocol.sub('', msgs[1][1]):
+            msgs = [(msgs[0][0], "[identica/twitter] %s" % self.re_clean_protocol.sub('', msgs[0][1]))]
         uniq = {}
         for res, msg in msgs:
             if not res:
@@ -542,14 +543,16 @@ class IRCBot(IRCClient):
             if ct < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140 and siteprotocol == "twitter" and not nolimit:
-                return "Sorry, but that's too long (%s characters) add --nolimit to override" % ct
+                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (site.protocol, ct)
         if command in ['microblog', 'retweet']:
             kwargs['channel'] = channel
-        conn = Microblog(siteprotocol, conf)
-        if 'text' in kwargs and not force and siteprotocol == "twitter" and command != "directmsg":
+        conn = Microblog("twitter", conf)
+        if 'text' in kwargs and not force and command != "directmsg":
             bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
             if not bl:
-                return msg
+                return "[%s] %s" % (siteprotocol, msg)
+        if site.protocol == "identica":
+            conn = Microblog(siteprotocol, conf)
         command = getattr(conn, command, None)
         return command(**kwargs)
 
