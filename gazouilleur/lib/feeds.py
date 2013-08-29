@@ -425,7 +425,7 @@ class FeederProtocol():
                 q = q.lstrip('@')
                 follow.append(q)
                 f += 1
-            elif " OR " in q or " -" in q or '"' in q or len(q) > 60:
+            elif " OR " in q or " -" in q or '"' in q or len(q) > 60 or len(q) < 6:
                 skip.append(q)
                 continue
             track.append(q)
@@ -449,6 +449,7 @@ class FeederProtocol():
         ct = 0
         tweets = []
         flush = time.time() + 29
+        self.fact.status = "running"
         try:
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status.startswith("clos"):
@@ -505,7 +506,7 @@ class FeederFactory(protocol.ClientFactory):
         self.cache = {}
         self.cache_urls = {}
         self.runner = None
-        self.status = "running"
+        self.status = "init"
 
     def log(self, msg, action="", error=False, hint=False):
         color = None
