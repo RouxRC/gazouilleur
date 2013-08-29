@@ -543,7 +543,7 @@ class IRCBot(IRCClient):
             if ct < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
             elif ct > 140 and siteprotocol == "twitter" and not nolimit:
-                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (site.protocol, ct)
+                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, ct)
         if command in ['microblog', 'retweet']:
             kwargs['channel'] = channel
         if "TWITTER" in conf:
@@ -552,7 +552,7 @@ class IRCBot(IRCClient):
                 bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
                 if not bl:
                     return "[%s] %s" % (siteprotocol, msg)
-        if site.protocol == "identica":
+        if siteprotocol == "identica":
             conn = Microblog(siteprotocol, conf)
         command = getattr(conn, command, None)
         return command(**kwargs)
