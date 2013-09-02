@@ -101,7 +101,7 @@ def get_url(url, timeout=8):
     return urlopen(url, timeout=timeout).geturl()
 
 @defer.inlineCallbacks
-def _clean_redir_urls(text, urls={}, first=True, pool=None):
+def _clean_redir_urls(text, urls={}, last=False, pool=None):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
@@ -109,7 +109,7 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
             if "@" in url00 or url00.startswith('#'):
                 continue
             url0 = "http://%s" % url00
-        if url0.startswith('http://t.co/') and url0.endswith(':'):
+        if url0.startswith('http://t.co/') and (url0.endswith(".") or url0.endswith(':')):
             url0 = url0[:-1]
         if url0 in urls:
             url1 = urls[url0]
@@ -122,12 +122,12 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
                 urls[url0] = url1
                 urls[url1] = url1
             except Exception as e:
-                if config.DEBUG and not first:
+                if config.DEBUG and last and url00.startswith('http'):
                     loggerr("trying to resolve %s : %s" % (url0, e))
                 if "403" in str(e) or "Error 30" in str(e):
                     urls[url0] = url00
                 url1 = url00
-        if first and not url1 == url00:
+        if not last and url1 != url00:
             url1 = url1.replace('http', '##HTTP##')
         try:
             url1 = url1.decode('utf-8')
@@ -135,14 +135,16 @@ def _clean_redir_urls(text, urls={}, first=True, pool=None):
         except:
             if config.DEBUG:
                 logerr("encoding %s" % url1)
-    if not first:
+    if last:
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, urls))
 
 @defer.inlineCallbacks
 def clean_redir_urls(text, urls, pool=None):
     text, urls = yield _clean_redir_urls(text, urls, pool=pool)
-    text, urls = yield _clean_redir_urls(text, urls, False, pool=pool)
+    if "t.co/" in text:
+        text, urls = yield _clean_redir_urls(text, urls, pool=pool)
+    text, urls = yield _clean_redir_urls(text, urls, True, pool=pool)
     defer.returnValue((text, urls))
 
 def get_hash(url):
