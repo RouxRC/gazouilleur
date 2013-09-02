@@ -101,8 +101,13 @@ for chan, conf in config.CHANNELS.iteritems():
         continue
     conn = Microblog("identica", conf)
     if not conn.ping():
-        logerr("Cannot connect to Identi.ca with the auth configuration provided in `gazouilleur/identica_auth_config.py` for channel %s and user @%s.\nERROR: Please rerun `python bin/auth_identica.py` to generate your OAuth Identi.ca keys.\n" % (chan, conf["IDENTICA"]["USER"].lower()))
-        exit(1)
+        try:
+            from urllib2 import urlopen
+            urlopen("https://identi.ca")
+            logerr("Cannot connect to Identi.ca with the auth configuration provided in `gazouilleur/identica_auth_config.py` for channel %s and user @%s.\nERROR: Please rerun `python bin/auth_identica.py` to generate your OAuth Identi.ca keys.\n" % (chan, conf["IDENTICA"]["USER"].lower()))
+            exit(1)
+        except:
+            sys.stderr.write(colorize("WARNING: Identi.ca seems down, bypassing related tests.\n", 'red', style='bold'))
 
 # Check Twitter config
 for chan, conf in config.CHANNELS.iteritems():
