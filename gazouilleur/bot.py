@@ -882,7 +882,8 @@ class IRCBot(IRCClient):
 class IRCBotFactory(protocol.ReconnectingClientFactory):
     protocol = IRCBot
     channels = ["#" + c.lower() for c in config.CHANNELS.keys()]
-    channels.append("#gazouilleur")
+    if not hasattr(config, "SOLITARY") or str(config.SOLITARY).lower() == "false":
+        channels.append("#gazouilleur")
 
 
 # Run as 'python bot.py' ...

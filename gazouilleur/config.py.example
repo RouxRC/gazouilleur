@@ -70,8 +70,8 @@ CHANNELS = {
 }
 # By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with his folks :)
 # The only functionnality left to the bots in this channel is to list his other channels.
-# If you do not like that, feel free to comment the last line of IRCBotFactory « channels.append("#gazouilleur") » in gazouilleur/bot.py
-
+# If you do not like that, feel free to uncomment the following line to keep your gazouilleur hidden from the others.
+#SOLITARY = True
 
 # 5) Optionnally add web statistics of the Twitter accounts
 # URL_STATS is optional to provide a web view on Twitter's stats.
