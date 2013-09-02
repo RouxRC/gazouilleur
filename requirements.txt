@@ -1,19 +1,25 @@
 lxml
+feedparser
 twisted
+pyOpenSSL
 pymongo
-# Switch preferably to personal branch fixing POST for Twitter Streaming API until pull request in next release
-# To reinsttall cleanly, do: `pip uninstall twitter; git clone #git+https://github.com/RouxRC/twitter.git; cd twitter; python setup.py build; python setup.py install`
+
+# Twitter: Switch preferably to personal branch fixing POST for Twitter Streaming API until pull request in next release
+# To reinstall cleanly, do within the virtualenv:
+# `pip uninstall twitter; git clone git+https://github.com/RouxRC/twitter.git; cd twitter; python setup.py build; python setup.py install`
 #twitter>=1.10
 git+git://github.com/RouxRC/twitter.git#twitter-1.10.0.fork-post
-# Waiting for a stable release for PyPump 
-git+git://github.com/xray7224/PyPump.git
-feedparser
-pyOpenSSL
-# Hey @Yomguithereal, told you I was gonna use it sometime, but you need to release! :)
-#git+git://github.com/Yomguithereal/colifrapy.git switch until pull request for debian compat
-git+git://github.com/RouxRC/colifrapy.git
+
+# PyPump (for Identi.ca): Waiting for a stable release post 0.3 with api changes <https://github.com/xray7224/PyPump/pull/63>
+pypump==0.3
+#git+git://github.com/xray7224/PyPump.git
+
+# Colifrapy: Hey @Yomguithereal, told you I was gonna use it sometime, but you need to release! :) Waiting for version>0.3 to be released on pip
+#colifrapy==0.3.2
+git+git://github.com/Yomguithereal/colifrapy.git
+
 # The following are only required to use the URL_STATS functionality. You can comment them if you don't need it
-# numpy apparently needs to be installed before separately for matplotlib to be installed properly, so first run:
+# numpy apparently needs to be installed before separately for matplotlib to be installed properly, so preferably run first:
 # pip install numpy
 matplotlib
 pystache

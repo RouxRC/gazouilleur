@@ -95,5 +95,20 @@ _Note:_ MongoDB being limited to 2Go databases on 32bit systems, it is recommand
  tail -fn 50 run.log
  ```
 
-### [Come over and see the bot in action on Regards Citoyens's IRC channel on Freenode!](http://webchat.freenode.net/?channels=regardscitoyens)
+## How to update to the latests code modifications?
+
+ ```bash
+ bash bin/stop.sh
+ git pull
+ source /usr/local/bin/virtualenvwrapper.sh
+ workon gazouilleur
+ pip install -r requirements.txt
+ bash bin/configure.sh
+ v.deactivate
+ bash bin/start.sh & tail -f run.log
+ ```
+And check your configuration file against gazouilleur/config.py.example to add any new possible option
+
+
+### [Come over see the bot in action and ask any question on Regards Citoyens's IRC channel on Freenode!](http://webchat.freenode.net/?channels=regardscitoyens)
 
