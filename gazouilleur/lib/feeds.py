@@ -21,7 +21,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
-from gazouilleur.lib.log import logg, colr
+from gazouilleur.lib.log import logg
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
@@ -42,12 +42,16 @@ class FeederProtocol():
 
     def _handle_error(self, traceback, msg, details):
         trace_str = str(traceback)
+        try:
+            error_message = traceback.getErrorMessage()
+        except:
+            error_message = getattr(traceback, 'message', trace_str)
         if not (msg.startswith("downloading") and ("503 Service Temporarily" in trace_str or "307 Temporary" in trace_str)):
-            self.log("while %s %s : %s" % (msg, details, traceback.getErrorMessage().replace(trace_str, '').replace('\n', '')), self.fact.database, error=True)
+            self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
         if not msg.startswith("downloading"):
-            if not msg.startswith("examining") or (config.DEBUG and "429" not in trace_str):
-                colr(traceback, 'red', False)
-            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, traceback.getErrorMessage()))), self.fact.channel, admins=True)
+            if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
+                print traceback
+            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, error_message))), self.fact.channel, admins=True)
         if ('403 Forbidden' in trace_str or '111: Connection refused' in trace_str) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
@@ -474,8 +478,7 @@ class FeederProtocol():
                     tweets = []
                     flush = time.time() + 29
         except Exception as e:
-            self.log(e, "stream", error=True)
-            self._handle_error(e.traceback, "following", "stream")
+            self._handle_error(e, "following", "stream")
         return
 
     def _flush_tweets(self, tweets):
