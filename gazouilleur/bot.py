@@ -875,6 +875,7 @@ class IRCBot(IRCClient):
         return '%s -- "%s"' % (url, title)
 
     def command_chans(self, *args):
+        """chans : Prints the list of all the channels I'm in."""
         return "I'm currently hanging out in %s. Come visit!" % " ; ".join(self.factory.channels)
 
 # Auto-reconnecting Factory
