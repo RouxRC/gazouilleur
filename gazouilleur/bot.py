@@ -242,7 +242,7 @@ class IRCBot(IRCClient):
         if channel == "#gazouilleur" and not message.startswith("%schans" % config.COMMAND_CHARACTER):
             return
         if not message.startswith(config.COMMAND_CHARACTER):
-            if self.nickname.lower() in message.lower():
+            if self.nickname.lower() in message.lower() and chan_is_verbose(channel):
                 d = defer.maybeDeferred(self.command_test)
             else:
                 return
@@ -252,13 +252,18 @@ class IRCBot(IRCClient):
         command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
         func = self._find_command_function(command)
         if func is None and d is None:
-            d = defer.maybeDeferred(self.command_help, command, channel, nick)
+            if chan_is_verbose(channel):
+                d = defer.maybeDeferred(self.command_help, command, channel, nick)
+            else:
+                return
         target = nick if channel == self.nickname else channel
         if d is None:
             if self._can_user_do(nick, channel, func):
                 d = defer.maybeDeferred(func, rest, channel, nick)
             else:
-               return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
+                if chan_is_verbose(channel):
+                    return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
+                return
         d.addCallback(self._send_message, target, nick, tasks=tasks)
         d.addErrback(self._show_error, target, nick)
 

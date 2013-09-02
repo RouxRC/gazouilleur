@@ -269,6 +269,10 @@ def get_master_chan(default=config.BOTNAME):
             return "#%s" % chan.lower().lstrip('#')
     return default.lower()
 
+def chan_is_verbose(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
+
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
     if protocol == "IDENTICA":

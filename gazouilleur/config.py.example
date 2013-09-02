@@ -47,9 +47,10 @@ TWITTER_API_LIMIT = 5
 # - When setting an Identi.ca account for a channel, you will need to run `python bin/auth_identica.py` to authorize it.
 CHANNELS = {
   'regardscitoyens': {
-    'MASTER': True, # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
-    'USERS': [],    # These extra USERS will have rights to perform all available commands on this specific channel
-    'IDENTICA': {   # Optionnally set an IDENTICA USER to allow microblogging with Identi.ca
+    'MASTER': True,    # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
+    'DISCREET': False, # (optionnal) Set to True to forbid bot's answers when getting unknown commands or pinged
+    'USERS': [],       # These extra USERS will have rights to perform all available commands on this specific channel
+    'IDENTICA': {      # Optionnally set an IDENTICA USER to allow microblogging with Identi.ca
       'USER': 'regardscitoyens'    # A password is no longer required since the migration from Status.net to Pump.io.
                                    # Please run `python bin/auth_identica.py` to get OAuth config.
     },
@@ -60,8 +61,8 @@ CHANNELS = {
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      'FORBID_POST': False, # Set to True to forbid any use of Twitter's posting commands (statuses, dms, rts, answers, ...). Useful to use Twitter's streaming in following-only mode on a channel.
-      'ALLOW_ALL': False    # Set to True to allow any user on the channel to post tweets with the account
+      'FORBID_POST': False, # (optionnal) Set to True to forbid any use of Twitter's posting commands (statuses, dms, rts, answers, ...). Useful to use Twitter's streaming in following-only mode on a channel.
+      'ALLOW_ALL': False    # (optionnal) Set to True to allow any user on the channel to post tweets with the account
     },                      # If set to False or omitted, only GLOBAL_USERS and the USERS set for the chnnel will.
     'DISPLAY_RT': False     # Set to True to display also all RTs for search queries set on the channel
   },
