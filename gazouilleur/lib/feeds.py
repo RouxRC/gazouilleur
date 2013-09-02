@@ -41,12 +41,14 @@ class FeederProtocol():
         self.fact.log(msg, action, error=error, hint=hint)
 
     def _handle_error(self, traceback, msg, details):
-        self.log("while %s %s : %s" % (msg, details, traceback.getErrorMessage().replace(str(traceback), '').replace('\n', '')), self.fact.database, error=True)
+        trace_str = str(traceback)
+        if not (msg.startswith("downloading") and ("503 Service Temporarily" in trace_str or "307 Temporary" in trace_str)):
+            self.log("while %s %s : %s" % (msg, details, traceback.getErrorMessage().replace(trace_str, '').replace('\n', '')), self.fact.database, error=True)
         if not msg.startswith("downloading"):
-            if not msg.startswith("examining") or (config.DEBUG and "429" not in str(traceback)):
+            if not msg.startswith("examining") or (config.DEBUG and "429" not in trace_str):
                 colr(traceback, 'red', False)
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, traceback.getErrorMessage()))), self.fact.channel, admins=True)
-        if ('403 Forbidden' in str(traceback) or '111: Connection refused' in str(traceback)) and self.fact.tweets_search_page:
+        if ('403 Forbidden' in trace_str or '111: Connection refused' in trace_str) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
     def in_cache(self, url):
@@ -473,7 +475,7 @@ class FeederProtocol():
                     flush = time.time() + 29
         except Exception as e:
             self.log(e, "stream", error=True)
-            self._handle_error(e.traceback, "while followoing", "stream")
+            self._handle_error(e.traceback, "following", "stream")
         return
 
     def _flush_tweets(self, tweets):
