@@ -584,12 +584,22 @@ class IRCBot(IRCClient):
             dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return defer.DeferredList(dl, consumeErrors=True)
 
-    def command_answer(self, rest, channel=None, nick=None):
+    def command_answer(self, rest, channel=None, nick=None, check=True):
         """answer <tweet_id> <@author text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
             return "Please input a correct tweet_id and message."
+        if check:
+            conf = chanconf(channel)
+            conn = Microblog('twitter', conf)
+            tweet = conn.show_status(tweet_id)
+            if tweet and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
+                author = tweet['user']['screen_name'].lower()
+                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.lower():
+                    return "Don't forget to quote @%s when answering his tweets ;)" % tweet['user']['screen_name']
+            else:
+                return "[twitter] Cannot find tweet %s on Twitter." % tweet_id
         dl = []
         dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
         if chan_has_identica(channel):
@@ -601,7 +611,7 @@ class IRCBot(IRCClient):
         lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
         if not lasttweetid:
             return "Sorry, no last tweet id found for this chan."
-        return self.command_answer("%s %s" % (str(lasttweetid["tweet_id"]), rest), channel, nick)
+        return self.command_answer("%s %s" % (str(lasttweetid["tweet_id"]), rest), channel, nick, check=False)
 
     def command_dm(self, rest, channel=None, nick=None):
         """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
