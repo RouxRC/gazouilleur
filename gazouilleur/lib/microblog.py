@@ -112,6 +112,8 @@ class Microblog():
             return False
 
     def microblog(self, text="", tweet_id=None, channel=None):
+        if text.startswith("%scount" % config.COMMAND_CHARACTER):
+            text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
         if self.site == "identica":
             try:
                 note = self.conn.Note(text)
