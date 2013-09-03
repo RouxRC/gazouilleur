@@ -454,7 +454,7 @@ class FeederProtocol():
         conn = Microblog("twitter", conf, streaming=True)
         ct = 0
         tweets = []
-        flush = time.time() + 29
+        flush = time.time() + 14
         self.fact.status = "running"
         try:
             for tweet in conn.search_stream(follow, track):
@@ -463,7 +463,7 @@ class FeederProtocol():
                     self.log("Feeder closed.", "stream", hint=True)
                     break
                 elif not tweet or not tweet.get('text'):
-                    if tweet and not tweet.get('delete'):
+                    if tweet and (config.DEBUG or not tweet.get('delete')):
                         self.log(tweet, "stream")
                     continue
                 elif tweet.get("disconnect"):
@@ -476,7 +476,7 @@ class FeederProtocol():
                     self._flush_tweets(tweets)
                     ct = 0
                     tweets = []
-                    flush = time.time() + 29
+                    flush = time.time() + 14
         except Exception as e:
             self._handle_error(e, "following", "stream")
         return
