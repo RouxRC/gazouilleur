@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, time, json
-from datetime import datetime
+import os, time
 import pymongo
+from json import dump as write_json
+from datetime import datetime
 from gazouilleur import config
+from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
 class Stats():
@@ -96,9 +98,9 @@ class Stats():
             if not os.path.exists(jsondir):
                 os.makedirs(jsondir)
             with open(os.path.join(jsondir, 'stats_%s.json' % self.user), 'w') as outfile:
-                json.dump(jsondata, outfile)
+                write_json(jsondata, outfile)
         except IOError as e:
-            print "ERROR: Could not write web/data/stats_%s.json : %s" % (self.user, e)
+            loggerr("Could not write web/data/stats_%s.json : %s" % (self.user, e), action="stats")
 
         try:
             from plots import CumulativeCurve, DailyHistogram, WeekPunchCard
@@ -115,7 +117,7 @@ class Stats():
             WeekPunchCard(dates[:-1], followers_diff, 'Followers punchcard', imgdir, 'followers_card_%s' % self.user)
             WeekPunchCard(dates[:-1], rts_diff[1:], 'RTs punchcard', imgdir, 'rts_card_%s' % self.user)
         except Exception as e:
-            print "ERROR: Could not write images in web/img for %s : %s" % (self.user, e)
+            loggerr("Could not write images in web/img for %s : %s" % (self.user, e), action="stats")
 
         self.render_template(os.path.join("web", "templates"), "static_stats.html")
 
@@ -128,5 +130,5 @@ class Stats():
             with nested(open(os.path.join(path, filename), "r"), open(os.path.join("web", outfile), "w")) as (template, generated):
                 generated.write(pystache.render(template.read(), data))
         except IOError as e:
-            print "ERROR: Could not write web/%s from %s/%s : %s" % (outfile, path, filename, e)
+            loggerr("Could not write web/%s from %s/%s : %s" % (outfile, path, filename, e), action="stats")
 

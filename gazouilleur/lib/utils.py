@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import re, urllib, hashlib
-from urllib2 import urlopen, URLError
-from datetime import datetime, timedelta
-import socket
+from urllib2 import urlopen
+from datetime import timedelta
 import pymongo, htmlentitydefs
+from twisted.internet import defer, reactor
+from twisted.internet.threads import deferToThreadPool
 from gazouilleur import config
+from gazouilleur.lib.log import loggerr
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)
@@ -14,6 +16,14 @@ cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
 shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
+
+re_parenth = re.compile(r'([\(\)])')
+re_leftacc = re.compile(r'(\{)([^\}]*)$')
+re_righacc = re.compile(r'^([^\{]*)(\})')
+re_leftbrk = re.compile(r'(\[)([^\]]*)$')
+re_righbrk = re.compile(r'^([^\[]*)(\])')
+def clean_regexp(text):
+    return re_leftacc.sub(r'\\\1\2', re_leftbrk.sub(r'\\\1\2', re_righacc.sub(r'\1\\\2', re_righbrk.sub(r'\1\\\2', re_parenth.sub(r'\\\1', text)))))
 
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
@@ -31,7 +41,7 @@ def sending_error(error):
     if res:
         if res.group(3):
             return re_sending_error.sub(r'ERROR \1: \3', error)
-        return re_sending_error.sub(r'ERRROR \1', error)
+        return re_sending_error.sub(r'ERROR \1', error)
     return "ERROR undefined"
 
 re_handle_quotes = re.compile(r'("[^"]*")')
@@ -65,13 +75,14 @@ ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
 
 def _shorten_url(text):
     for res in URL_REGEX.findall(text):
-        if ACCENTS_URL.match(res[2]):
+        if ACCENTS_URL.match(res[2]) or "@" in res[2] and not res[2].startswith('http'):
             continue
         text = text.replace(res[0], '%shttp%s___t_co_xxxxxxxxxx%s' % (res[1], res[3], res[4]))
     return text
 
+re_clean_twitter_command = re.compile(r'^\s*((%s(identica|(twitt|answ)er(only)?)|\d{14}\d*)\s*)+' % config.COMMAND_CHARACTER, re.I)
 def countchars(text):
-    return len(_shorten_url(_shorten_url(text.strip())).decode('utf-8'))
+    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.strip()).strip())).decode('utf-8'))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
@@ -86,48 +97,62 @@ def clean_url(url):
     url = re_clean_url3.sub('', url)
     return url  
 
-def _clean_redir_urls(text, urls={}, first=True):
+def get_url(url, timeout=8):
+    return urlopen(url, timeout=timeout).geturl()
+
+@defer.inlineCallbacks
+def _clean_redir_urls(text, urls={}, last=False, pool=None):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
         if not url00.startswith('http'):
+            if "@" in url00 or url00.startswith('#'):
+                continue
             url0 = "http://%s" % url00
+        if url0.startswith('http://t.co/') and url0[-1] in [".", ',', ':', '"', "'"]:
+            url0 = url0[:-1]
         if url0 in urls:
             url1 = urls[url0]
             if url1 == url0:
                 continue
         else:
             try:
-                url1 = urlopen(url0, timeout=15).geturl()
+                url1 = yield deferToThreadPool(reactor, pool, get_url, url0, timeout=8)
                 url1 = clean_url(url1)
                 urls[url0] = url1
                 urls[url1] = url1
             except Exception as e:
-                if config.DEBUG and not first:
-                    print "ERROR trying to access %s : %s" % (url0, e)
+                if config.DEBUG and last and url00.startswith('http'):
+                    loggerr("trying to resolve %s : %s" % (url0, e))
+                if "403" in str(e) or "Error 30" in str(e):
+                    urls[url0] = url00
                 url1 = url00
-        if first and not url1 == url00:
+        if not last and url1 != url00:
             url1 = url1.replace('http', '##HTTP##')
         try:
             url1 = url1.decode('utf-8')
             text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[4]))
         except:
             if config.DEBUG:
-                print "ERROR encoding %s" % url1
-    if not first:
+                logerr("encoding %s" % url1)
+    if last:
         text = text.replace('##HTTP##', 'http')
-    return text, urls
+    defer.returnValue((text, urls))
 
-def clean_redir_urls(text, urls):
-    text, urls = _clean_redir_urls(text, urls)
-    return _clean_redir_urls(text, urls, False)
+@defer.inlineCallbacks
+def clean_redir_urls(text, urls, pool=None):
+    text, urls = yield _clean_redir_urls(text, urls, pool=pool)
+    if "t.co/" in text:
+        text, urls = yield _clean_redir_urls(text, urls, pool=pool)
+    text, urls = yield _clean_redir_urls(text, urls, True, pool=pool)
+    defer.returnValue((text, urls))
 
 def get_hash(url):
     hash = hashlib.md5(url)
     return hash.hexdigest()
 
 re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@[a-zA-Z0-9_]{1,15}[: ,]*' % QUOTE_CHARS)
-re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s])+' % (QUOTE_CHARS, '%'))
+re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s%s])+' % (QUOTE_CHARS, '%', '…'.decode('utf-8')))
 def uniq_rt_hash(text):
     text = re_uniq_rt_hash.sub(' ', text)
     text = re_clean_spec_chars.sub(' ', text)
@@ -151,46 +176,56 @@ def assembleResults(results, limit=300):
     for result in results:
         line += " «%s»  | " % str(result.encode('utf-8'))
         if len(line) > limit:
-            assemble.append(formatQuery(line, True))
+            assemble.append(formatQuery(line, None))
             line = ""
     if line != "":
-        assemble.append(formatQuery(line, True))
+        assemble.append(formatQuery(line, None))
     return assemble
 
-def formatQuery(query, nourl=False):
+def formatQuery(query, add_url=None):
     if query:
         query = query[:-4]
-    if not nourl:
-        query = getIcerocketFeedUrl(query)
-        #query = getTopsyFeedUrl(query)
+    if add_url:
+        if add_url.lower() == "icerocket":
+            query = getIcerocketFeedUrl(query)
+        elif add_url.lower() == "topsy":
+            query = getTopsyFeedUrl(query)
     return query
 
-def getFeeds(channel, database, db, nourl=False):
+def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=None):
     urls = []
     db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    queries = db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)])
+    queries = list(db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
     if database == "tweets":
         # create combined queries on Icerocket/Topsy from search words retrieved in db
         query = ""
+        try:
+            queries = [queries[i] for i in randorder]
+        except:
+            pass
         for feed in queries:
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
-            if not nourl:
+            rawrg = arg
+            space = " OR "
+            if url_format:
                 if not arg.startswith('from:') and not arg.startswith('#'):
                    arg = "(%s)" % arg
-                arg = "%s+OR+" % urllib.quote(arg, '')
+                if add_url:
+                    space = "+OR+"
+                arg = "%s%s" % (urllib.quote(arg, ''), space)
             else:
                 arg = " «%s»  | " % arg
-	    if " OR " in arg:
-                urls.append(formatQuery(arg, nourl))
-            elif query.count('+OR+') < 4:
+            if " OR " in rawrg or " -" in rawrg:
+                urls.append(formatQuery(arg, add_url))
+            elif query.count(space) < 3:
                 query += arg
             else:
-                urls.append(formatQuery(query, nourl))
+                urls.append(formatQuery(query, add_url))
                 query = arg
         if query != "":
-            urls.append(formatQuery(query, nourl))
+            urls.append(formatQuery(query, add_url))
     else:
-        if nourl:
+        if not url_format:
             urls = assembleResults([feed['name'] for feed in queries])
         else:
             urls = [str(feed['query']) for feed in queries]
@@ -205,6 +240,12 @@ def next_page(url):
         url = re_arg_page.sub('', url)
     p += 1
     return "%s&p=%s" % (url, p)
+
+def save_lasttweet_id(channel, tweet_id):
+    db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])
+    db[config.MONGODB['DATABASE']].authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+    db[config.MONGODB['DATABASE']]['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
+    db.close()
 
 def safeint(n):
     try:
@@ -228,6 +269,10 @@ def get_master_chan(default=config.BOTNAME):
             return "#%s" % chan.lower().lstrip('#')
     return default.lower()
 
+def chan_is_verbose(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
+
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
     if protocol == "IDENTICA":
@@ -238,11 +283,11 @@ def chan_has_protocol(chan, protocol, conf=None):
 
 def chan_has_identica(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'IDENTICA' in conf and 'USER' in conf['IDENTICA'] and 'PASS' in conf['IDENTICA']
+    return conf and 'IDENTICA' in conf and 'USER' in conf['IDENTICA']
 
 def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER']
+    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() == "false")
 
 def chan_displays_rt(chan, conf=None):
     conf = chanconf(chan, conf)
@@ -268,13 +313,20 @@ def is_user_auth(nick, channel, conf=None):
 
 def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
-        return True if is_user_admin(nick) else False
+        return is_user_admin(nick)
     if channel == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
     auth = is_user_auth(nick, channel, conf)
-    if command_doc.endswith('/TWITTER'):
-        return chan_allows_twitter_for_all(channel, conf) or (auth and ((chan_has_identica(channel, conf) and 'identi.ca' in command_doc.lower()) or (chan_has_twitter(channel, conf) and 'twitter' in clean_doc(command_doc).lower())))
+    identica = chan_has_identica(channel, conf)
+    twitter = chan_has_twitter(channel, conf)
+    tw_rights = chan_allows_twitter_for_all(channel, conf) or auth
+    if "/IDENTICA" in command_doc:
+        if "/TWITTER" in command_doc:
+            return identica and twitter and tw_rights
+        return identica and tw_rights
+    if "/TWITTER" in command_doc:
+        return twitter and tw_rights
     if auth:
         return True
     if command_doc.endswith('/AUTH'):

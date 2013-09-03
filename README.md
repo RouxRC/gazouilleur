@@ -6,7 +6,7 @@ Gazouilleur is an IRC bot offering Twitter interactions on multiple channels in 
  * measure and visualise its statistics
  * send on both Twitter and Identi.ca messages, answers, retweets or direct messages
  * remove messages from Twitter
- * follow or unfollow on demand the results of any search query on Twitter (through parsing html results on Topsy.com, previously IceRocket.com)
+ * follow or unfollow on demand the results of any search query on Twitter (through parsing html results on previously IceRocket.com, alternatively on Topsy.com)
 
 Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGarage](https://www.laquadrature.net/fr/chat-old) developped by [Bram](http://blog.worlddomination.be/projects/ungarage.html), Gazouilleur was developped for the daily organisational and collaborative needs of [Regards Citoyens](http://www.regardscitoyens.org/).
 
@@ -27,6 +27,7 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
 ## Requirements
 
  * [MongoDB](http://www.mongodb.org/) is required: below is an example to install it on Debian/Ubuntu:
+_Note:_ MongoDB being limited to 2Go databases on 32bit systems, it is recommanded to install Gazouilleur on a 64bit machine for extreme use of the twitter keyword tracking functionnality.
   + Edit your apt `sources.list` file and add the following line:
 
   ```bash
@@ -72,6 +73,8 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * Create a MongoDB database and its owner both having the same name as the bot ([RockMongo](http://rockmongo.com/) is a nice web tool to do things like this)
  * Copy the configuration example file and adapt your settings:
 
+ TODO Create app with rights on dev.twitter.com
+
  ```bash
  cp gazouilleur/config.py{.example,}
  vi gazouilleur/config.py
@@ -92,5 +95,20 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  tail -fn 50 run.log
  ```
 
-### [Come over and see the bot in action on Regards Citoyens's IRC channel on Freenode!](http://webchat.freenode.net/?channels=regardscitoyens)
+## How to update to the latests code modifications?
+
+ ```bash
+ bash bin/stop.sh
+ git pull
+ source /usr/local/bin/virtualenvwrapper.sh
+ workon gazouilleur
+ pip install -r requirements.txt
+ bash bin/configure.sh
+ v.deactivate
+ bash bin/start.sh & tail -f run.log
+ ```
+And check your configuration file against gazouilleur/config.py.example to add any new possible option
+
+
+### [Come over see the bot in action and ask any question on Regards Citoyens's IRC channel on Freenode!](http://webchat.freenode.net/?channels=regardscitoyens)
 

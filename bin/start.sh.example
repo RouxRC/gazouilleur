@@ -4,7 +4,6 @@
 # Adapt the configuration below (WORKON_HOME is the location of the virtualanvs
 BOTENV=env_gaz
 BOTPATH=$HOME/src/ungarage/gazouilleur
-export WORKON_HOME=$HOME/.virtualenvs
 
 #LOCK
 LOCK="/tmp/$BOTENV.lock"

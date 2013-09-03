@@ -3,7 +3,7 @@
 # punchcard drawing adapted from HgPunchcard (GPL 2+ https://bitbucket.org/birkenfeld/hgpunchcard/src/f4d38c737147cdf966909c2957a79573a6a5c517/hgpunchcard.py?at=default )
 import os
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg', warn=False)
 import matplotlib.pyplot as plt
 from pylab import *
 from matplotlib.ticker import Formatter, MaxNLocator

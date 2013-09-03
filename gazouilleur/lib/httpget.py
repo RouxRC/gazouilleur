@@ -3,8 +3,17 @@
 # adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os.path as path
-from twisted.internet import reactor, defer
-from twisted.web import client
+from twisted.internet import reactor
+try:
+    from twisted.web.client import _parse as parse_url
+except:
+    from urlparse import urlparse
+    def parse_url(url):
+        o = urlparse(url)
+        port = o.port
+        if not port:
+            port = 443 if o.scheme.endswith("s") else 80
+        return o.scheme, o.netloc, port, None
 from twisted.web.client import HTTPPageGetter, HTTPClientFactory
 from gazouilleur.lib.utils import get_hash
  
@@ -48,7 +57,7 @@ class ConditionalHTTPClientFactory(HTTPClientFactory):
             self.waiting = 0
  
 def conditionalGetPage(cacheDir, url, contextFactory=None, *args, **kwargs):
-    scheme, host, port, _ = client._parse(url)
+    scheme, host, port, _ = parse_url(url)
     factory = ConditionalHTTPClientFactory(cacheDir, url, *args, **kwargs)
     if scheme == 'https':
         from twisted.internet import ssl
