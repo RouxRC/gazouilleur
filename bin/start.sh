@@ -2,9 +2,9 @@
 
 # Sample script file to run the bot automatically as service within a virtualenv previously set
 # Adapt the configuration below (WORKON_HOME is the location of the virtualanvs
-BOTENV=gazouilleur
-BOTPATH=$HOME/gazouilleur
-export WORKON_HOME=$HOME/pyenvs
+BOTENV=env_gaz
+BOTPATH=$HOME/src/ungarage/gazouilleur
+export WORKON_HOME=$HOME/.virtualenvs
 
 #LOCK
 LOCK="/tmp/$BOTENV.lock"
