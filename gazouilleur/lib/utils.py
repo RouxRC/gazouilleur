@@ -97,7 +97,7 @@ def clean_url(url):
     url = re_clean_url3.sub('', url)
     return url  
 
-def get_url(url, timeout=8):
+def get_url(url, timeout=12):
     return urlopen(url, timeout=timeout).geturl()
 
 @defer.inlineCallbacks
