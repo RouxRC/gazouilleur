@@ -119,7 +119,11 @@ class Microblog():
                 note.send()
                 return "[identica] Huge success!"
             except Exception as e:
-                exception = "[identica] %s" % sending_error(e)
+                if "[Errno 111] Connection refused" in str(e):
+                    err_msg = "https://identi.ca seems down"
+                else:
+                    err_msg = sending_error(e)
+                exception = "[identica] %s" % err_msg
                 if config.DEBUG:
                     loggerr("%s %s" % (exception, e), action=self.site)
                 return exception 
