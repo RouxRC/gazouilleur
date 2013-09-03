@@ -4,10 +4,10 @@ twisted
 pyOpenSSL
 pymongo
 
-# Twitter: Switch preferably to personal branch fixing POST for Twitter Streaming API until pull request in next release
+# Twitter: Switch preferably to personal branch fixing POST for Twitter Streaming API until v1.10.1 with pull request released
 # To reinstall cleanly, do within the virtualenv:
 # `pip uninstall twitter; git clone git+https://github.com/RouxRC/twitter.git; cd twitter; python setup.py build; python setup.py install`
-#twitter>=1.10
+#twitter>=1.10.1
 git+git://github.com/RouxRC/twitter.git#twitter-1.10.0.fork-post
 
 # PyPump (for Identi.ca): Waiting for a stable release post 0.3 with api changes <https://github.com/xray7224/PyPump/pull/63>
