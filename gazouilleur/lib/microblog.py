@@ -86,7 +86,7 @@ class Microblog():
                 elif code == 501:
                     err = "[%s] WARNING: Not responding: %s." % (self.site, code)
                 else:
-                    err = "[%s] WARNING: Forbidden: %s. Take a breather, check your commands, verify the config or adapt TWITTER_API_LIMIT." % (self.site, code)
+                    err = "[%s] WARNING: Forbidden: %s. Check your commands (already done? forbidden?) or take a breather and wait a bit, you may have overpassed Twitter' API 15min limits." % (self.site, code)
                 return err
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
