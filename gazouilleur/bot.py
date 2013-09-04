@@ -597,7 +597,7 @@ class IRCBot(IRCClient):
             tweet = conn.show_status(tweet_id)
             if tweet and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
-                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.lower():
+                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
                     return "Don't forget to quote @%s when answering his tweets ;)" % tweet['user']['screen_name']
             else:
                 return "[twitter] Cannot find tweet %s on Twitter." % tweet_id
