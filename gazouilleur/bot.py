@@ -151,13 +151,16 @@ class IRCBot(IRCClient):
             reactor.callFromThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
-        loggirc2("Left.", channel)
-        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        for chan in self.feeders.keys():
+            if channel.lower() == chan.lower():
+                channel = chan
         if channel in self.feeders:
             for f in self.feeders[channel].keys():
                 self.feeders[channel][f].end()
         if channel in self.logger:
             self.logger[channel].close()
+        loggirc2("Left.", channel)
+        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
 
   # ----------------------------------
   # Identification when nickname used
