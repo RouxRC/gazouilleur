@@ -122,9 +122,10 @@ class IRCBot(IRCClient):
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
             self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
-            self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
+            if chan_has_twitter(channel, conf):
+                self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-            self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, displayRT=chan_displays_my_rt(channel, conf), twitter_token=oauth2_token)
+                self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, displayRT=chan_displays_my_rt(channel, conf), twitter_token=oauth2_token)
             # Deprecated 
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
             #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='icerocket')
@@ -132,10 +133,10 @@ class IRCBot(IRCClient):
             #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], displayRT=chan_displays_my_rt(channel, conf))
             # ... or via Topsy.com
             #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='topsy')
+        # Follow ReTweets of tweets sent by Twitter USER
+                self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 360, displayRT=chan_displays_my_rt(channel, conf))
         # Follow Mentions of Twitter USER in tweets
             self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 90, displayRT=chan_displays_my_rt(channel, conf))
-        # Follow ReTweets of tweets sent by Twitter USER
-            self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 360, displayRT=chan_displays_my_rt(channel, conf))
         # Follow DMs sent to Twitter USER
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 90)
         else:
@@ -150,13 +151,16 @@ class IRCBot(IRCClient):
             reactor.callFromThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
-        loggirc2("Left.", channel)
-        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        for chan in self.feeders.keys():
+            if channel.lower() == chan.lower():
+                channel = chan
         if channel in self.feeders:
             for f in self.feeders[channel].keys():
                 self.feeders[channel][f].end()
         if channel in self.logger:
             self.logger[channel].close()
+        loggirc2("Left.", channel)
+        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
 
   # ----------------------------------
   # Identification when nickname used
@@ -596,7 +600,7 @@ class IRCBot(IRCClient):
             tweet = conn.show_status(tweet_id)
             if tweet and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
-                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.lower():
+                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
                     return "Don't forget to quote @%s when answering his tweets ;)" % tweet['user']['screen_name']
             else:
                 return "[twitter] Cannot find tweet %s on Twitter." % tweet_id

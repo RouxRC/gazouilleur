@@ -86,7 +86,7 @@ class Microblog():
                 elif code == 501:
                     err = "[%s] WARNING: Not responding: %s." % (self.site, code)
                 else:
-                    err = "[%s] WARNING: Forbidden: %s. Take a breather, check your commands, verify the config or adapt TWITTER_API_LIMIT." % (self.site, code)
+                    err = "[%s] WARNING: Forbidden: %s. Check your commands (already done? forbidden?) or take a breather and wait a bit, you may have overpassed Twitter's API 15min limits." % (self.site, code)
                 return err
             exception = "[%s] %s" % (self.site, sending_error(e))
             if config.DEBUG and exception != previous_exception:
@@ -102,7 +102,7 @@ class Microblog():
             if self.site == "identica":
                 return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
             creds = self.conn.account.verify_credentials(include_entities='false', skip_status='true')
-            dms = isinstance(check_twitter_results(self.get_dms()), list)
+            dms = ("FORBID_POST" not in self.conf or str(self.conf["FORBID_POST"]).lower() != "true") or isinstance(check_twitter_results(self.get_dms()), list)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
             return creds is not None and dms
