@@ -102,7 +102,7 @@ class Microblog():
             if self.site == "identica":
                 return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
             creds = self.conn.account.verify_credentials(include_entities='false', skip_status='true')
-            dms = isinstance(check_twitter_results(self.get_dms()), list)
+            dms = ("FORBID_POST" not in self.conf or str(self.conf["FORBID_POST"]).lower() != "true") or isinstance(check_twitter_results(self.get_dms()), list)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
             return creds is not None and dms
