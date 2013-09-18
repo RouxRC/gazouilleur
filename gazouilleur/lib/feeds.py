@@ -45,7 +45,10 @@ class FeederProtocol():
         try:
             error_message = traceback.getErrorMessage()
         except:
-            error_message = getattr(traceback, 'message', trace_str)
+            try:
+                error_message = getattr(traceback, 'message')
+            except:
+                error_message = ""
         if not (msg.startswith("downloading") and ("503 Service Temporarily" in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
         if not msg.startswith("downloading"):
