@@ -225,13 +225,15 @@ class FeederProtocol():
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
                 existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
+                tw_user = "@%s" % self.fact.twitter_user.lower()
                 for t in news:
-                    if t['uniq_rt_hash'] not in existing:
+                    if t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and tw_user in t['message'].lower()):
                         existing.append(t['uniq_rt_hash'])
                         self.displayTweet(t)
                         good += 1
             else:
                 [self.displayTweet(t) for t in news]
+                good = len(news)
             if config.DEBUG:
                 nb_rts_str = ""
                 nb_rts = len(news) - good
@@ -426,7 +428,7 @@ class FeederProtocol():
         k = 0
         f = 0
         for query in queries:
-            q = str(query['query'].encode('utf-8'))
+            q = str(query['query'].encode('utf-8')).lower()
             if self.re_twitter_account.match(q):
                 q = q.lstrip('@')
                 follow.append(q)
@@ -438,7 +440,7 @@ class FeederProtocol():
             k += 1
             if k > 395 or f > 4995:
                 break
-        user = conf["TWITTER"]["USER"]
+        user = self.fact.twitter_user.lower()
         if user not in follow:
             follow.append(user)
         if user not in track:
@@ -490,7 +492,7 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, displayRT=False, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
+    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
@@ -498,7 +500,10 @@ class FeederFactory(protocol.ClientFactory):
         self.delay = delay
         self.timeout = timeout
         self.feeds = feeds
-        self.displayRT = displayRT
+        conf = chanconf(channel)
+        self.displayRT = chan_displays_rt(channel, conf)
+        self.displayMyRT = chan_displays_my_rt(channel, conf)
+        self.twitter_user = get_chan_twitter_user(channel, conf)
         self.retweets_processed = {}
         self.tweets_search_page = tweetsSearchPage
         self.back_pages_limit = back_pages_limit
@@ -526,7 +531,7 @@ class FeederFactory(protocol.ClientFactory):
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             run_command = self.protocol.start_twitter
-            args = {'database': self.database, 'conf': conf, 'user': conf['TWITTER']['USER'].lower()}
+            args = {'database': self.database, 'conf': conf, 'user': self.twitter_user.lower()}
         elif self.database == "tweets" and not self.tweets_search_page:
             run_command = self.run_twitter_search
         elif self.database == "stream":

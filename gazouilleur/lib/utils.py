@@ -289,6 +289,12 @@ def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() == "false")
 
+def get_chan_twitter_user(chan, conf=None):
+    conf = chanconf(chan, conf)
+    if conf and 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+        return conf['TWITTER']['USER']
+    return None
+
 def chan_displays_rt(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'DISPLAY_RT' in conf and conf['DISPLAY_RT']

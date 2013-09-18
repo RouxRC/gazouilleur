@@ -113,37 +113,37 @@ class IRCBot(IRCClient):
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
                 loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's API App only extra limitrate
-                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
+                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90, twitter_token=oauth2_token)
             except Exception as e:
                 oauth2_token = None
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
-                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180, displayRT=chan_displays_rt(channel, conf))
+                self.feeders[channel]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel, conf), twitter_token=oauth2_token)
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-                self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, displayRT=chan_displays_my_rt(channel, conf), twitter_token=oauth2_token)
+                self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
             # Deprecated 
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='icerocket')
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)], displayRT=chan_displays_my_rt(channel, conf))
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], displayRT=chan_displays_my_rt(channel, conf), tweetsSearchPage='topsy')
+            #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
         # Follow ReTweets of tweets sent by Twitter USER
-                self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 360, displayRT=chan_displays_my_rt(channel, conf))
+                self.feeders[channel]['retweets'] = FeederFactory(self, channel, 'retweets', 360)
         # Follow Mentions of Twitter USER in tweets
-            self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 90, displayRT=chan_displays_my_rt(channel, conf))
+            self.feeders[channel]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
         # Follow DMs sent to Twitter USER
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
-            self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, displayRT=chan_displays_rt(channel, conf), tweetsSearchPage='icerocket')
+            self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
         # ... or via Topsy.com
-        #   self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, displayRT=chan_displays_rt(channel, conf), tweetsSearchPage='icerocket')
+        #   self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 20)
         n = self.factory.channels.index(channel.lower()) + 1
@@ -679,7 +679,7 @@ class IRCBot(IRCClient):
         if "stream" in self.feeders[channel] and self.feeders[channel]["stream"].status == "running":
             oauth2_token = self.feeders[channel]["stream"].twitter_token or None
             self.feeders[channel]["stream"].end()
-            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, displayRT=chan_displays_rt(channel), twitter_token=oauth2_token)
+            self.feeders[channel]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
             self.feeders[channel]["stream"].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
