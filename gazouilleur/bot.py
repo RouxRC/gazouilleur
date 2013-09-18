@@ -232,6 +232,7 @@ class IRCBot(IRCClient):
     def _can_user_do(self, nick, channel, command, conf=None):
         return has_user_rights_in_doc(nick, channel, self._get_command_doc(command))
 
+    re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, config.COMMAND_CHARACTER), re.I)
     def privmsg(self, user, channel, message, tasks=None):
         try:
             message = message.decode('utf-8')
@@ -241,6 +242,7 @@ class IRCBot(IRCClient):
             except UnicodeDecodeError:
                 message = message.decode('cp1252')
         message = cleanblanks(message)
+        message = self.re_catch_command.sub(config.COMMAND_CHARACTER, message)
         nick, user = self.log(message, user, channel)
         d = None
         if channel == "#gazouilleur" and not message.startswith("%schans" % config.COMMAND_CHARACTER):
