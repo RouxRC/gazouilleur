@@ -93,7 +93,7 @@ class Microblog():
                 try:
                     loggerr("%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args), action=self.site)
                 except:
-                    print exception, e, args
+                    logerr("%s %s %s" % (exception, e, args))
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):

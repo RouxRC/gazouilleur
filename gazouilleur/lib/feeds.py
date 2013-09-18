@@ -469,7 +469,7 @@ class FeederProtocol():
                     break
                 elif not tweet or not tweet.get('text'):
                     if tweet and (config.DEBUG or not tweet.get('delete')):
-                        self.log(tweet, "stream")
+                        self.log(tweet, "stream", hint=True)
                     continue
                 elif tweet.get("disconnect"):
                     self._flush_tweets(tweets)
