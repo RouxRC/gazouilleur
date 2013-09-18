@@ -893,9 +893,12 @@ class IRCBot(IRCClient):
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
 
-    def command_chans(self, *args):
+    def command_chans(self, rest, channel=None, *args):
         """chans : Prints the list of all the channels I'm in."""
-        return "I'm currently hanging out in %s. Come visit!" % " ; ".join(self.factory.channels)
+        chans = [chan for chan in self.factory.channels if chan.lower() != channel.lower()]
+        if not len(chans):
+            return "I'm only hanging out here."
+        return "I'm currently hanging out in %s. Come visit!" % " ; ".join(chans)
 
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):
