@@ -14,6 +14,7 @@ from twisted.words.protocols.irc import IRCClient
 from twisted.web.client import getPage
 from twisted.application import internet, service
 from twisted.python import log
+from gazouilleur.lib.ircclient_with_names import NamesIRCClient
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
@@ -21,12 +22,13 @@ from gazouilleur.lib.microblog import Microblog
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 
-class IRCBot(IRCClient):
+class IRCBot(NamesIRCClient):
 
     lineRate = 0.75
 
     def __init__(self):
         #NickServ identification handled automatically by twisted
+        NamesIRCClient.__init__(self)
         self.nickname = config.BOTNAME
         self.username = config.BOTNAME
         self.password = config.BOTPASS
@@ -361,12 +363,8 @@ class IRCBot(IRCClient):
             return config.COMMAND_CHARACTER + doc
         return '%s%s is not a valid command. %s' % (config.COMMAND_CHARACTER, rest, def_msg)
 
-    def command_ping(self, *args):
-        """ping : Ping test, should answer pong."""
-        return 'Pong.'
-
     def command_test(self, *args):
-        """test : Simple test to check whether I'm present, similar as ping."""
+        """test : Simple test to check whether I'm present."""
         return 'Hello! Type "%shelp" to list my commands.' % config.COMMAND_CHARACTER
 
     def command_source(self, *args):
@@ -787,6 +785,39 @@ class IRCBot(IRCClient):
 
   # ------------------
   # Other commands...
+
+    @defer.inlineCallbacks
+    def command_ping(self, rest, channel=None, nick=None):
+        """ping [<text>] : Pings all users on the chan saying <text> except for users set with noping."""
+        names = yield self._names(channel)
+        names = [name.strip('@') for name in names]
+        skip = [user['lower'] for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
+        skip.append(nick.lower())
+        skip.append(self.nickname.lower())
+        left = [name for name in names if name.lower() not in skip]
+        if not len(left):
+            defer.returnValue("There's no one to ping here :(")
+        if rest.strip() == "":
+            rest = "Ping!"
+        defer.returnValue("%s %s" % (" ".join(left), rest))
+
+    re_stop = re.compile(r'\s*--stop\s*', re.I)
+    split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
+    def command_noping(self, rest, channel=None, nick=None):
+        """noping <user1> [<user2> [<userN>...]] [--stop] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users."""
+        if self.re_stop.search(rest):
+            no = ""
+            again = "again"
+            rest = self.re_stop.sub(' ', rest).replace('  ', ' ')
+            users = rest.split(" ")
+            self.db['noping_users'].remove({'channel': channel, 'lower': {'$in': [x.lower() for x in users]}})
+        else:
+            no = "not "
+            again = "anymore"
+            users = rest.split(" ")
+            for user in users:
+                self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
+        return "All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again)
 
     def _set_silence(self, channel, minutes):
         self.silent[channel] = datetime.today() + timedelta(minutes=minutes)
