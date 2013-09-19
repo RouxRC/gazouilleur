@@ -861,7 +861,7 @@ class IRCBot(NamesIRCClient):
         """saylater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
         when, task = self._extract_digit(rest)
-        when = max(1, when) * 60
+        when = max(0, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
         if task.startswith("--chan "):
             tmpchan = task[7:task.find(' ', 7)]
