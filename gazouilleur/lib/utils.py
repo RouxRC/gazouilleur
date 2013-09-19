@@ -199,7 +199,7 @@ def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=Non
     db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
     queries = list(db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
     if database == "tweets":
-        # create combined queries on Icerocket/Topsy from search words retrieved in db
+        # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
         try:
             queries = [queries[i] for i in randorder]

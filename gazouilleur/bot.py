@@ -276,7 +276,7 @@ class IRCBot(NamesIRCClient):
         d.addErrback(self._show_error, target, nick)
 
     re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
-    def _msg(self, target, msg, talk=False):
+    def msg(self, target, msg, talk=False):
         msg_utf = msg.decode('utf-8')
         skip = False
         if not talk and self.re_tweets.search(msg) and target in self.filters:
@@ -298,9 +298,6 @@ class IRCBot(NamesIRCClient):
             except:
                 print colr("ERROR encoding filtered msg", 'red'), msg, reason
                 loggvar("FILTERED: %s [%s]" % (msg, reason), target)
-
-    def msg(self, target, msg, talk=False):
-        return self._msg(target, msg, talk)
 
     re_clean_protocol = re.compile(r'^\[[^\]]+\]\s*')
     def _send_message(self, msgs, target, nick=None, tasks=None):
