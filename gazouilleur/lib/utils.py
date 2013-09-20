@@ -273,7 +273,7 @@ def get_master_chan(default=config.BOTNAME):
 
 def chan_is_verbose(chan, conf=None):
     conf = chanconf(chan, conf)
-    return "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
+    return not conf or "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
 
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
@@ -317,7 +317,7 @@ def is_user_global(nick):
 
 def is_user_auth(nick, channel, conf=None):
     conf = chanconf(channel, conf)
-    return conf and (is_user_global(nick) or is_user_admin(nick) or ('USERS' in conf and nick in conf['USERS']))
+    return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
 
 def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
     if command_doc is None:
