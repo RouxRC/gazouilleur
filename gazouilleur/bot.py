@@ -809,7 +809,8 @@ class IRCBot(NamesIRCClient):
             for user in [u.strip('@') for u, l in left if l == lower]:
                 if user not in users and user.lower() not in lowerops:
                     users.append(user)
-                    others.remove(user)
+                    if user in others:
+                        others.remove(user)
         random.shuffle(users)
         if not onlyteam:
             if pingall:
