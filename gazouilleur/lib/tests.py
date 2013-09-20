@@ -81,7 +81,7 @@ try:
     db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
     assert(db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD']))
 except pymongo.errors.AutoReconnect as e:
-    logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo /etc/init.d/mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s\n" % (e, config.BOTNAME))
+    logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo /etc/init.d/mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s`\n" % (e, config.BOTNAME))
     exit(1)
 except AssertionError:
     logerr("Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically.\n" % config.MONGODB['DATABASE'])
