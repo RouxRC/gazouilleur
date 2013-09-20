@@ -785,25 +785,53 @@ class IRCBot(NamesIRCClient):
   # ------------------
   # Other commands...
 
+    def command_pingall(self, rest, channel=None, nick=None):
+        """pingall [<text>] : Pings all ops, admins and at most 50 more random users on the chan by saying <text> except for users set with noping./AUTH"""
+        return self.command_ping(rest, channel, nick, pingall=True)
+
+    def command_pingteam(self, rest, channel=None, nick=None):
+        """pingteam [<text>] : Pings all ops and admins on the chan by saying <text> except for users set with noping./AUTH"""
+        return self.command_ping(rest, channel, nick, onlyteam=True)
+
+    re_comment = re.compile(r'^\[')
     @defer.inlineCallbacks
-    def command_ping(self, rest, channel=None, nick=None):
-        """ping [<text>] : Pings all ops and at most 50 more users on the chan saying <text> except for users set with noping./AUTH"""
+    def command_ping(self, rest, channel=None, nick=None, onlyteam=False, pingall=False):
+        """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
         names = yield self._names(channel)
-        ops = [name.strip('@') for name in names if name.startswith('@')]
-        names = [name for name in names if not name.startswith('@')]
-        skip = [user['lower'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
-        skip.append(nick.lower())
-        skip.append(self.nickname.lower())
-        left = [name for name in names if name.lower() not in skip]
-        ops = [name for name in ops if name.lower() not in skip]
-        if not len(left + ops):
+        skip = [user['lower'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])] + [nick.lower(), self.nickname.lower()]
+        left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
+        users = [name.strip('@') for name, _ in left if name.startswith('@')]
+        lowerops = [name.lower() for name in users]
+        others = [name for name, lower in left if lower not in lowerops]
+        conf = chanconf(channel)
+        for admin in conf['USERS'] + config.GLOBAL_USERS:
+            lower = admin.lower()
+            for user in [u.strip('@') for u, l in left if l == lower]:
+                if user not in users and user.lower() not in lowerops:
+                    users.append(user)
+                    others.remove(user)
+        random.shuffle(users)
+        if not onlyteam:
+            if pingall:
+                limit = 50
+            else:
+                lowerothers = [name.lower() for name in others]
+                recent_logs = self.db['logs'].find({'channel': channel, 'timestamp': {'$gte': datetime.today() - timedelta(hours=18)}, 'message': {'$not': self.re_comment}}, fields=['screenname'])
+                recents = []
+                recents = set([user['screenname'] for user in recent_logs if user['screenname'].lower() in lowerothers])
+                lowerrecents = [name.lower() for name in recents]
+                users += recents
+                others = [name for name in others if name.lower() not in lowerrecents]
+                limit = 5
+            random.shuffle(others)
+            if len(others) > limit:
+                others = others[:limit]
+            users += others
+        if not len(users):
             defer.returnValue("There's no one to ping here :(")
-        random.shuffle(left)
-        if len(left) > 50:
-            left = left[:49]
         if rest.strip() == "":
             rest = "Ping!"
-        defer.returnValue("%s %s" % (" ".join(ops + left), rest))
+        defer.returnValue("%s %s" % (" ".join(users), rest))
 
     re_stop = re.compile(r'\s*--stop\s*', re.I)
     re_list = re.compile(r'\s*--list\s*', re.I)
