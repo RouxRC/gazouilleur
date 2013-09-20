@@ -22,6 +22,8 @@ from gazouilleur.lib.microblog import Microblog
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 
+reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
+
 class IRCBot(NamesIRCClient):
 
     lineRate = 0.75
@@ -150,7 +152,7 @@ class IRCBot(NamesIRCClient):
         self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 20)
         n = self.factory.channels.index(channel.lower()) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
-            reactor.callFromThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
+            threads.deferToThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
 
     def left(self, channel):
         for chan in self.feeders.keys():
