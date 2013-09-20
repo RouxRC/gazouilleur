@@ -791,7 +791,7 @@ class IRCBot(NamesIRCClient):
         names = yield self._names(channel)
         ops = [name.strip('@') for name in names if name.startswith('@')]
         names = [name for name in names if not name.startswith('@')]
-        skip = [user['lower'] for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
+        skip = [user['lower'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
         skip.append(nick.lower())
         skip.append(self.nickname.lower())
         left = [name for name in names if name.lower() not in skip]
@@ -806,9 +806,16 @@ class IRCBot(NamesIRCClient):
         defer.returnValue("%s %s" % (" ".join(ops + left), rest))
 
     re_stop = re.compile(r'\s*--stop\s*', re.I)
+    re_list = re.compile(r'\s*--list\s*', re.I)
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
     def command_noping(self, rest, channel=None, nick=None):
-        """noping <user1> [<user2> [<userN>...]] [--stop] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users."""
+        """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
+        if self.re_list.search(rest):
+            skip = [user['user'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['user'])]
+            text = "are"
+            if len(skip) < 2:
+                text = "is"
+            return "%s %s actually registered for noping." % (" ".join(skip), text)
         if self.re_stop.search(rest):
             no = ""
             again = "again"
