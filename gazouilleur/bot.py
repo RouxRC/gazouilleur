@@ -787,7 +787,7 @@ class IRCBot(NamesIRCClient):
 
     @defer.inlineCallbacks
     def command_ping(self, rest, channel=None, nick=None):
-        """ping [<text>] : Pings all users on the chan saying <text> except for users set with noping."""
+        """ping [<text>] : Pings all users on the chan saying <text> except for users set with noping./AUTH"""
         names = yield self._names(channel)
         names = [name.strip('@') for name in names]
         skip = [user['lower'] for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
