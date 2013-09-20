@@ -263,7 +263,7 @@ class IRCBot(NamesIRCClient):
         func = self._find_command_function(command)
         if func is None and d is None:
             if chan_is_verbose(channel):
-                d = defer.maybeDeferred(self.command_help, command, channel, nick)
+                d = defer.maybeDeferred(self.command_help, command, channel, nick, discreet=True)
             else:
                 return
         target = nick if channel == self.nickname else channel
@@ -347,12 +347,16 @@ class IRCBot(NamesIRCClient):
   # -----------------
   # Default commands
 
-    def command_help(self, rest, channel=None, nick=None):
+    def command_help(self, rest, channel=None, nick=None, discreet=False):
         """help [<command>] : Prints general help or help for specific <command>."""
         rest = rest.lstrip(config.COMMAND_CHARACTER)
         conf = chanconf(channel)
         commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_') and c != "command_more"] if self._can_user_do(nick, channel, c, conf)]
-        def_msg = 'My commands are:  '+config.COMMAND_CHARACTER+(' ;  '+config.COMMAND_CHARACTER).join(commands)+'\nType "'+config.COMMAND_CHARACTER+'help <command>" to get more details.'
+        def_msg = 'Type "%shelp' % config.COMMAND_CHARACTER
+        if not discreet:
+            def_msg = 'My commands are:  %s%s\n%s <command>" to get more details.' % (config.COMMAND_CHARACTER, (' ;  %s' % config.COMMAND_CHARACTER).join(commands), def_msg)
+        else:
+            def_msg += '" to list my commands.'
         if rest is None or rest == '':
             return def_msg
         elif rest in commands:
