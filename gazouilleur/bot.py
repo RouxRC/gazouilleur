@@ -787,18 +787,23 @@ class IRCBot(NamesIRCClient):
 
     @defer.inlineCallbacks
     def command_ping(self, rest, channel=None, nick=None):
-        """ping [<text>] : Pings all users on the chan saying <text> except for users set with noping./AUTH"""
+        """ping [<text>] : Pings all ops and at most 50 more users on the chan saying <text> except for users set with noping./AUTH"""
         names = yield self._names(channel)
-        names = [name.strip('@') for name in names]
+        ops = [name.strip('@') for name in names if name.startswith('@')]
+        names = [name for name in names if not name.startswith('@')]
         skip = [user['lower'] for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])]
         skip.append(nick.lower())
         skip.append(self.nickname.lower())
         left = [name for name in names if name.lower() not in skip]
-        if not len(left):
+        ops = [name for name in ops if name.lower() not in skip]
+        if not len(left + ops):
             defer.returnValue("There's no one to ping here :(")
+        random.shuffle(left)
+        if len(left) > 50:
+            left = left[:49]
         if rest.strip() == "":
             rest = "Ping!"
-        defer.returnValue("%s %s" % (" ".join(left), rest))
+        defer.returnValue("%s %s" % (" ".join(ops + left), rest))
 
     re_stop = re.compile(r'\s*--stop\s*', re.I)
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
