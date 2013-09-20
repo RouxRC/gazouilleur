@@ -801,6 +801,7 @@ class IRCBot(NamesIRCClient):
     @defer.inlineCallbacks
     def command_ping(self, rest, channel=None, nick=None, onlyteam=False, pingall=False):
         """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
+        channel = self.getMasterChan(channel)
         names = yield self._names(channel)
         skip = [user['lower'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])] + [nick.lower(), self.nickname.lower()]
         left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
@@ -808,7 +809,10 @@ class IRCBot(NamesIRCClient):
         lowerops = [name.lower() for name in users]
         others = [name for name, lower in left if lower not in lowerops]
         conf = chanconf(channel)
-        for admin in conf['USERS'] + config.GLOBAL_USERS:
+        admins = config.GLOBAL_USERS
+        if conf:
+            admins += conf['USERS']
+        for admin in admins:
             lower = admin.lower()
             for user in [u.strip('@') for u, l in left if l == lower]:
                 if user not in users and user.lower() not in lowerops:
