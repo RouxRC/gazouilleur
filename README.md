@@ -31,13 +31,13 @@ See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.
 
 ## Easy Install
 
-For an easy install, you can try running `bash bin/install.sh` or follow step by step the [installation commands readable here](/RouxRC/gazouilleur/blob/master/bin/install.sh).
+For an easy install, you can try running `bash bin/install.sh` or follow step by step the [installation commands readable here](/bin/install.sh).
 
 When dependencies will be installed, you will have to edit your configuration in `gazouilleur/config.py`, then run `bash bin/configureDB.sh` to prepare your Mongo database.
 
-Depending on the desired options, the configuration will require to get Twitter and/or Identi.ca API right ([see below](#getting-twitter-api-rights-for-a-channel)).
+Depending on the desired options, the configuration will require to get Twitter and/or Identi.ca API right ([see below](#getting-twitter--identica-api-rights-for-a-channel)).
 
-You can also scroll down to the detailed installation instructions below](#detailed-installation-instructions).
+You can also scroll down to the detailed [installation instructions below](#detailed-installation-instructions).
 
 ## Run Gazouilleur
 
@@ -63,9 +63,9 @@ Add the following line via `crontab -e` where $GAZOUILLEUR_PATH is Gazouilleur's
  ```
 
 
-## Getting Twitter API rights for a channel
+## Getting Twitter & Identi.ca API rights for a channel
 
- * Why create a Twitter API application?
+### Why create a Twitter API application?
 
 In order to send tweets from IRC, each channel needs to be associated with a distinct Twitter account and its API tokens with "Read, Write, and Direct Messages" rights.
 
@@ -73,16 +73,16 @@ In order to send tweets from IRC, each channel needs to be associated with a dis
 
 Such monitoring is also permitted, with less accuracy, for configs without any Twitter account, by parsing IceRocket.com or Topy.com's HTML search results, but the accuracy and completeness is seriously impacted.
 
- * How to create a Twitter API application?
+### How to create a Twitter API application?
 
   + Logon to [https://dev.twitter.com/apps/new](https://dev.twitter.com/apps/new) with a regular Twitter account
   + Fill the required fields on the creation page (name, description and website really do not matter much) and validate
-  + Select the "Settings" tab and set the "Access" field in the "Application Type" section considering the [conditions described above](#why-create-a-twitter-apî-application), then validate
+  + Select the "Settings" tab and set the "Access" field in the "Application Type" section considering the [conditions described above](#getting-twitter--identica-api-rights-for-a-channel), then validate
   + Select back the "Details" tab and click "Create my access token"
   + Select the "OAuth Tool" tab to get your 4 API keys in order (KEY, SECRET, OAUTH_TOKEN, OAUTH_SECRET)
 
 
-## Getting Identi.ca API rights for a channel
+### Getting Identi.ca API rights for a channel
 
  * [Create](https://identi.ca/main/register) or [recover](https://identi.ca/main/recover) an Identi.ca account on the new Pump.io service.
 
@@ -111,24 +111,24 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
 
 **Note:** MongoDB being limited to 2Go databases on 32bit systems, it is recommanded to install Gazouilleur on a 64bit machine for extreme use of the Twitter keyword tracking functionnality.
 
-  + Edit your apt `sources.list` file to include the following line:
+Edit your apt `sources.list` file to include the following line:
 
-  ```bash
-  deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen
-  ```
+```bash
+deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen
+```
 
-  + Install the GPG key for this repository, update apt lists and install MongoDB:
+Install the GPG key for this repository, update apt lists and install MongoDB:
 
-  ```bash
-  curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
-  sudo apt-get update
-  sudo apt-get install mongodb-10gen
-  sudo service mongodb restart
-  ```
+```bash
+curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install mongodb-10gen
+sudo service mongodb restart
+```
 
 You can configure the MongoDB server by editing `/etc/mongodb.conf`.
 
-**Extra:** [RockMongo](http://rockmongo.com/ is a nice PhpMyAdmin-like web tool to examine a MongoDB.
+**Extra:** [RockMongo](http://rockmongo.com/) is a nice PhpMyAdmin-like web tool to examine a MongoDB.
 
 
  * Configure the Python environment:
@@ -149,6 +149,7 @@ You can configure the MongoDB server by editing `/etc/mongodb.conf`.
   easy_install -U distribute
   # Install NumPy if you want to activate the URL_STATS option
   # pip install -q numpy
+  # Uncomment first NumPy related lines in requirements.txt to activate URL_STATS
   pip install -r requirements.txt
   add2virtualenv .
   deactivate
@@ -162,7 +163,7 @@ You can configure the MongoDB server by editing `/etc/mongodb.conf`.
  bash bin/configure.sh
  ```
 
- * Get your Twitter and Identi.ca API keys if needed [as explained above](#getting-twitter-api-rights-for-a-channel).
+ * Get your Twitter and Identi.ca API keys if needed [as explained above](#getting-twitter--identica-api-rights-for-a-channel).
 
 
  * Choose a name for the bot and preferably register it on the desired IRC server. For instance on Freenode, do from an IRC client:
