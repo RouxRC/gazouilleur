@@ -297,6 +297,10 @@ def get_chan_twitter_user(chan, conf=None):
         return conf['TWITTER']['USER']
     return None
 
+def chan_displays_stats(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return chan_has_twitter(chan, conf) and ('DISPLAY_STATS' not in conf['TWITTER'] or str(conf['TWITTER']['DISPLAY_STATS']).lower() != 'false')
+
 def chan_displays_rt(chan, conf=None):
     conf = chanconf(chan, conf)
     return conf and 'DISPLAY_RT' in conf and conf['DISPLAY_RT']

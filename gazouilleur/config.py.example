@@ -62,6 +62,7 @@ CHANNELS = {
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'DISPLAY_STATS': True,# (optionnal) Set to False to disable stats display every day at 1pm and 6pm
       'FORBID_POST': False, # (optionnal) Set to True to forbid any use of Twitter's posting commands (statuses, dms, rts, answers, ...). Useful to use Twitter's streaming in following-only mode on a channel.
       'ALLOW_ALL': False    # (optionnal) Set to True to allow any user on the channel to post tweets with the account
     },                      # If set to False or omitted, only GLOBAL_USERS and the USERS set for the chnnel will.
