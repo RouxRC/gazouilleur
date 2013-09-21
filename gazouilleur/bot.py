@@ -350,6 +350,8 @@ class IRCBot(NamesIRCClient):
    ## Available to anyone
    ## Exclude regexp : '(help|test|chans|source)'
 
+    link_commands = ' or read https://github.com/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md'
+    txt_list_comds = '" to list my commands%s' % link_commands
     def command_help(self, rest, channel=None, nick=None, discreet=False):
         """help [<command>] : Prints general help or help for specific <command>."""
         rest = rest.lstrip(config.COMMAND_CHARACTER)
@@ -357,9 +359,9 @@ class IRCBot(NamesIRCClient):
         commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_') and c != "command_more"] if self._can_user_do(nick, channel, c, conf)]
         def_msg = 'Type "%shelp' % config.COMMAND_CHARACTER
         if not discreet:
-            def_msg = 'My commands are:  %s%s\n%s <command>" to get more details.' % (config.COMMAND_CHARACTER, (' ;  %s' % config.COMMAND_CHARACTER).join(commands), def_msg)
+            def_msg = 'My commands are:  %s%s\n%s <command>" to get more details%s' % (config.COMMAND_CHARACTER, (' ;  %s' % config.COMMAND_CHARACTER).join(commands), def_msg, self.link_commands)
         else:
-            def_msg += '" to list my commands.'
+            def_msg += self.txt_list_comds
         if rest is None or rest == '':
             return def_msg
         elif rest in commands:
@@ -371,7 +373,7 @@ class IRCBot(NamesIRCClient):
 
     def command_test(self, *args):
         """test : Simple test to check whether I'm present."""
-        return 'Hello! Type "%shelp" to list my commands.' % config.COMMAND_CHARACTER
+        return 'Hello! Type "%shelp"%s' % (config.COMMAND_CHARACTER, self.txt_list_comds)
 
     def command_chans(self, rest, channel=None, *args):
         """chans : Prints the list of all the channels I'm in."""
