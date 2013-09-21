@@ -10,7 +10,7 @@ except ImportError:
 try:
     from gazouilleur import config
 except ImportError:
-    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `b ash bin/configure.sh` to create it, then edit it to prepare your bot.\n")
+    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.\n")
     exit(1)
 except SyntaxError as e:
     import traceback
