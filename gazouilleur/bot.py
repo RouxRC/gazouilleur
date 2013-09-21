@@ -130,7 +130,7 @@ class IRCBot(NamesIRCClient):
                 self.feeders[channel]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
                 self.feeders[channel]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
-            # Deprecated 
+            # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
             #   self.feeders[channel]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
             # ... or via IceRocket.com old RSS feeds
@@ -145,11 +145,11 @@ class IRCBot(NamesIRCClient):
             self.feeders[channel]['dms'] = FeederFactory(self, channel, 'dms', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
-            self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
+            self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 30, tweetsSearchPage='icerocket')
         # ... or via Topsy.com
         #   self.feeders[channel]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
         # Follow RSS Feeds matching url queries set for this channel with !follow
-        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 20)
+        self.feeders[channel]['news'] = FeederFactory(self, channel, 'news', 299, 35)
         n = self.factory.channels.index(channel.lower()) + 1
         for i, f in enumerate(self.feeders[channel].keys()):
             threads.deferToThread(reactor.callLater, 7*(i+1)*n, self.feeders[channel][f].start)
