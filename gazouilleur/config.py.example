@@ -49,6 +49,7 @@ CHANNELS = {
   'regardscitoyens': {
     'MASTER': True,    # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
     'DISCREET': False, # (optionnal) Set to True to forbid bot's answers when getting unknown commands or pinged
+    'EXCLUDE_COMMANDS': ['title', 'lastmore'], # (optionnal) List names or regexp matching names of commands you do not want to be available for this chan. Example in chan below. See list of all commands in file LIST_COMMANDS.md or online at https://github.com/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md
     'USERS': [],       # These extra USERS will have rights to perform all available commands on this specific channel
     'IDENTICA': {      # Optionnally set an IDENTICA USER to allow microblogging with Identi.ca
       'USER': 'regardscitoyens'    # A password is no longer required since the migration from Status.net to Pump.io.
@@ -68,23 +69,29 @@ CHANNELS = {
   },
   'gazouilleur-test': {     # Add more IRC channels
     'USERS': []
+    'EXCLUDE_COMMANDS': ['ping.*', 'last.*', 'count', 'test', '.*pad'],
+    'DISPLAY_RT': False
   }
 }
+
+
+# 5) Optionnal Feedback
 # By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with his folks :)
-# The only functionnality left to the bots in this channel is to list his other channels.
+# The only functionnality left to the bots in this channel is to list his other channels with the command `chans`.
 # If you do not like that, feel free to uncomment the following line to keep your gazouilleur hidden from the others.
 #SOLITARY = True
 
-# 5) Optionnally add web statistics of the Twitter accounts
+
+# 6) Optionnally add web statistics of the Twitter accounts
 # URL_STATS is optional to provide a web view on Twitter's stats.
 # It requires the installation of a web server (apache, ...) and to install matplotlib 
-# You can comment or remove it if you do not need it.
-# This url needs to be routed to Gazouilleur's "web" directory
+# Uncomment the line and set your url if you want to use it.
+# This url needs to be routed by a webserver to Gazouilleur's "web" directory.
 # For instance if /var/www/ is already served by apache, run `ln -s ##GAZOUILLEURPATH##/web /var/www/twitter-stats`
-URL_STATS = "http://www.regardscitoyens.org/stats/"
+#URL_STATS = "http://www.regardscitoyens.org/stats/"
 
 
-# 6) Developer's options
+# 7) Developer's options
 # DEBUG mode will make log a lot more verbose and display errors publicly on the channel
 DEBUG = False
 # ADMINS will get in private messages info about errors

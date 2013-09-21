@@ -228,13 +228,18 @@ class IRCBot(NamesIRCClient):
     def _find_command_function(self, command):
         return getattr(self, 'command_' + command.lower(), None)
 
+    def _get_command_name(self, command):
+        if not isinstance(command, types.MethodType):
+            return command
+        return command.__name__.replace('command_', '')
+
     def _get_command_doc(self, command):
         if not isinstance(command, types.MethodType):
             command = self._find_command_function(command)
         return command.__doc__
 
     def _can_user_do(self, nick, channel, command, conf=None):
-        return has_user_rights_in_doc(nick, channel, self._get_command_doc(command))
+        return has_user_rights_in_doc(nick, channel, self._get_command_name(command), self._get_command_doc(command))
 
     re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, config.COMMAND_CHARACTER), re.I)
     def privmsg(self, user, channel, message, tasks=None):

@@ -319,12 +319,16 @@ def is_user_auth(nick, channel, conf=None):
     conf = chanconf(channel, conf)
     return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
 
-def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
-    if command_doc is None:
-        return is_user_admin(nick)
+def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     if channel == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
+    if conf and 'EXCLUDE_COMMANDS' in conf and command:
+        for regexp in conf['EXCLUDE_COMMANDS']:
+            if re.match(re.compile(r"^%s$" % regexp, re.I), command):
+                return False
+    if command_doc is None:
+        return is_user_admin(nick)
     auth = is_user_auth(nick, channel, conf)
     identica = chan_has_identica(channel, conf)
     twitter = chan_has_twitter(channel, conf)
