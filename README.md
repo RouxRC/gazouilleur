@@ -29,13 +29,13 @@ See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.
 
 
 
-## Easy Install
+## Easy Install (Debian/Ubuntu)
 
-For an easy install, you can try running `bash bin/install.sh` or follow step by step the [installation commands readable here](/bin/install.sh).
+For an easy install on Debian-like distributions, you can try running `bash bin/install.sh` or follow step by step the [installation commands readable here](/bin/install.sh).
 
-When dependencies will be installed, you will have to edit your configuration in `gazouilleur/config.py`, then run `bash bin/configureDB.sh` to prepare your Mongo database.
+After dependencies are installed, you will need to edit your configuration in `gazouilleur/config.py`, then run `bash bin/configureDB.sh` to prepare your Mongo database.
 
-Depending on the desired options, the configuration will require to get Twitter and/or Identi.ca API right ([see below](#getting-twitter--identica-api-rights-for-a-channel)).
+Depending on the desired options, the configuration will require to get Twitter and/or Identi.ca API rights ([see below](#getting-twitter--identica-api-rights-for-a-channel)).
 
 You can also scroll down to the detailed [installation instructions below](#detailed-installation-instructions).
 
