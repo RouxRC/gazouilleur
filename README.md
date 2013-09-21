@@ -99,9 +99,11 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
 
 ## Detailed Installation Instructions
 
+(These instuctions are meant for GNU/Linux Debian/Ubuntu-like distributions. Experiences on other distribs welcome!)
+
 ### Requirements
 
- * The following Linux packages, quite common, are necessary:
+ * The following Debian-like packages, quite common, are necessary:
 
  ```bash
  sudo apt-get install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev
