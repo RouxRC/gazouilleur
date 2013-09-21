@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Example config of the actual bot gazouilleur on #RegardsCitoyens 's chan on freenode.net
-# This is python syntax, be careful to respect it following the examples 
+# This is python syntax, be careful to respect it following the examples
 
 
 # 1) Choose your IRC server and bot name
@@ -32,7 +32,7 @@ COMMAND_CHARACTER = '!'
 GLOBAL_USERS = ['Roux']
 # Define how many hours back in time Gazouilleur should try to catch up on followed news and tweets after an offtime
 BACK_HOURS = 6
-# Define which version of Twitter's API to use. V1 now being closed, there is currently no other choice 
+# Define which version of Twitter's API to use. V1 now being closed, there is currently no other choice
 TWITTER_API_VERSION = 1.1
 # Define how many time every 15 minutes some specific limited-rate queries to Twitter's API will be performed
 # Default value should be properly calibrated. Modify only if you know what you're doing.
@@ -40,52 +40,69 @@ TWITTER_API_LIMIT = 5
 
 
 # 4) Define in which IRC channels Gazouilleur should operate respecting the following rules:
-# - One entry per channel with various optionnal options
+# - One entry per channel with various optional options
 # - One and only one channel should have MASTER set to True
 # - When setting a Twitter account for a channel, you will need to create the corresponding app on https://dev.twitter.com
 # Be sure to give it "Read, write, and direct messages" rights.
 # - When setting an Identi.ca account for a channel, you will need to run `python bin/auth_identica.py` to authorize it.
 CHANNELS = {
   'regardscitoyens': {
-    'MASTER': True,    # Master channel will be the focus of some commands sent in private to the bot when option --chan is not specified
-    'DISCREET': False, # (optionnal) Set to True to forbid bot's answers when getting unknown commands or pinged
-    'EXCLUDE_COMMANDS': ['title', 'lastmore'], # (optionnal) List names or regexp matching names of commands you do not want to be available for this chan. Example in chan below. See list of all commands in file LIST_COMMANDS.md or online at https://github.com/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md
+    'MASTER': True,    # Master channel will be the focus of most of the commands sent in private to the bot when option --chan is not specified
+    'DISCREET': False, # (optional) Set to True to forbid bot's answers when getting unknown commands or pinged
+    'EXCLUDE_COMMANDS': ['title', 'lastmore'], # (optional) List names or regexp matching names of commands you do not want to be available for this chan. Example in chan below. See list of all commands in file LIST_COMMANDS.md or online at https://github.com/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md
     'USERS': [],       # These extra USERS will have rights to perform all available commands on this specific channel
-    'IDENTICA': {      # Optionnally set an IDENTICA USER to allow microblogging with Identi.ca
+    'IDENTICA': {      # Optionally set an IDENTICA USER to allow microblogging with Identi.ca
       'USER': 'regardscitoyens'    # A password is no longer required since the migration from Status.net to Pump.io.
                                    # Please run `python bin/auth_identica.py` to get OAuth config.
     },
-    'TWITTER': {    # Optionnally set a TWITTER account for the channel to send tweets and follow its mentions, DMs and stats
+    'TWITTER': {    # Optionally set a TWITTER account for the channel to send tweets and follow its mentions, DMs and stats
       'USER': 'RegardsCitoyens',
       'DISPLAY_RT': True,   # Set to True to display also all RTs of the Twitter account's tweets
       'KEY': 'xxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET from dev.twitter.com
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      'DISPLAY_STATS': True,# (optionnal) Set to False to disable stats display every day at 1pm and 6pm
-      'FORBID_POST': False, # (optionnal) Set to True to forbid any use of Twitter's posting commands (statuses, dms, rts, answers, ...). Useful to use Twitter's streaming in following-only mode on a channel.
-      'ALLOW_ALL': False    # (optionnal) Set to True to allow any user on the channel to post tweets with the account
+      'DISPLAY_STATS': True,# (optional) Set to False to disable stats display every day at 1pm and 6pm
+      'FORBID_POST': False, # (optional) Set to True to forbid any use of Twitter's posting commands (statuses, dms, rts, answers, ...). Useful to use Twitter's streaming in following-only mode on a channel.
+      'ALLOW_ALL': False    # (optional) Set to True to allow any user on the channel to post tweets with the account
     },                      # If set to False or omitted, only GLOBAL_USERS and the USERS set for the chnnel will.
     'DISPLAY_RT': False     # Set to True to display also all RTs for search queries set on the channel
   },
   'gazouilleur-test': {     # Add more IRC channels
+    'DISCREET': True,
+    'EXCLUDE_COMMANDS': ['.*ping.*', 'last.*', 'count', 'test', '.*pad'],
     'USERS': []
-    'EXCLUDE_COMMANDS': ['ping.*', 'last.*', 'count', 'test', '.*pad'],
+    'DISPLAY_RT': False
+  },
+  'directan': {
+    'DISCREET': True,
+    'EXCLUDE_COMMANDS': ['.*ping.*', '.*count', 'test', 'lastmore', '.*pad', '(runlater|tasks|cancel)', '.*pad', 'title'],
+    'USERS': [],
+    'TWITTER': {
+      'USER': 'Gazou_DirectAN',
+      'DISPLAY_RT': False,   # Set to True to display also all RTs of the Twitter account's tweets
+      'KEY': 'xxxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
+      'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'OAUTH_TOKEN': 'xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'FORBID_POST': True,
+      'ALLOW_ALL': False
+    },
     'DISPLAY_RT': False
   }
 }
 
 
-# 5) Optionnal Feedback
+# 5) Optional Feedback
 # By default, any Gazouilleur bot will join as well the "#gazouilleur" channel, just to meet and hang out with his folks :)
 # The only functionnality left to the bots in this channel is to list his other channels with the command `chans`.
 # If you do not like that, feel free to uncomment the following line to keep your gazouilleur hidden from the others.
 #SOLITARY = True
 
 
-# 6) Optionnally add web statistics of the Twitter accounts
+# 6) Optionally add web statistics of the Twitter accounts
 # URL_STATS is optional to provide a web view on Twitter's stats.
-# It requires the installation of a web server (apache, ...) and to install matplotlib 
+# It requires the installation of a web server (apache, ...) and to install matplotlib
 # Uncomment the line and set your url if you want to use it.
 # This url needs to be routed by a webserver to Gazouilleur's "web" directory.
 # For instance if /var/www/ is already served by apache, run `ln -s ##GAZOUILLEURPATH##/web /var/www/twitter-stats`
