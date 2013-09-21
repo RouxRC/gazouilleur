@@ -344,8 +344,11 @@ class IRCBot(NamesIRCClient):
             for m in msg.split('\n'):
                 self.msg(target, "%s: %s" % (nick,m ))
 
-  # -----------------
-  # Default commands
+
+   # Default commands
+   # ----------------
+   ## Available to anyone
+   ## Exclude regexp : '(help|test|chans|source)'
 
     def command_help(self, rest, channel=None, nick=None, discreet=False):
         """help [<command>] : Prints general help or help for specific <command>."""
@@ -370,12 +373,22 @@ class IRCBot(NamesIRCClient):
         """test : Simple test to check whether I'm present."""
         return 'Hello! Type "%shelp" to list my commands.' % config.COMMAND_CHARACTER
 
+    def command_chans(self, rest, channel=None, *args):
+        """chans : Prints the list of all the channels I'm in."""
+        chans = [chan for chan in self.factory.channels if chan.lower() != channel.lower()]
+        if not len(chans):
+            return "I'm only hanging out here."
+        return "I'm currently hanging out in %s. Come visit!" % " ; ".join(chans)
+
     def command_source(self, *args):
         """source : Gives the link to my sourcecode."""
         return 'My sourcecode is under free GPL 3.0 licence and available at the following address: %s' % self.sourceURL
 
-  # ------------------
-  # LogQuery commands
+
+   # Logs Query commands
+   # -------------------
+   ## Available to anyone
+   ## Exclude regexp : '(last(from|with|seen)?|.*more)'
 
     re_extract_digit = re.compile(r'\s+(\d+)\s+')
     def _extract_digit(self, string):
@@ -389,54 +402,6 @@ class IRCBot(NamesIRCClient):
             nb = safeint(res.group(1))
             string = self.re_extract_digit.sub(r' ', string, 1)
         return nb, string.strip()
-
-    def command_lastfrom(self, rest, channel=None, nick=None):
-        """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
-        nb, fromnick = self._extract_digit(rest)
-        return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
-
-    def command_lastwith(self, rest, channel=None, nick=None):
-        """lastwith <word> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from "last" can apply)."""
-        nb, word = self._extract_digit(rest)
-        return self.command_last("%s --with %s" % (nb, word), channel, nick)
-
-    re_lastcommand = re.compile(r'^%s(last|more)' % config.COMMAND_CHARACTER, re.I)
-    re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
-    re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
-    def command_lastmore(self, rest, channel=None, nick=None):
-        """lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
-        master = get_master_chan(self.nickname)
-        if channel == self.nickname and master != self.nickname:
-            truechannel = master
-        else:
-            truechannel = channel
-        if not rest:
-            nb = self.lastqueries[truechannel]['n']
-        else:
-            nb, rest = self._extract_digit(rest)
-        tmprest = rest
-        st = self.lastqueries[truechannel]['skip']
-        last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
-        for m in last:
-            command, _, text = m['message'].encode('utf-8').lstrip(config.COMMAND_CHARACTER).partition(' ')
-            if command == "lastseen":
-                continue
-            text = self.re_optionskip.sub(' ', text)
-            _, text = self._extract_digit(text)
-            tmprest = "%s %s" % (text, tmprest)
-            if not command.endswith('more'):
-                function = self._find_command_function(command)
-                if not self.re_optionsfromwith.search(rest):
-                    tmprest = "%s --skip %s" % (tmprest, st)
-                if command != "lastcount":
-                    tmprest = "%s %s" % (nb, tmprest)
-                if function:
-                    return function(tmprest, channel, nick)
-        return "No %slast like command found in my history log." % config.COMMAND_CHARACTER
-
-    def command_more(self, rest, channel=None, nick=None):
-        """more : Alias for "lastmore"."""
-        return self.command_lastmore(rest, channel, nick)
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
@@ -501,6 +466,54 @@ class IRCBot(NamesIRCClient):
                 matches[i] = m.replace("%s — " % self.nickname, '')
         return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
 
+    def command_lastfrom(self, rest, channel=None, nick=None):
+        """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
+        nb, fromnick = self._extract_digit(rest)
+        return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
+
+    def command_lastwith(self, rest, channel=None, nick=None):
+        """lastwith <word> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from "last" can apply)."""
+        nb, word = self._extract_digit(rest)
+        return self.command_last("%s --with %s" % (nb, word), channel, nick)
+
+    re_lastcommand = re.compile(r'^%s(last|more)' % config.COMMAND_CHARACTER, re.I)
+    re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
+    re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
+    def command_lastmore(self, rest, channel=None, nick=None):
+        """lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
+        master = get_master_chan(self.nickname)
+        if channel == self.nickname and master != self.nickname:
+            truechannel = master
+        else:
+            truechannel = channel
+        if not rest:
+            nb = self.lastqueries[truechannel]['n']
+        else:
+            nb, rest = self._extract_digit(rest)
+        tmprest = rest
+        st = self.lastqueries[truechannel]['skip']
+        last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
+        for m in last:
+            command, _, text = m['message'].encode('utf-8').lstrip(config.COMMAND_CHARACTER).partition(' ')
+            if command == "lastseen":
+                continue
+            text = self.re_optionskip.sub(' ', text)
+            _, text = self._extract_digit(text)
+            tmprest = "%s %s" % (text, tmprest)
+            if not command.endswith('more'):
+                function = self._find_command_function(command)
+                if not self.re_optionsfromwith.search(rest):
+                    tmprest = "%s --skip %s" % (tmprest, st)
+                if command != "lastcount":
+                    tmprest = "%s %s" % (nb, tmprest)
+                if function:
+                    return function(tmprest, channel, nick)
+        return "No %slast like command found in my history log." % config.COMMAND_CHARACTER
+
+    def command_more(self, rest, channel=None, nick=None):
+        """more [<N>] : Alias for "lastmore". Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
+        return self.command_lastmore(rest, channel, nick)
+
     def command_lastseen(self, rest, channel=None, nick=None):
         """lastseen <nickname> : Prints the last time <nickname> was seen logging in and out."""
         user, _, msg = rest.partition(' ')
@@ -516,8 +529,11 @@ class IRCBot(NamesIRCClient):
             return " —— ".join(["%s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1]) for m in res])
         return self.command_lastfrom(user, channel, nick)
 
-  # ---------------
-  # Count commands
+
+   # Twitter counting commands
+   # -------------------------
+   ## Available to anyone
+   ## Exclude regexp : '.*count'
 
     def command_count(self, rest, *args):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
@@ -531,8 +547,13 @@ class IRCBot(NamesIRCClient):
             rest = self.re_optionskip.sub(' --skip %s ' % st, rest)
         return self.command_last("2 --with ^"+config.COMMAND_CHARACTER+"count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
 
-  # -------------------------------------
-  # Twitter / Identi.ca sending commands
+
+   # Twitter & Identi.ca sending commands
+   # ------------------------------------
+   ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
+   ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
+   ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
+   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|rm.*tweet|dm|stats)' (setting FORBID_POST to True already does the job)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -620,30 +641,6 @@ class IRCBot(NamesIRCClient):
             return "Sorry, no last tweet id found for this chan."
         return self.command_answer("%s %s" % (str(lasttweetid["tweet_id"]), rest), channel, nick, check=False)
 
-    def command_dm(self, rest, channel=None, nick=None):
-        """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
-        channel = self.getMasterChan(channel)
-        user, _, text = rest.partition(' ')
-        user = user.lstrip('@').lower()
-        if user == "" or text == "":
-            return "Please input a user name and a message."
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
-
-    def command_rmtweet(self, tweet_id, channel=None, nick=None):
-        """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
-        channel = self.getMasterChan(channel)
-        tweet_id = safeint(tweet_id)
-        if not tweet_id:
-            return "Please input a correct tweet_id."
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
-
-    def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
-        """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
-        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
-        if not lasttweetid:
-            return "Sorry, no last tweet id found for this chan."
-        return self.command_rmtweet(str(lasttweetid['tweet_id']), channel, nick)
-
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
         conn = Microblog('twitter', conf)
         res = conn.show_status(tweet_id)
@@ -667,6 +664,30 @@ class IRCBot(NamesIRCClient):
             dl.append(defer.maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
         return defer.DeferredList(dl, consumeErrors=True)
 
+    def command_rmtweet(self, tweet_id, channel=None, nick=None):
+        """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
+        channel = self.getMasterChan(channel)
+        tweet_id = safeint(tweet_id)
+        if not tweet_id:
+            return "Please input a correct tweet_id."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
+
+    def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
+        """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
+        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
+        if not lasttweetid:
+            return "Sorry, no last tweet id found for this chan."
+        return self.command_rmtweet(str(lasttweetid['tweet_id']), channel, nick)
+
+    def command_dm(self, rest, channel=None, nick=None):
+        """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        channel = self.getMasterChan(channel)
+        user, _, text = rest.partition(' ')
+        user = user.lstrip('@').lower()
+        if user == "" or text == "":
+            return "Please input a user name and a message."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
+
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
         channel = self.getMasterChan(channel)
@@ -676,8 +697,13 @@ class IRCBot(NamesIRCClient):
             return stats.print_last()
         return "No Twitter account set for this channel."
 
-  # ----------------------------
-  # Twitter monitoring commands
+
+   # Twitter & RSS Feeds monitoring commands
+   # ---------------------------------------
+   ## (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
+   ## Others available to anyone
+   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'
+
     def _restart_stream(self, channel):
         if "stream" in self.feeders[channel] and self.feeders[channel]["stream"].status == "running":
             oauth2_token = self.feeders[channel]["stream"].twitter_token or None
@@ -729,42 +755,6 @@ class IRCBot(NamesIRCClient):
             self._restart_stream(channel)
         return '"%s" query removed from feeds database for %s'  % (query, channel)
 
-    def command_list(self, database, channel=None, *args):
-        """list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
-        channel = self.getMasterChan(channel)
-        database = database.strip()
-        if database != "tweets" and database != "news" and database != "filters":
-            return 'Please enter either "%slist tweets", "%slist news" or "%slist filters".' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
-        if database == "filters":
-            feeds = assembleResults(self.filters[channel])
-        else:
-            feeds = getFeeds(channel, database, self.db, url_format=False)
-        if database == 'tweets':
-            res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
-        else:
-            res = "\n".join(feeds)
-        if res:
-            return res
-        return "No query set for %s." % database
-
-    def command_newsurl(self, name, channel=None, *args):
-       """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
-       channel = self.getMasterChan(channel)
-       res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
-       if res:
-            return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
-       return "No news feed named « %s » for this channel" % name
-
-    str_re_tweets = ' — http://twitter\.com/'
-    def command_lasttweets(self, tweet, channel=None, nick=None):
-        """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
-
-    str_re_news = '^\[News — '
-    def command_lastnews(self, tweet, channel=None, nick=None):
-        """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
-
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word> : Filters the display of tweets or news containing <word>./AUTH"""
         channel = self.getMasterChan(channel)
@@ -785,17 +775,47 @@ class IRCBot(NamesIRCClient):
         self.filters[channel].remove(keyword)
         return '"%s" filter removed for tweets display on %s'  % (keyword, channel)
 
+    def command_list(self, database, channel=None, *args):
+        """list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
+        channel = self.getMasterChan(channel)
+        database = database.strip()
+        if database != "tweets" and database != "news" and database != "filters":
+            return 'Please enter either "%slist tweets", "%slist news" or "%slist filters".' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
+        if database == "filters":
+            feeds = assembleResults(self.filters[channel])
+        else:
+            feeds = getFeeds(channel, database, self.db, url_format=False)
+        if database == 'tweets':
+            res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
+        else:
+            res = "\n".join(feeds)
+        if res:
+            return res
+        return "No query set for %s." % database
 
-  # ------------------
-  # Other commands...
+    def command_newsurl(self, name, channel=None, *args):
+        """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
+        channel = self.getMasterChan(channel)
+        res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
+        if res:
+            return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
+        return "No news feed named « %s » for this channel" % name
 
-    def command_pingall(self, rest, channel=None, nick=None):
-        """pingall [<text>] : Pings all ops, admins and at most 50 more random users on the chan by saying <text> except for users set with noping./AUTH"""
-        return self.command_ping(rest, channel, nick, pingall=True)
+    str_re_tweets = ' — http://twitter\.com/'
+    def command_lasttweets(self, tweet, channel=None, nick=None):
+        """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
+        return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
 
-    def command_pingteam(self, rest, channel=None, nick=None):
-        """pingteam [<text>] : Pings all ops and admins on the chan by saying <text> except for users set with noping./AUTH"""
-        return self.command_ping(rest, channel, nick, onlyteam=True)
+    str_re_news = '^\[News — '
+    def command_lastnews(self, tweet, channel=None, nick=None):
+        """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
+        return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
+
+
+   # Ping commands
+   # -------------
+   ## Available only to GLOBAL_USERS and chan's USERS except for NoPing to anyone
+   ## Exclude regexp : '.*ping.*'
 
     re_comment = re.compile(r'^\[')
     @defer.inlineCallbacks
@@ -842,6 +862,14 @@ class IRCBot(NamesIRCClient):
             rest = "Ping!"
         defer.returnValue("%s %s" % (" ".join(users), rest))
 
+    def command_pingall(self, rest, channel=None, nick=None):
+        """pingall [<text>] : Pings all ops, admins and at most 50 more random users on the chan by saying <text> except for users set with noping./AUTH"""
+        return self.command_ping(rest, channel, nick, pingall=True)
+
+    def command_pingteam(self, rest, channel=None, nick=None):
+        """pingteam [<text>] : Pings all ops and admins on the chan by saying <text> except for users set with noping./AUTH"""
+        return self.command_ping(rest, channel, nick, onlyteam=True)
+
     re_stop = re.compile(r'\s*--stop\s*', re.I)
     re_list = re.compile(r'\s*--list\s*', re.I)
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
@@ -867,49 +895,16 @@ class IRCBot(NamesIRCClient):
                 self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
         return "All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again)
 
-    def _set_silence(self, channel, minutes):
-        self.silent[channel] = datetime.today() + timedelta(minutes=minutes)
 
-    def command_fuckoff(self, minutes, channel=None, nick=None):
-        """fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
-        channel = self.getMasterChan(channel)
-        if not minutes:
-            minutes = 5
-        else:
-            when, _ = self._extract_digit(minutes)
-            minutes = max(1, when)
-        reactor.callFromThread(reactor.callLater, 1, self._set_silence, channel, minutes)
-        return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, config.COMMAND_CHARACTER)
-
-    def command_comeback(self, rest, channel=None, nick=None):
-        """comeback : Tells me to start talking again after use of "fuckoff"./AUTH"""
-        channel = self.getMasterChan(channel)
-        if self.silent[channel] < datetime.today():
-            return "I wasn't away but OK :)"
-        self.silent[channel] = datetime.today()
-        return "It's good to be back!"
-
-    re_url_pad = re.compile(r'https?://.*pad', re.I)
-    def command_setpad(self, rest, channel=None, nick=None):
-        """setpad <url> : Defines <url> of the current etherpad./AUTH"""
-        channel = self.getMasterChan(channel)
-        url = rest.strip()
-        if self.re_url_pad.match(url):
-            self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
-            return "Current pad is now set to %s" % rest
-        return "This is not a valid pad url."
-
-    def command_pad(self, rest, channel=None, *args):
-        """pad : Prints the url of the current etherpad."""
-        channel = self.getMasterChan(channel)
-        res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
-        if res:
-            return "Current pad is available at: %s" % res['query']
-        return "No pad is currently set for this channel."
+   # Tasks commands
+   # --------------
+   ## RunLater available to anyone
+   ## Cancel & Tasks available only to GLOBAL_USERS and chan's USERS
+   ## Exclude regexp : '(runlater|tasks|cancel)'
 
     re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % config.COMMAND_CHARACTER, re.I)
     def command_runlater(self, rest, channel=None, nick=None):
-        """saylater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
+        """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
         when, task = self._extract_digit(rest)
         when = max(0, when) * 60
@@ -961,6 +956,53 @@ class IRCBot(NamesIRCClient):
         except:
             return "The task #%s does not exist yet or is already canceled." % task_id
 
+
+   # Other commands...
+   # -----------------
+   ## Pad & Title available to anyone
+   ## FuckOff/ComeBack & SetPad available only to GLOBAL_USERS and chan's USERS
+   ## Exclude regexp : '(fuckoff|comeback|.*pad|title)'
+
+    def _set_silence(self, channel, minutes):
+        self.silent[channel] = datetime.today() + timedelta(minutes=minutes)
+
+    def command_fuckoff(self, minutes, channel=None, nick=None):
+        """fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
+        channel = self.getMasterChan(channel)
+        if not minutes:
+            minutes = 5
+        else:
+            when, _ = self._extract_digit(minutes)
+            minutes = max(1, when)
+        reactor.callFromThread(reactor.callLater, 1, self._set_silence, channel, minutes)
+        return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, config.COMMAND_CHARACTER)
+
+    def command_comeback(self, rest, channel=None, nick=None):
+        """comeback : Tells me to start talking again after use of "fuckoff"./AUTH"""
+        channel = self.getMasterChan(channel)
+        if self.silent[channel] < datetime.today():
+            return "I wasn't away but OK :)"
+        self.silent[channel] = datetime.today()
+        return "It's good to be back!"
+
+    re_url_pad = re.compile(r'https?://.*pad', re.I)
+    def command_setpad(self, rest, channel=None, nick=None):
+        """setpad <url> : Defines <url> of the current etherpad./AUTH"""
+        channel = self.getMasterChan(channel)
+        url = rest.strip()
+        if self.re_url_pad.match(url):
+            self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            return "Current pad is now set to %s" % rest
+        return "This is not a valid pad url."
+
+    def command_pad(self, rest, channel=None, *args):
+        """pad : Prints the url of the current etherpad."""
+        channel = self.getMasterChan(channel)
+        res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
+        if res:
+            return "Current pad is available at: %s" % res['query']
+        return "No pad is currently set for this channel."
+
     def command_title(self, url, *args):
         """title <url> : Prints the title of the webpage at <url>."""
         d = getPage(url)
@@ -974,12 +1016,6 @@ class IRCBot(NamesIRCClient):
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
 
-    def command_chans(self, rest, channel=None, *args):
-        """chans : Prints the list of all the channels I'm in."""
-        chans = [chan for chan in self.factory.channels if chan.lower() != channel.lower()]
-        if not len(chans):
-            return "I'm only hanging out here."
-        return "I'm currently hanging out in %s. Come visit!" % " ; ".join(chans)
 
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):

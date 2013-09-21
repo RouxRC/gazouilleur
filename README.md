@@ -23,6 +23,7 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * display debug messages to admin users
  * optional fine user control
 
+See the list of all available IRC commands in [LIST_COMMANDS.md](/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md)
 
 ## Requirements
 
