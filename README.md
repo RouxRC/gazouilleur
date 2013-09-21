@@ -25,7 +25,7 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * optional fine control over user rights and channel commands
  * ...
 
-See the list of all available IRC commands in [LIST_COMMANDS.md](/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md)
+See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.md)
 
 
 
@@ -133,7 +133,7 @@ You can configure the MongoDB server by editing `/etc/mongodb.conf`.
 
  * Configure the Python environment:
 
-  + It's recommended to use virtualenv with virtualenvwrapper:
+  + It's recommended to use `virtualenv` with `virtualenvwrapper`:
 
   ```bash
   sudo pip install virtualenv
@@ -203,7 +203,7 @@ Run the following commands:
  bin/gazouilleur start
  ```
 
-Then check your configuration file against gazouilleur/config.py.example to add any new possible option.
+Then check your configuration file against `gazouilleur/config.py.example` to add any new possible option.
 
 To use an Identi.ca account since the Pump.io migration, the following commands must also be ran after setting IDENTICA's USER in `gazouilleur/config.py`:
 
