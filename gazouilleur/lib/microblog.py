@@ -254,7 +254,11 @@ class Microblog():
         good, cache_users = self.lookup_users(check, cache_users)
         for user in check:
             if user not in good.keys():
-                return False, cache_users, "Sorry but @%s doesn't seem like a real account. Please correct your tweet of force by adding --force" % user
+                extra = ""
+                proposals = self.search_users(user)
+                if proposals:
+                    extra = " (maybe you meant @%s ?)" % " or @".join([p.encode('utf-8') for p in proposals])
+                return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
 
 def check_twitter_results(data):
