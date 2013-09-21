@@ -27,7 +27,7 @@
 
   + `last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter]`
 
-     > Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by &lt;word&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
+     > Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by &lt;word&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
 
   + `lastfrom <nick> [<N>]`
 
@@ -145,9 +145,9 @@
      > Removes a tweets display filter for &lt;word&gt;.
      > > restricted to /AUTH
 
-  + `list [tweets|news|filters]`
+  + `list [--chan <channel>] <tweets|news|filters>`
 
-     > Displays the list of filters or news or tweets queries followed for current channel.
+     > Displays the list of filters or news or tweets queries followed for current channel or optional &lt;channel&gt;.
 
   + `newsurl <name>`
 
@@ -195,14 +195,14 @@
 
      > Schedules <command> in <minutes> for current channel or optional &lt;channel&gt;.
 
-  + `tasks`
+  + `tasks [--chan <channel>]`
 
-     > Prints the list of coming tasks scheduled.
+     > Prints the list of coming tasks scheduled for current channel or optional &lt;channel&gt;.
      > > restricted to /AUTH
 
-  + `cancel <task_id>`
+  + `cancel [--chan <channel>] <task_id>`
 
-     > Cancels the scheduled task &lt;task_id&gt;.
+     > Cancels the scheduled task <task_id> for current channel or optional &lt;channel&gt;.
      > > restricted to /AUTH
 
 # Other commands...
