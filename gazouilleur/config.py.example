@@ -80,8 +80,8 @@ CHANNELS = {
     'USERS': [],
     'TWITTER': {
       'USER': 'Gazou_DirectAN',
-      'DISPLAY_RT': False,   # Set to True to display also all RTs of the Twitter account's tweets
-      'KEY': 'xxxxxxxxxxxxxxxxxxxxxx',   # Set KEY SECRET OAUTH_TOKEN and OAUTH_SECRET to allow microblogging with Twitter
+      'DISPLAY_RT': False,
+      'KEY': 'xxxxxxxxxxxxxxxxxxxxxx',
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
