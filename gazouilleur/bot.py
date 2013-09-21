@@ -354,9 +354,9 @@ class IRCBot(NamesIRCClient):
     txt_list_comds = '" to list my commands%s' % link_commands
     def command_help(self, rest, channel=None, nick=None, discreet=False):
         """help [<command>] : Prints general help or help for specific <command>."""
-        rest = rest.lstrip(config.COMMAND_CHARACTER)
+        rest = rest.lstrip(config.COMMAND_CHARACTER).lower()
         conf = chanconf(channel)
-        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_') and c != "command_more"] if self._can_user_do(nick, channel, c, conf)]
+        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
         def_msg = 'Type "%shelp' % config.COMMAND_CHARACTER
         if not discreet:
             def_msg = 'My commands are:  %s%s\n%s <command>" to get more details%s' % (config.COMMAND_CHARACTER, (' ;  %s' % config.COMMAND_CHARACTER).join(commands), def_msg, self.link_commands)
