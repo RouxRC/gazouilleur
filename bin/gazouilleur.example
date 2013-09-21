@@ -60,8 +60,8 @@ function stop_gazouilleur {
       sleep $delay
       count=$(($count + 1))
       if [ $count -eq 5 ]; then
-        $killopts="-9"
-        $delay=3
+        killopts="-9"
+        delay=3
       fi
     fi
   done
@@ -112,6 +112,21 @@ if $START; then
   if $LOGS; then
     echo "Displaying logs now. Ctrl+C will only stop logs display. Run bin/gazouilleur stop to stop $BOTNAME..."
     tail -f run.log
+  else
+    ts=0
+    function testlog {
+      tail -n 20 run.log | grep "Signed on as" > /dev/null
+    }
+    while [ $ts -lt 60 ] && ! testlog; do
+      sleep 0.5
+      ts=$(($ts + 1))
+    done
+    if ! testlog; then
+      echo "ERROR: Could not start Gazouilleur instance properly. See log below:"
+      echo
+      tail -n 50 run.log
+      exit 1
+    fi
   fi
 fi
 
