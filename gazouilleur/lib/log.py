@@ -4,9 +4,13 @@
 import sys
 from colifrapy.tools.colorize import colorize
 from twisted.python import log
+from gazouilleur import config
 
+COLOR_LOGS = (str(getattr(config, "COLOR_LOGS", "true")).lower() == "true")
 def colr(text, color, bold=True):
-    return colorize(text, color, style='bold' if bold else '')
+    if COLOR_LOGS:
+        return colorize(text, color, style='bold' if bold else '')
+    return text
 
 def _logg(text, color=None, channel=None, action=None, error=False):
     if color:

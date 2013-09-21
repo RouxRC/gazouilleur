@@ -110,6 +110,8 @@ CHANNELS = {
 
 
 # 7) Developer's options
+# COLOR_LOGS (True by default) activates colorized logs. Uncomment et set to False to deactivate
+#COLOR_LOGS = True
 # DEBUG mode will make log a lot more verbose and display errors publicly on the channel
 DEBUG = False
 # ADMINS will get in private messages info about errors
