@@ -560,7 +560,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|rm.*tweet|dm|stats)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -696,6 +696,23 @@ class IRCBot(NamesIRCClient):
         if user == "" or text == "":
             return "Please input a user name and a message."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
+
+    def command_finduser(self, rest, channel=None, nick=None):
+        """finduser <query> [<N=3>] : Searches <query>through Twitter User and returns <N> results (defaults 3, max 20)./TWITTER"""
+        channel = self.getMasterChan(channel)
+        conf = chanconf(channel)
+        count, query = self._extract_digit(rest)
+        if " %s " % str(count) in " %s " % rest:
+            count = min(count, 20)
+        else:
+            count = 3
+        if query == "":
+            return "Please input a text query."
+        conn = Microblog('twitter', conf)
+        names = conn.search_users(query, count)
+        if not names:
+            return "No result found for %s" % query
+        return "Are you looking for @%s ?" % " or @".join(names)
 
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""

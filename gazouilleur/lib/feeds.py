@@ -454,7 +454,7 @@ class FeederProtocol():
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
-        users, self.fact.ircclient.twitter_users = conn.search_users(follow, self.fact.ircclient.twitter_users)
+        users, self.fact.ircclient.twitter_users = conn.lookup_users(follow, self.fact.ircclient.twitter_users)
         return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
 
     def follow_stream(self, conf, follow, track):

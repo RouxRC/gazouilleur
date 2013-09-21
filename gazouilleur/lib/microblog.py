@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import urllib
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
@@ -128,7 +129,7 @@ class Microblog():
                 exception = "[identica] %s" % err_msg
                 if config.DEBUG:
                     loggerr("%s %s" % (exception, e), action=self.site)
-                return exception 
+                return exception
         text = text.replace('~', '&#126;')
         args = {'status': text}
         if tweet_id:
@@ -214,7 +215,14 @@ class Microblog():
             loggvar(args, action="stream")
         return self.conn.statuses.filter(**args)
 
-    def search_users(self, list_users, cache_users={}):
+    def search_users(self, query, count=3):
+        query = urllib.quote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
+        users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
+        if "Forbidden" in users or "404" in users:
+            return []
+        return [u['screen_name'] for u in users]
+
+    def lookup_users(self, list_users, cache_users={}):
         good = {}
         todo = []
         for name in list_users:
@@ -243,7 +251,7 @@ class Microblog():
             user = m.lower().lstrip('@')
             if user not in cache_users:
                 check.append(user)
-        good, cache_users = self.search_users(check, cache_users)
+        good, cache_users = self.lookup_users(check, cache_users)
         for user in check:
             if user not in good.keys():
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account. Please correct your tweet of force by adding --force" % user
@@ -271,4 +279,4 @@ def grab_extra_meta(source, result):
         elif 'user' in source and meta in source['user']:
             result[key] = source['user'][meta]
     return result
-    
+

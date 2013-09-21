@@ -66,7 +66,7 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|rm.*tweet|dm|stats)'`
+ * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)'`
  * **List :**
 
   + `identica <text> [--nolimit]`
@@ -112,6 +112,11 @@
   + `dm <user> <text> [--nolimit]`
 
      > Posts <text> as a direct message to &lt;user&gt; on Twitter (--nolimit overrides the minimum 30 characters rule).
+     > > restricted to /TWITTER
+
+  + `finduser <query> [<N=3>]`
+
+     > Searches <query>through Twitter User and returns &lt;N&gt; results (defaults 3, max 20).
      > > restricted to /TWITTER
 
   + `stats`
