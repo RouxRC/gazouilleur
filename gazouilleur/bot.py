@@ -412,7 +412,7 @@ class IRCBot(NamesIRCClient):
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionnally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
+        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
         nb = 0
         def_nb = 1
@@ -643,6 +643,7 @@ class IRCBot(NamesIRCClient):
 
     def command_answerlast(self, rest, channel=None, nick=None):
         """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
+        channel = self.getMasterChan(channel)
         lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
         if not lasttweetid:
             return "Sorry, no last tweet id found for this chan."
@@ -681,6 +682,7 @@ class IRCBot(NamesIRCClient):
 
     def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
         """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
+        channel = self.getMasterChan(channel)
         lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
         if not lasttweetid:
             return "Sorry, no last tweet id found for this chan."
@@ -783,7 +785,11 @@ class IRCBot(NamesIRCClient):
         return '"%s" filter removed for tweets display on %s'  % (keyword, channel)
 
     def command_list(self, database, channel=None, *args):
-        """list [tweets|news|filters] : Displays the list of filters or news or tweets queries followed for current channel."""
+        """list [--chan <channel>] <tweets|news|filters> : Displays the list of filters or news or tweets queries followed for current channel or optional <channel>."""
+        try:
+            database, channel = self._get_chan_from_command(database, channel)
+        except Exception as e:
+           return str(e)
         channel = self.getMasterChan(channel)
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
@@ -882,12 +888,13 @@ class IRCBot(NamesIRCClient):
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
     def command_noping(self, rest, channel=None, nick=None):
         """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
+        channel = self.getMasterChan(channel)
         if self.re_list.search(rest):
             skip = [user['user'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['user'])]
             text = "are"
             if len(skip) < 2:
                 text = "is"
-            return "%s %s actually registered for noping." % (" ".join(skip), text)
+            return "%s %s actually registered as noping." % (" ".join(skip), text)
         if self.re_stop.search(rest):
             no = ""
             again = "again"
@@ -909,6 +916,19 @@ class IRCBot(NamesIRCClient):
    ## Cancel & Tasks available only to GLOBAL_USERS and chan's USERS
    ## Exclude regexp : '(runlater|tasks|cancel)'
 
+    def _get_chan_from_command(self, task, channel):
+        if task.startswith("--chan "):
+            tmpchan = task[7:task.find(' ', 7)]
+            tmpchan2 = '#'+tmpchan.lower().lstrip('#')
+            if tmpchan2 in self.factory.channels:
+                channel = tmpchan2
+            else:
+                raise Exception("I do not follow this channel.")
+            task = task.replace("--chan %s " % tmpchan, "")
+        else:
+            channel = self.getMasterChan(channel)
+        return task, channel
+
     re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % config.COMMAND_CHARACTER, re.I)
     def command_runlater(self, rest, channel=None, nick=None):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
@@ -916,16 +936,10 @@ class IRCBot(NamesIRCClient):
         when, task = self._extract_digit(rest)
         when = max(0, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
-        if task.startswith("--chan "):
-            tmpchan = task[7:task.find(' ', 7)]
-            tmpchan2 = '#'+tmpchan.lower().lstrip('#')
-            if tmpchan2 in self.factory.channels:
-                channel = tmpchan2
-            else:
-                return "I do not follow this channel."
-            task = task.replace("--chan %s " % tmpchan, "")
-        else:
-            channel = self.getMasterChan(channel)
+        try:
+            task, channel = self._get_chan_from_command(task, channel)
+        except Exception as e:
+           return str(e)
         target = nick if channel == self.nickname else channel
         rank = len(self.tasks)
         if task.startswith(config.COMMAND_CHARACTER):
@@ -941,8 +955,11 @@ class IRCBot(NamesIRCClient):
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
     def command_tasks(self, rest, channel=None, *args):
-        """tasks : Prints the list of coming tasks scheduled./AUTH"""
-        channel = self.getMasterChan(channel)
+        """tasks [--chan <channel>] : Prints the list of coming tasks scheduled for current channel or optional <channel>./AUTH"""
+        try:
+            rest, channel = self._get_chan_from_command(rest, channel)
+        except Exception as e:
+           return str(e)
         now = time.time()
         res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
         if res == "":
@@ -950,8 +967,11 @@ class IRCBot(NamesIRCClient):
         return res
 
     def command_cancel(self, rest, channel=None, *args):
-        """cancel <task_id> : Cancels the scheduled task <task_id>./AUTH"""
-        channel = self.getMasterChan(channel)
+        """cancel [--chan <channel>] <task_id> : Cancels the scheduled task <task_id> for current channel or optional <channel>./AUTH"""
+        try:
+            rest, channel = self._get_chan_from_command(rest, channel)
+        except Exception as e:
+           return str(e)
         task_id = safeint(rest.lstrip('#'))
         try:
             task = self.tasks[task_id]
