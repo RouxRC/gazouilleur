@@ -5,12 +5,12 @@ import sys, datetime
 try:
     from pypump import PyPump
 except ImportError:
-    sys.stderr.write("ERROR: Could not load module PyPump.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
+    sys.stderr.write("ERROR: Could not load module PyPump.\nERROR: Please run this command from gazouilleur's virtualenv:\n  source /usr/local/bin/virtualenvwrapper.sh\n  workon gazouilleur\n  python bin/auth_identica.py\n  deactivate\nERROR: Otherwise check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
     exit(1)
 try:
     from gazouilleur import config
 except ImportError:
-    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.\n")
+    sys.stderr.write("ERROR: Could not find `gazouilleur/config.py`.\nERROR: Please run `b ash bin/configure.sh` to create it, then edit it to prepare your bot.\n")
     exit(1)
 except SyntaxError as e:
     import traceback

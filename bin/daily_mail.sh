@@ -7,7 +7,7 @@
 # Set below which <CHAN>'s log will be sent to <EMAILDEST>
 # To be set in a crontab 
 # 30 03 * * * bash /home/gazouilleur/gazouilleur2/bin/daily_mail.sh
-# @reboot     bash /home/gazouilleur/gazouilleur2/bin/start.sh
+# @reboot     bash /home/gazouilleur/gazouilleur2/bin/gazouilleur start --nologs
 
 # Set the appropriate info below
 BOT="gazouilleur2"

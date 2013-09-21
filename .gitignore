@@ -1,4 +1,4 @@
-bin/start.sh
+bin/gazouilleur
 cache
 config.py
 *.pyc

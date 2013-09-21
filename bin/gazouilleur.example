@@ -1,0 +1,117 @@
+#!/bin/bash
+# Bash service to start, stop or restart the bot
+
+USAGE="$0 <start|stop|restart> [--nologs]"
+
+BOTENV=gazouilleur
+BOTPATH=##GAZOUILLEURPATH##
+
+STOP=false
+START=false
+case "$1" in
+  stop)     STOP=true;;
+  restart)  STOP=true
+            START=true;;
+  start)    START=true;;
+  *)        echo "Usage: $USAGE"
+            exit 1;;
+esac
+
+LOGS=true
+if [ $# -gt 1 ] && [ "$2" == "--nologs" ]; then
+  LOGS=false
+fi
+
+
+# Check config
+cd $BOTPATH
+if ! test -f gazouilleur/config.py; then
+  echo "No config file found. Please run bin/configure.sh and edit gazouilleur/config.py"
+  exit 1
+fi
+
+BOTNAME=$(grep '^\s*BOTNAME\s*=' gazouilleur/config.py | head -n 1 | sed "s/^\s*BOTNAME\s*=\s*['\"]//" | sed "s/['\"].*$//")
+if test -z "$BOTNAME"; then
+  echo "No BOTNAME is set in gazouilleur/config.py. Please edit it."
+  exit 1
+fi
+
+
+function stop_gazouilleur {
+  echo "Stopping Gazouilleur instance $BOTNAME..."
+  if ! test -f $BOTNAME.pid; then
+    echo "...$BOTNAME.pid is missing, searching process..."
+    GAZOU_PID=$(pgrep -f "python $BOTPATH/gazouilleur/bot.py")
+  else
+    GAZOU_PID=$(cat $BOTNAME.pid)
+  fi
+  if test -z "$GAZOU_PID" || ! ps -p $GAZOU_PID -f | grep "python $BOTPATH/gazouilleur/bot.py" > /dev/null ; then
+    echo "...the bot does not seem like running."
+    echo
+    rm -f $BOTNAME.pid
+    return
+  fi
+  count=0
+  killopts=""
+  delay=1
+  while ps -p $GAZOU_PID > /dev/null && [ $count -le 8 ]; do
+    kill $killopts $GAZOU_PID
+    if ps -p $GAZOU_PID > /dev/null; then
+      sleep $delay
+      count=$(($count + 1))
+      if [ $count -eq 5 ]; then
+        $killopts="-9"
+        $delay=3
+      fi
+    fi
+  done
+  if ps -p $GAZOU_PID > /dev/null; then
+    echo "...could not stop the bot. Please try to kill -15 $GAZOU_PID"
+    exit 1
+  else
+    echo "...stopped."
+    rm -f $BOTNAME.pid
+  fi
+}
+
+
+function start_gazouilleur {
+  echo "Starting Gazouilleur instance $BOTNAME..."
+  GAZOU_PID=$(pgrep -f "python $BOTPATH/gazouilleur/bot.py")
+  if ! test -z "$GAZOU_PID" && ps -p $GAZOU_PID > /dev/null; then
+    echo "...the bot is already running, please run bin/gazouilleur stop or bin/gazouilleur restart."
+    exit 1
+  fi
+  if test -f $BOTNAME.pid; then
+    GAZOU_PID=$(cat $BOTNAME.pid)
+    if ! test -z "$GAZOU_PID" && ps -p $GAZOU_PID -f | grep "python $BOTPATH/gazouilleur/bot.py" > /dev/null; then
+      echo "...the bot is already running, please run bin/gazouilleur stop or bin/gazouilleur restart."
+      exit 1
+    else
+      echo "...removing lost $BOTNAME.pid file..."
+      rm -rf $BOTNAME.pid
+    fi
+  fi
+  source /usr/local/bin/virtualenvwrapper.sh || ( echo "Error: You must install virtualenvwrapper to use this starter: sudo pip -q install virtualenvwrapper" && exit 1 )
+  workon $BOTENV
+  python $BOTPATH/gazouilleur/bot.py > run.log 2>&1 &
+  echo -n "$!" > $BOTNAME.pid
+  echo "...started."
+  echo
+}
+
+
+if $STOP; then
+  stop_gazouilleur
+  find . -name *.pyc -type f -print | xargs rm -f
+fi
+
+
+if $START; then
+  start_gazouilleur
+  if $LOGS; then
+    echo "Displaying logs now. Ctrl+C will only stop logs display. Run bin/gazouilleur stop to stop $BOTNAME..."
+    tail -f run.log
+  fi
+fi
+
