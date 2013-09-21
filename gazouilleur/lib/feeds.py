@@ -12,7 +12,7 @@ from feedparser import parse as parse_feed
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
-from twisted.python.threadpool import ThreadPool 
+from twisted.python.threadpool import ThreadPool
 from twisted.python import failure
 from httpget import conditionalGetPage
 from lxml.etree import HTML as html_tree, tostring as html2str
@@ -51,7 +51,7 @@ class FeederProtocol():
                 error_message = ""
         if not (msg.startswith("downloading") and ("503 Service Temporarily" in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
-        if not msg.startswith("downloading"):
+        if not (msg.startswith("downloading") or "ERROR 503" in trace_str):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
                 print traceback
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, error_message))), self.fact.channel, admins=True)
@@ -287,7 +287,7 @@ class FeederProtocol():
 
     def process_mytweets(self, listtweets, *args):
         return self.process_twitter_feed(listtweets, "tweets")
- 
+
     re_max_id = re.compile(r'^.*max_id=(\d+)(&.*)?$', re.I)
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
@@ -349,7 +349,7 @@ class FeederProtocol():
         if not stats:
             return None
         if not last:
-            last = {'tweets': 0, 'followers': 0} 
+            last = {'tweets': 0, 'followers': 0}
             since = timestamp - timedelta(hours=1)
         else:
             since = last['timestamp']
@@ -501,7 +501,7 @@ class FeederFactory(protocol.ClientFactory):
         self.ircclient = ircclient
         self.channel = channel
         self.database = database
-        
+
         self.delay = delay
         self.timeout = timeout
         self.feeds = feeds
@@ -553,7 +553,7 @@ class FeederFactory(protocol.ClientFactory):
             self.protocol.threadpool.stop()
             self.runner.stop()
             self.status = "closed"
-            
+
 
     def run_twitter_search(self):
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
