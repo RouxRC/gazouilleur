@@ -97,7 +97,7 @@ def clean_url(url):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
-    return url  
+    return url
 
 def get_url(url, timeout=12):
     return urlopen(url, timeout=timeout).geturl()
@@ -197,7 +197,7 @@ def formatQuery(query, add_url=None):
 def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=None):
     urls = []
     db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    queries = list(db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
+    queries = list(db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
