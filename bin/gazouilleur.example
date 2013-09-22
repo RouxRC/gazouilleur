@@ -53,15 +53,16 @@ function stop_gazouilleur {
   fi
   count=0
   killopts=""
-  delay=1
-  while ps -p $GAZOU_PID > /dev/null && [ $count -le 8 ]; do
+  delay=5
+  # First try to kill 3 times during 15 seconds then twice with "-9" during 20 more seconds
+  while ps -p $GAZOU_PID > /dev/null && [ $count -lt 5 ]; do
     kill $killopts $GAZOU_PID
     if ps -p $GAZOU_PID > /dev/null; then
       sleep $delay
       count=$(($count + 1))
-      if [ $count -eq 5 ]; then
+      if [ $count -eq 3 ]; then
         killopts="-9"
-        delay=3
+        delay=10
       fi
     fi
   done
@@ -96,8 +97,20 @@ function start_gazouilleur {
   workon $BOTENV
   python $BOTPATH/gazouilleur/bot.py > run.log 2>&1 &
   echo -n "$!" > $BOTNAME.pid
-  echo "...started."
+  echo "...started..."
+}
+
+function test_success_in_log {
+  tail -n 20 run.log | grep "Signed on as" > /dev/null
+}
+function test_error_in_log {
+  tail -n 20 run.log | grep "Error\|Exception" > /dev/null
+}
+function exit_on_error {
+  echo "ERROR: Could not start Gazouilleur instance properly. See log below:"
   echo
+  tail -n 50 run.log
+  exit 1
 }
 
 
@@ -114,18 +127,18 @@ if $START; then
     tail -f run.log
   else
     ts=0
-    function testlog {
-      tail -n 20 run.log | grep "Signed on as" > /dev/null
-    }
-    while [ $ts -lt 60 ] && ! testlog; do
+    while [ $ts -lt 60 ] && ! test_success_in_log; do
       sleep 0.5
       ts=$(($ts + 1))
+      if test_error_in_log; then
+        exit_on_error
+      fi
     done
-    if ! testlog; then
-      echo "ERROR: Could not start Gazouilleur instance properly. See log below:"
+    if test_error_in_log || ! test_success_in_log; then
+      exit_on_error
+    else
+      echo "...connected."
       echo
-      tail -n 50 run.log
-      exit 1
     fi
   fi
 fi
