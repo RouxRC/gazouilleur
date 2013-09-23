@@ -85,6 +85,7 @@ CHANNELS = {
       'SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_TOKEN': 'xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
       'OAUTH_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      'DISPLAY_STATS': False,
       'FORBID_POST': True,
       'ALLOW_ALL': False
     },

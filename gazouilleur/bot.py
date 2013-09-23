@@ -139,12 +139,12 @@ class IRCBot(NamesIRCClient):
             #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
             # ... or via Topsy.com
             #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
+            # Follow DMs sent to Twitter USER
+                self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
                 self.feeders[lowchan]['retweets'] = FeederFactory(self, channel, 'retweets', 360)
         # Follow Mentions of Twitter USER in tweets
             self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
-        # Follow DMs sent to Twitter USER
-            self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
             self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 30, tweetsSearchPage='icerocket')
