@@ -206,7 +206,7 @@ class Microblog():
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
             return None
-        args = {'filter_level': 'none'}
+        args = {'filter_level': 'none', 'stall_warnings': 'true'}
         if track:
             args['track'] = ",".join(track)
         if follow:
