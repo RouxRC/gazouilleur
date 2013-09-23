@@ -289,7 +289,7 @@ def chan_has_identica(chan, conf=None):
 
 def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() == "false")
+    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true")
 
 def get_chan_twitter_user(chan, conf=None):
     conf = chanconf(chan, conf)

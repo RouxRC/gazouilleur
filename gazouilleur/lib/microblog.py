@@ -29,8 +29,8 @@ class Microblog():
             self.conf.update(identica_auth[self.conf['USER'].lower()])
             self.conn = PyPump(self.user, key=self.conf['key'], secret=self.conf['secret'], token=self.conf['token'], token_secret=self.conf['token_secret'])
         elif self.site == "twitter":
-            if 'USER' in self.conf:
-                self.user = self.conf['USER']
+            self.user = self.conf['USER']
+            self.post = 'FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true"
             self.domain = "api.twitter.com"
             if get_token:
                 self.api_version = None
@@ -103,7 +103,7 @@ class Microblog():
             if self.site == "identica":
                 return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
             creds = self.conn.account.verify_credentials(include_entities='false', skip_status='true')
-            dms = ("FORBID_POST" not in self.conf or str(self.conf["FORBID_POST"]).lower() != "true") or isinstance(check_twitter_results(self.get_dms()), list)
+            dms = not self.post or isinstance(check_twitter_results(self.get_dms()), list)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
             return creds is not None and dms
@@ -206,7 +206,7 @@ class Microblog():
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
             return None
-        args = {'filter_level': 'none'}
+        args = {'filter_level': 'none', 'stall_warnings': 'true'}
         if track:
             args['track'] = ",".join(track)
         if follow:

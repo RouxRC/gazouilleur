@@ -105,7 +105,7 @@ function test_success_in_log {
   tail -n 20 run.log | grep "Signed on as" > /dev/null
 }
 function test_error_in_log {
-  tail -n 20 run.log | grep "Error\|Exception" > /dev/null
+  tail -n 20 run.log | grep -i "Error\|Exception" > /dev/null
 }
 function exit_on_error {
   echo "ERROR: Could not start Gazouilleur instance properly. See log below:"
