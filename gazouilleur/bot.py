@@ -299,7 +299,7 @@ class IRCBot(NamesIRCClient):
             reason = "fuckoff until %s" % self.silent[lowtarget]
         self.log(msg_utf, self.nickname, target, filtered=skip)
         if not skip:
-            IRCClient.msg(self, target, msg, 400)
+            NamesIRCClient.msg(self, target, msg, 400)
         elif config.DEBUG:
             try:
                 loggvar("FILTERED: %s [%s]" % (str(msg), reason), target)

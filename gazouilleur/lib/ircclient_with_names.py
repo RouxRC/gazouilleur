@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Freely adapted from Smackshow on StackOverflow 
+# Freely adapted from Smackshow on StackOverflow
 # http://stackoverflow.com/questions/6671620/list-users-in-irc-channel-using-twisted-python-irc-framework
 
 from twisted.words.protocols import irc
 from twisted.internet import defer
+from textwrap import wrap
 
 class NamesIRCClient(irc.IRCClient):
     def __init__(self, *args, **kwargs):
@@ -36,4 +37,18 @@ class NamesIRCClient(irc.IRCClient):
         for cb in callbacks:
             cb.callback(namelist)
         del self._namescallback[channel]
+
+    # Redefinition of IRCClient's msg method to forbid url-breaking when splitting long messages
+    def msg(self, user, message, length=None):
+        fmt = 'PRIVMSG %s :' % (user,)
+        if length is None:
+            length = self._safeMaximumLineLength(fmt)
+        minimumLength = len(fmt) + 2
+        if length <= minimumLength:
+            raise ValueError("Maximum length must exceed %d for message to %s" % (minimumLength, user))
+        for line in split_no_urlbreak(message, length - minimumLength):
+            self.sendLine(fmt + line)
+
+def split_no_urlbreak(str, length=80):
+    return [chunk for line in str.split('\n') for chunk in wrap(line, length, break_on_hyphens=False)]
 
