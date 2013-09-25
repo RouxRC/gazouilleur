@@ -379,7 +379,7 @@ class IRCBot(NamesIRCClient):
 
     def command_test(self, *args):
         """test : Simple test to check whether I'm present."""
-        return 'Hello! Type "%shelp"%s' % (config.COMMAND_CHARACTER, self.txt_list_comds)
+        return 'Hello! Type "%shelp%s' % (config.COMMAND_CHARACTER, self.txt_list_comds)
 
     def command_chans(self, rest, channel=None, *args):
         """chans : Prints the list of all the channels I'm in."""
