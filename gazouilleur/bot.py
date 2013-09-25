@@ -891,6 +891,8 @@ class IRCBot(NamesIRCClient):
             defer.returnValue("There's no one to ping here :(")
         if rest.strip() == "":
             rest = "Ping!"
+        else:
+            rest = rest.encode('utf-8')
         defer.returnValue("%s %s" % (" ".join(users), rest))
 
     def command_pingall(self, rest, channel=None, nick=None):
