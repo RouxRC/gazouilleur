@@ -860,10 +860,11 @@ class IRCBot(NamesIRCClient):
         lowerops = [name.lower() for name in users]
         others = [name for name, lower in left if lower not in lowerops]
         conf = chanconf(channel)
-        admins = config.GLOBAL_USERS
+        chanadmins = []
+        chanadmins += config.GLOBAL_USERS
         if conf:
-            admins += conf['USERS']
-        for admin in admins:
+            chanadmins += conf['USERS']
+        for admin in chanadmins:
             lower = admin.lower()
             for user in [u.strip('@') for u, l in left if l == lower]:
                 if user not in users and user.lower() not in lowerops:
