@@ -860,8 +860,7 @@ class IRCBot(NamesIRCClient):
         lowerops = [name.lower() for name in users]
         others = [name for name, lower in left if lower not in lowerops]
         conf = chanconf(channel)
-        chanadmins = []
-        chanadmins += config.GLOBAL_USERS
+        chanadmins = list(config.GLOBAL_USERS)
         if conf:
             chanadmins += conf['USERS']
         for admin in chanadmins:
@@ -892,7 +891,10 @@ class IRCBot(NamesIRCClient):
             defer.returnValue("There's no one to ping here :(")
         if rest.strip() == "":
             rest = "Ping!"
-        defer.returnValue("%s %s" % (" ".join(users), str(rest)))
+        else:
+            rest = rest.decode('utf-8')
+        rest += " %s" % " ".join(users)
+        defer.returnValue(rest.encode('utf-8'))
 
     def command_pingall(self, rest, channel=None, nick=None):
         """pingall [<text>] : Pings all ops, admins and at most 50 more random users on the chan by saying <text> except for users set with noping./AUTH"""
