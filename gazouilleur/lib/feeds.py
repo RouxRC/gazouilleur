@@ -233,7 +233,7 @@ class FeederProtocol():
                 if self.fact.twitter_user:
                     tw_user = "@%s" % self.fact.twitter_user.lower()
                 for t in news:
-                    if t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and tw_user in t['message'].lower()):
+                    if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and tw_user in t['message'].lower()):
                         existing.append(t['uniq_rt_hash'])
                         self.displayTweet(t)
                         good += 1
