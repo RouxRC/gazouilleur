@@ -5,6 +5,7 @@
 import os, time
 import pymongo
 from random import shuffle, random
+from operator import itemgetter
 from hashlib import md5
 from datetime import datetime, timedelta
 from urllib import unquote
@@ -217,7 +218,7 @@ class FeederProtocol():
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
             good = 0
-            news.reverse()
+            news.sort(key=itemgetter('id'))
             if fresh and not source.startswith("my") and len(news) > len(elements) / 2:
                 if query and nexturl and pagecount < self.fact.back_pages_limit:
                     yield self.start_twitter_search([query], max_id=nexturl, pagecount=pagecount+1)
@@ -489,7 +490,6 @@ class FeederProtocol():
         return
 
     def _flush_tweets(self, tweets):
-        tweets.reverse()
         if config.DEBUG:
             self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
         reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
