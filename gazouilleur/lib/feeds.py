@@ -460,39 +460,54 @@ class FeederProtocol():
 
     def follow_stream(self, conf, follow, track):
         conn = Microblog("twitter", conf, streaming=True)
+        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         ct = 0
         tweets = []
+        deleted = []
         flush = time.time() + 14
         self.fact.status = "running"
         try:
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status.startswith("clos"):
-                    self._flush_tweets(tweets)
-                    self.log("Feeder closed.", "stream", hint=True)
                     break
                 elif not tweet or not tweet.get('text'):
-                    if tweet and (config.DEBUG or not tweet.get('delete')):
-                        self.log(tweet, "stream", hint=True)
+                    if tweet:
+                        try:
+                            deleted.append(tweet['delete']['status']['id'])
+                        except:
+                            if config.DEBUG:
+                                self.log(tweet, "stream", hint=True)
                     continue
                 elif tweet.get("disconnect"):
-                    self._flush_tweets(tweets)
                     self.log("Disconnected %s" % tweet, "stream", error=True)
                     break
                 tweets.append(tweet)
                 ct += 1
                 if ct > 9 or time.time() > flush:
-                    self._flush_tweets(tweets)
+                    self._flush_tweets(tweets, deleted)
                     ct = 0
                     tweets = []
+                    deleted = []
                     flush = time.time() + 14
         except Exception as e:
             self._handle_error(e, "following", "stream")
+        self._flush_tweets(tweets, deleted, wait=False)
+        self.log("Feeder closed.", "stream", hint=True)
         return
 
-    def _flush_tweets(self, tweets):
-        if config.DEBUG:
-            self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
-        reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
+    def _flush_tweets(self, tweets, deleted, wait=True):
+        if deleted:
+            if config.DEBUG:
+                self.log("Mark %s tweets as deleted." % len(deleted), "stream", hint=True)
+            args = {'spec': {'id': {'$in': deleted}}, 'document': {'$set': {'deleted': True}}, 'multi': True}
+            if wait:
+                reactor.callLater(3, self.db["tweets"].update, **args)
+            else:
+                self.db["tweets"].update(**args)
+        if tweets:
+            if config.DEBUG:
+                self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
+            reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
 
 
 class FeederFactory(protocol.ClientFactory):
