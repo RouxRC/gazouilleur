@@ -154,7 +154,7 @@ class IRCBot(NamesIRCClient):
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, 35)
         n = self.factory.channels.index(lowchan) + 1
         for i, f in enumerate(self.feeders[lowchan].keys()):
-            threads.deferToThread(reactor.callLater, 7*(i+1)*n, self.feeders[lowchan][f].start)
+            threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
 
     def left(self, channel):
         lowchan = channel.lower()
