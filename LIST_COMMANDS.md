@@ -158,6 +158,10 @@
 
      > Displays the url of a RSS feed saved as &lt;name&gt; for current channel.
 
+  + `lasttweet [<N>]`
+
+     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+
   + `lasttweets <word> [<N>]`
 
      > Prints the last or <N> last tweets matching &lt;word&gt; (options from "last" can apply).
@@ -240,9 +244,15 @@
      > Prints the title of the webpage at &lt;url&gt;.
 
 # Admin commands
+ * AddAuth available only to GLOBAL_USERS and  chan's USERS
  * Restart available only to GLOBAL_USERS
- * **Exclude regexp :** `'restart'`
+ * **Exclude regexp :** `'(addauth|restart)'`
  * **List :**
+
+  + `addauth <user>`
+
+     > Gives auth rights to &lt;user&gt; until next reboot.
+     > > restricted to /AUTH
 
   + `restart`
 
