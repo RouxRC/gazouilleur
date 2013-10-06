@@ -234,8 +234,9 @@ class Microblog():
         users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
         if "Forbidden" in users or "404" in users:
             return good, cache_users
+        list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
-            name = u['screen_name'].lower()
+            name = u['screen_name'].decode('utf-8').lower()
             if name in list_users:
                 good[name] = u['id_str']
         cache_users.update(good)
