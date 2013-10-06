@@ -1079,6 +1079,21 @@ class IRCBot(NamesIRCClient):
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
 
+   # Admin commands
+   # --------------
+   ## Restart available only to GLOBAL_USERS
+   ## Exclude regexp : 'restart'
+
+    def command_restart(self, rest, channel=None, nick=None):
+        """restart : Tries to reboot me./ADMIN"""
+        self._send_message("Trying to reboot...", channel, nick)
+        try:
+            import subprocess
+            reactor.callLater(1, self.connectionLost, "admin reboot from chan by %s" % nick)
+            reactor.callLater(3, subprocess.call, ["bin/gazouilleur restart --nologs"] ,shell=True)
+        except Exception as e:
+            return str(e)
+
 
 # Auto-reconnecting Factory
 class IRCBotFactory(protocol.ReconnectingClientFactory):

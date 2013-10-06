@@ -238,3 +238,13 @@
   + `title <url>`
 
      > Prints the title of the webpage at &lt;url&gt;.
+
+# Admin commands
+ * Restart available only to GLOBAL_USERS
+ * **Exclude regexp :** `'restart'`
+ * **List :**
+
+  + `restart`
+
+     > Tries to reboot me.
+     > > restricted to /ADMIN

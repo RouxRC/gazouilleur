@@ -332,6 +332,8 @@ def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
                 return False
     if command_doc is None:
         return is_user_admin(nick)
+    if command_doc.endswith('/ADMIN'):
+        return is_user_admin(nick)
     auth = is_user_auth(nick, channel, conf)
     identica = chan_has_identica(channel, conf)
     twitter = chan_has_twitter(channel, conf)
