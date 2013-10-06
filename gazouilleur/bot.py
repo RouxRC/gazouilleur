@@ -282,7 +282,23 @@ class IRCBot(NamesIRCClient):
         d.addCallback(self._send_message, target, nick, tasks=tasks)
         d.addErrback(self._show_error, target, nick)
 
+    # Hack the endpoint method sending messages to block messages as soon as possible with fuckoff command
     re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
+    def _sendLine(self):
+        if self._queue:
+            line = self._queue.pop(0)
+            chan = self.re_extract_chan.match(line).group(1).lower() if line.startswith('PRIVMSG #') else None
+            if chan and chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(line):
+                if config.DEBUG:
+                    loggvar("FILTERED: %s [fuckoff until %s]" % (str(self.re_extract_chan.sub('', line)), chan))
+                self._sendLine()
+            else:
+                self._reallySendLine(line)
+                self._queueEmptying = reactor.callLater(self.lineRate, self._sendLine)
+        else:
+            self._queueEmptying = None
+
     def msg(self, target, msg, talk=False):
         msg_utf = msg.decode('utf-8')
         lowtarget = target.lower()
@@ -1012,9 +1028,6 @@ class IRCBot(NamesIRCClient):
    ## FuckOff/ComeBack & SetPad available only to GLOBAL_USERS and chan's USERS
    ## Exclude regexp : '(fuckoff|comeback|.*pad|title)'
 
-    def _set_silence(self, channel, minutes):
-        self.silent[channel.lower()] = datetime.today() + timedelta(minutes=minutes)
-
     def command_fuckoff(self, minutes, channel=None, nick=None):
         """fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
         channel = self.getMasterChan(channel)
@@ -1023,7 +1036,7 @@ class IRCBot(NamesIRCClient):
         else:
             when, _ = self._extract_digit(minutes)
             minutes = max(1, when)
-        reactor.callFromThread(reactor.callLater, 1, self._set_silence, channel, minutes)
+        self.silent[channel.lower()] = datetime.today() + timedelta(minutes=minutes)
         return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, config.COMMAND_CHARACTER)
 
     def command_comeback(self, rest, channel=None, nick=None):

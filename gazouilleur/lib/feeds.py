@@ -235,10 +235,12 @@ class FeederProtocol():
                 for t in news:
                     if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and tw_user in t['message'].lower()):
                         existing.append(t['uniq_rt_hash'])
-                        self.displayTweet(t)
+                        if not self.fact.status.startswith("clos"):
+                            self.displayTweet(t)
                         good += 1
             else:
-                [self.displayTweet(t) for t in news]
+                if not self.fact.status.startswith("clos"):
+                    [self.displayTweet(t) for t in news]
                 good = len(news)
             if config.DEBUG:
                 nb_rts_str = ""
