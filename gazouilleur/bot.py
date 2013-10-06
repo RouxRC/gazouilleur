@@ -288,40 +288,42 @@ class IRCBot(NamesIRCClient):
     def _sendLine(self):
         if self._queue:
             line = self._queue.pop(0)
-            chan = self.re_extract_chan.match(line).group(1).lower() if line.startswith('PRIVMSG #') else None
-            if chan and chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(line):
+            msg = line
+            skip = False
+            chan = self.re_extract_chan.match(line).group(1) if line.startswith('PRIVMSG #') else ""
+            if chan:
+                lowerchan = chan.lower()
+                msg = self.re_extract_chan.sub('', line)
+                msg_utf = msg.decode('utf-8')
+                if lowerchan in self.silent and self.silent[lowerchan] > datetime.today() and self.re_tweets.search(msg):
+                    skip = True
+                    reason = "fuckoff until %s" % self.silent[chan]
+                elif lowerchan in self.filters and self.re_tweets.search(msg):
+                    msg_low = msg_utf.lower()
+                    for keyword in self.filters[lowerchan]:
+                        if keyword and ("%s" % keyword in msg_low or (keyword.startswith('@') and msg_low.startswith(keyword[1:]+': '))):
+                            skip = True
+                            reason = "filter on «%s»" % keyword.encode('utf-8')
+                            break
+            else:
+                msg_utf = line.decode('utf-8')
+            self.log(msg_utf, self.nickname, chan, filtered=skip)
+            if skip:
                 if config.DEBUG:
-                    loggvar("FILTERED: %s [fuckoff until %s]" % (str(self.re_extract_chan.sub('', line)), chan))
-                self._sendLine()
+                    try:
+                        loggvar("FILTERED: %s [%s]" % (str(msg), reason), chan)
+                    except:
+                        print colr("ERROR encoding filtered msg", 'red'), msg, reason
+                        loggvar("FILTERED: %s [%s]" % (msg, reason), chan)
+                self._queueEmptying = reactor.callLater(0.05, self._sendLine)
             else:
                 self._reallySendLine(line)
                 self._queueEmptying = reactor.callLater(self.lineRate, self._sendLine)
         else:
             self._queueEmptying = None
 
-    def msg(self, target, msg, talk=False):
-        msg_utf = msg.decode('utf-8')
-        lowtarget = target.lower()
-        skip = False
-        if not talk and self.re_tweets.search(msg) and lowtarget in self.filters:
-            low_msg_utf = msg_utf.lower()
-            for keyword in self.filters[lowtarget]:
-                if keyword and ("%s" % keyword in low_msg_utf or (keyword.startswith('@') and low_msg_utf.startswith(keyword[1:]+': '))):
-                    skip = True
-                    reason = keyword
-                    break
-        if not talk and lowtarget in self.silent and self.silent[lowtarget] > datetime.today():
-            skip = True
-            reason = "fuckoff until %s" % self.silent[lowtarget]
-        self.log(msg_utf, self.nickname, target, filtered=skip)
-        if not skip:
-            NamesIRCClient.msg(self, target, msg, 400)
-        elif config.DEBUG:
-            try:
-                loggvar("FILTERED: %s [%s]" % (str(msg), reason), target)
-            except:
-                print colr("ERROR encoding filtered msg", 'red'), msg, reason
-                loggvar("FILTERED: %s [%s]" % (msg, reason), target)
+    def msg(self, target, msg):
+        NamesIRCClient.msg(self, target, msg, 400)
 
     re_clean_protocol = re.compile(r'^\[[^\]]+\]\s*')
     def _send_message(self, msgs, target, nick=None, tasks=None):
@@ -341,13 +343,11 @@ class IRCBot(NamesIRCClient):
                 continue
             else:
                 uniq[msg] = None
-            talk = False
             if nick and target != nick:
                 msg = '%s: %s' % (nick, msg)
-                talk = True
             if tasks is not None:
                 msg += " [Task #%s]" % tasks
-            self.msg(target, msg, talk)
+            self.msg(target, msg)
 
     def _show_error(self, failure, target, nick=None, admins=False):
         if not admins:
