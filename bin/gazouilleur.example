@@ -22,6 +22,11 @@ if [ $# -gt 1 ] && [ "$2" == "--nologs" ]; then
   LOGS=false
 fi
 
+VERBOSE=true
+if [ $# -gt 1 ] && [ "$2" == "--quiet" ]; then
+  VERBOSE=false
+fi
+
 
 # Check config
 cd $BOTPATH
@@ -40,10 +45,10 @@ COMMAND="python $BOTPATH/gazouilleur/bot.py"
 
 function stop_gazouilleur {
   NOLOG=$1
-  echo "Stopping Gazouilleur instance $BOTNAME..."
+  $VERBOSE && echo "Stopping Gazouilleur instance $BOTNAME..."
   if ! test -f $BOTNAME.pid; then
     if test -z "$NOLOG"; then
-      echo "...$BOTNAME.pid is missing, searching process..."
+      $VERBOSE && echo "...$BOTNAME.pid is missing, searching process..."
     fi
     GAZOU_PID=$(pgrep -f "$COMMAND")
   else
@@ -51,8 +56,8 @@ function stop_gazouilleur {
   fi
   if test -z "$GAZOU_PID" || ! ps -p $GAZOU_PID -f | grep "$COMMAND" > /dev/null ; then
     if test -z "$NOLOG"; then
-      echo "...the bot does not seem like running."
-      echo
+      $VERBOSE && echo "...the bot does not seem like running."
+      $VERBOSE && echo
     fi
     rm -f $BOTNAME.pid
     return
@@ -76,13 +81,13 @@ function stop_gazouilleur {
     echo "...could not stop the bot. Please try to kill -15 $GAZOU_PID"
     exit 1
   elif test -z "$NOLOG"; then
-    echo "...stopped."
+    $VERBOSE && echo "...stopped."
   fi
   rm -f $BOTNAME.pid
 }
 
 function start_gazouilleur {
-  echo "Starting Gazouilleur instance $BOTNAME..."
+  $VERBOSE && echo "Starting Gazouilleur instance $BOTNAME..."
   GAZOU_PID=$(pgrep -f "$COMMAND")
   if ! test -z "$GAZOU_PID" && ps -p $GAZOU_PID -f | grep "$COMMAND" > /dev/null; then
     echo "...the bot is already running, please run bin/gazouilleur stop or bin/gazouilleur restart."
@@ -94,14 +99,14 @@ function start_gazouilleur {
       echo "...the bot is already running, please run bin/gazouilleur stop or bin/gazouilleur restart."
       exit 1
     fi
-    echo "...removing lost $BOTNAME.pid file..."
+    $VERBOSE && echo "...removing lost $BOTNAME.pid file..."
     rm -f $BOTNAME.pid
   fi
   source /usr/local/bin/virtualenvwrapper.sh || ( echo "Error: You must install virtualenvwrapper to use this starter: sudo pip -q install virtualenvwrapper" && exit 1 )
   workon $BOTENV
   $COMMAND > run.log 2>&1 &
   echo -n "$!" > $BOTNAME.pid
-  echo "...started..."
+  $VERBOSE && echo "...started..."
 }
 
 function test_success_in_log {
@@ -126,7 +131,7 @@ fi
 
 if $START; then
   start_gazouilleur
-  if $LOGS; then
+  if $VERBOSE && $LOGS; then
     echo "Displaying logs now. Ctrl+C will only stop logs display. Run bin/gazouilleur stop to stop $BOTNAME..."
     echo
     tail -f run.log
@@ -143,8 +148,8 @@ if $START; then
     if test_error_in_log || ! test_success_in_log; then
       exit_on_error
     else
-      echo "...connected."
-      echo
+      $VERBOSE && echo "...connected."
+      $VERBOSE && echo
     fi
   fi
 fi

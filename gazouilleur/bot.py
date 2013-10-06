@@ -1097,8 +1097,8 @@ class IRCBot(NamesIRCClient):
         self._send_message("Trying to reboot...", channel, nick)
         try:
             import subprocess
-            reactor.callLater(1, self.connectionLost, "admin reboot from chan by %s" % nick)
-            reactor.callLater(3, subprocess.call, ["bin/gazouilleur restart --nologs"] ,shell=True)
+            reactor.callLater(1, self.quit, "admin reboot from chan by %s" % nick)
+            reactor.callLater(3, subprocess.call, ["bin/gazouilleur restart --quiet"] ,shell=True)
         except Exception as e:
             return str(e)
 
