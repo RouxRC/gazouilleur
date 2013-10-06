@@ -471,20 +471,22 @@ class FeederProtocol():
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status.startswith("clos"):
                     break
-                elif not tweet or not tweet.get('text'):
-                    if tweet:
+                if tweet:
+                    if tweet.get("disconnect"):
+                        self.log("Disconnected %s" % tweet, "stream", error=True)
+                        break
+                    if tweet.get('text'):
+                        tweets.append(tweet)
+                        ct += 1
+                    else:
                         try:
                             deleted.append(tweet['delete']['status']['id'])
                         except:
                             if config.DEBUG:
                                 self.log(tweet, "stream", hint=True)
+                elif not (ct + len(deleted)):
                     continue
-                elif tweet.get("disconnect"):
-                    self.log("Disconnected %s" % tweet, "stream", error=True)
-                    break
-                tweets.append(tweet)
-                ct += 1
-                if ct > 9 or time.time() > flush:
+                if ct > 9 or len(deleted) or time.time() > flush:
                     self._flush_tweets(tweets, deleted)
                     ct = 0
                     tweets = []
