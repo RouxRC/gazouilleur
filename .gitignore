@@ -1,8 +1,8 @@
 bin/gazouilleur
 cache
+log/*
 config.py
 *.pyc
-*.log
 *.pid
 *.json
 gazouilleur/identica_auth_config.py

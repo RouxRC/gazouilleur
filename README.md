@@ -52,7 +52,7 @@ Add --nologs option do disable log display after start.
  * Follow logs:
 
  ```bash
- tail -fn 50 run.log
+ tail -fn 50 log/run.log
  ```
 
  * Autostart bot on machine reboot via crontab:

@@ -1126,15 +1126,14 @@ class IRCBotFactory(protocol.ReconnectingClientFactory):
         channels.append("#gazouilleur")
 
 
-# Run as 'python bot.py' ...
+# Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
     reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
     log.startLogging(sys.stdout)
     reactor.run()
-# ... or in the background when called with 'twistd -y bot.py'
+# ... or in the background when called with 'twistd -y gazouilleur/bot.py'
 elif __name__ == '__builtin__':
     application = service.Application('Gazouilleur IRC Bot')
+    application.setComponent(log.ILogObserver, log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a')).emit)
     ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
-    log.startLogging(open(os.path.relpath('run.log'), 'w'))
-
