@@ -1081,8 +1081,16 @@ class IRCBot(NamesIRCClient):
 
    # Admin commands
    # --------------
+   ## AddAuth available only to GLOBAL_USERS and  chan's USERS
    ## Restart available only to GLOBAL_USERS
-   ## Exclude regexp : 'restart'
+   ## Exclude regexp : '(addauth|restart)'
+
+    def command_addauth(self, rest, channel=None, nick=None):
+        """addauth <user> : Gives auth rights to <user> until next reboot./AUTH"""
+        channel = self.getMasterChan(channel)
+        conf = chanconf(channel)
+        conf["USERS"].append(rest.decode('utf-8'))
+        return "%s now has auth rights for %s" % (rest, channel)
 
     def command_restart(self, rest, channel=None, nick=None):
         """restart : Tries to reboot me./ADMIN"""
