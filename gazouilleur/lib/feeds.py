@@ -220,8 +220,8 @@ class FeederProtocol():
             good = 0
             news.sort(key=itemgetter('id'))
             if fresh and not source.startswith("my") and len(news) > len(elements) / 2:
-                if query and nexturl and pagecount < self.fact.back_pages_limit:
-                    yield self.start_twitter_search([query], max_id=nexturl, pagecount=pagecount+1)
+                if query and nexturl and pagecount < 2*self.fact.back_pages_limit:
+                    reactor.callFromThread(reactor.callLater, 20, self.start_twitter_search, [query], max_id=nexturl, pagecount=pagecount+1)
                 elif not query and nexturl and "p=%d" % (self.fact.back_pages_limit+1) not in nexturl and "page=%s" % (2*self.fact.back_pages_limit) not in nexturl:
                     reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
                 elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
@@ -398,9 +398,7 @@ class FeederProtocol():
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if config.DEBUG and not max_id:
             self.log("Start search feeder for Twitter %s" % query_list, "search", hint=True)
-        for i in range(len(query_list)):
-            if query_list:
-                query = query_list[i]
+        for i, query in enumerate(query_list):
             text = "results of Twitter search for %s" % unquote(query)
             if max_id:
                 text += " before id %s" % max_id
