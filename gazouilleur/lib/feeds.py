@@ -430,33 +430,27 @@ class FeederProtocol():
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         queries = list(self.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query']))
         track = []
-        follow = []
         skip = []
         k = 0
-        f = 0
         for query in queries:
             q = str(query['query'].encode('utf-8')).lower()
             if self.re_twitter_account.match(q):
-                q = q.lstrip('@')
-                follow.append(q)
-                f += 1
+                continue
             elif " OR " in q or " -" in q or '"' in q or len(q) > 60 or len(q) < 6:
                 skip.append(q)
                 continue
             track.append(q)
             k += 1
-            if k > 395 or f > 4995:
+            if k > 395:
                 break
         user = self.fact.twitter_user.lower()
-        if user not in follow:
-            follow.append(user)
         if user not in track:
             track.append(user)
         if len(skip):
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
-        users, self.fact.ircclient.twitter_users = conn.lookup_users(follow, self.fact.ircclient.twitter_users)
+        users, self.fact.ircclient.twitter_users = conn.lookup_users(track, self.fact.ircclient.twitter_users)
         return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
 
     def follow_stream(self, conf, follow, track):

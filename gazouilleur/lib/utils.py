@@ -211,10 +211,10 @@ def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=Non
             space = " OR "
             if url_format:
                 if not arg.startswith('from:') and not arg.startswith('#'):
-                   arg = "(%s)" % arg
+                   arg = "(%s)" % urllib.quote(arg, '')
                 if add_url:
                     space = "+OR+"
-                arg = "%s%s" % (urllib.quote(arg, ''), space)
+                arg = "%s%s" % (arg, space)
             else:
                 arg = " «%s»  | " % arg
             if " OR " in rawrg or " -" in rawrg:
