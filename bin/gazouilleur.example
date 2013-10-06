@@ -63,7 +63,10 @@ function stop_gazouilleur {
     return
   fi
   count=0
-  killopts=""
+  if $VERBOSE; then
+    killopts=""
+  else killopts="-9"
+  fi
   delay=5
   # First try to kill 3 times during 15 seconds then twice with "-9" during 20 more seconds
   while ps -p $GAZOU_PID > /dev/null && [ $count -lt 5 ]; do
