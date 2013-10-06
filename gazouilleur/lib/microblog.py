@@ -197,7 +197,7 @@ class Microblog():
         check_twitter_results(res)
         return res, last, timestamp
 
-    def search(self, query, count=25, max_id=None):
+    def search(self, query, count=15, max_id=None):
         args = {'q': query, 'count': count, 'include_entities': 'false', 'result_type': 'recent'}
         if max_id:
             args['max_id'] = max_id

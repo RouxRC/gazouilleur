@@ -119,12 +119,11 @@ class IRCBot(NamesIRCClient):
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
                 loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's API App only extra limitrate
-                self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90, twitter_token=oauth2_token)
             except Exception as e:
                 oauth2_token = None
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
-                self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 180)
+            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
             self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
@@ -747,13 +746,15 @@ class IRCBot(NamesIRCClient):
    ## Others available to anyone
    ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'
 
-    def _restart_stream(self, channel):
+    def _restart_feeds(self, channel):
         lowchan = channel.lower()
-        if "stream" in self.feeders[lowchan] and self.feeders[lowchan]["stream"].status == "running":
-            oauth2_token = self.feeders[lowchan]["stream"].twitter_token or None
-            self.feeders[lowchan]["stream"].end()
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
-            self.feeders[lowchan]["stream"].start()
+        feeds = [('stream', 'stream', 20), ('twitter_search', 'tweets', 90)]
+        for feed, database, delay in feeds:
+            if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
+                oauth2_token = self.feeders[lowchan][feed].twitter_token or None
+                self.feeders[lowchan][feed].end()
+                self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
+                self.feeders[lowchan][feed].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     def _parse_follow_command(self, query):
@@ -782,7 +783,7 @@ class IRCBot(NamesIRCClient):
         if database == "news":
             query = "%s <%s>" % (name, query)
         if database == "tweets":
-            self._restart_stream(channel)
+            self._restart_feeds(channel)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
@@ -796,7 +797,7 @@ class IRCBot(NamesIRCClient):
         if not res or not res['n']:
             return "I could not find such query in my database"
         if database == "tweets":
-            self._restart_stream(channel)
+            self._restart_feeds(channel)
         return '"%s" query removed from feeds database for %s'  % (query, channel)
 
     def command_filter(self, keyword, channel=None, nick=None):

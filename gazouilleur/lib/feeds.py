@@ -220,12 +220,12 @@ class FeederProtocol():
             good = 0
             news.sort(key=itemgetter('id'))
             if fresh and not source.startswith("my") and len(news) > len(elements) / 2:
-                if query and nexturl and pagecount < 2*self.fact.back_pages_limit:
-                    reactor.callFromThread(reactor.callLater, 20, self.start_twitter_search, [query], max_id=nexturl, pagecount=pagecount+1)
+                if query and nexturl and pagecount < 3*self.fact.back_pages_limit:
+                    deferToThreadPool(reactor, self.threadpool, reactor.callLater, 15, self.start_twitter_search, [query], max_id=nexturl, pagecount=pagecount+1)
                 elif not query and nexturl and "p=%d" % (self.fact.back_pages_limit+1) not in nexturl and "page=%s" % (2*self.fact.back_pages_limit) not in nexturl:
-                    reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
+                    deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, nexturl)
                 elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
-                    reactor.callFromThread(reactor.callLater, 41, self.start, next_page(source))
+                    deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
                 existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
@@ -395,6 +395,7 @@ class FeederProtocol():
 
     def start_twitter_search(self, query_list, randorder=None, max_id=None, pagecount=0):
         d = defer.succeed(True)
+        self.fact.status = "running"
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         if config.DEBUG and not max_id:
             self.log("Start search feeder for Twitter %s" % query_list, "search", hint=True)
@@ -567,6 +568,9 @@ class FeederFactory(protocol.ClientFactory):
             self.status = "closing"
             self.protocol.threadpool.stop()
             self.runner.stop()
+            if self.database != "stream":
+                self.log("Feeder closed.", self.database, hint=True)
+            self.runner = None
             self.status = "closed"
 
 
