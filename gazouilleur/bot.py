@@ -987,11 +987,20 @@ class IRCBot(NamesIRCClient):
            return str(e)
         target = nick if channel == self.nickname else channel
         rank = len(self.tasks)
+        task = cleanblanks(task)
+        task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
         if task.startswith(config.COMMAND_CHARACTER):
+            message = task.encode('utf-8')
+            command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
+            func = self._find_command_function(command)
+            if func is None:
+                return "I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command)
+            if not self._can_user_do(nick, channel, func):
+                return "I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command)
             if self.re_clean_twitter_task.match(task):
-                count = countchars(self.re_clean_twitter_task.sub('', task))
-                if count > 140:
-                    return("I can already tell you this won't work, it's too long (%s characters)" % count)
+                count = countchars(self.re_clean_twitter_task.sub('', task).replace('--nolimit', ''))
+                if (count > 140 or count < 30) and "--nolimit" not in task:
+                    return("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
