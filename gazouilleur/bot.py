@@ -451,7 +451,7 @@ class IRCBot(NamesIRCClient):
                 if arg == self.str_re_tweets or arg == self.str_re_news:
                     clean_my_nick = True
                 arg = clean_regexp(arg)
-                re_arg = re.compile("%s" % arg, re.I)
+                re_arg = re.compile(r"%s" % arg, re.I)
                 query['$and'].append({'message': re_arg})
                 current = ""
             elif current == "s":
