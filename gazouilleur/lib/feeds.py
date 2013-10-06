@@ -564,7 +564,7 @@ class FeederFactory(protocol.ClientFactory):
             self.status = "closing"
             self.protocol.threadpool.stop()
             self.runner.stop()
-            if self.database != "stream":
+            if config.DEBUG and self.database != "stream":
                 self.log("Feeder closed.", self.database, hint=True)
             self.runner = None
             self.status = "closed"
