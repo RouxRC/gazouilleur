@@ -850,6 +850,12 @@ class IRCBot(NamesIRCClient):
         return "No news feed named « %s » for this channel" % name
 
     str_re_tweets = ' — http://twitter\.com/'
+    def command_lasttweet(self, tweet, channel=None, nick=None):
+        """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)."""
+        chan = self.getMasterChan(channel)
+        twuser = get_chan_twitter_user(chan)
+        return self.command_lastwith("'^%s: .*%s%s/statuses/' %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
+
     def command_lasttweets(self, tweet, channel=None, nick=None):
         """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
         return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
