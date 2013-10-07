@@ -89,12 +89,9 @@ class Microblog():
                 else:
                     err = "[%s] WARNING: Forbidden: %s. Check your commands (already done? forbidden?) or take a breather and wait a bit, you may have overpassed Twitter's API 15min limits." % (self.site, code)
                 return err
-            exception = "[%s] %s" % (self.site, sending_error(e))
+            exception = sending_error(e)
             if config.DEBUG and exception != previous_exception:
-                try:
-                    loggerr("%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args), action=self.site)
-                except:
-                    logerr("%s %s %s" % (exception, e, args))
+                loggerr("http://%s/%s/%s.%s %s : %s" % (self.domain, self.api_version, str(function), self.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):
