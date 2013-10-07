@@ -10,7 +10,6 @@ from datetime import datetime
 import lxml.html
 import pymongo
 from twisted.internet import reactor, defer, protocol, threads
-from twisted.words.protocols.irc import IRCClient
 from twisted.web.client import getPage
 from twisted.application import internet, service
 from twisted.python import log
@@ -86,7 +85,7 @@ class IRCBot(NamesIRCClient):
         loggirc('Connection made')
         self.logger = {config.BOTNAME: FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
-        IRCClient.connectionMade(self)
+        NamesIRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
         for channel in self.factory.channels:
@@ -94,7 +93,7 @@ class IRCBot(NamesIRCClient):
         loggirc2('Connection lost because: %s.' % reason)
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME].close()
-        IRCClient.connectionLost(self, reason)
+        NamesIRCClient.connectionLost(self, reason)
 
     def signedOn(self):
         loggirc("Signed on as %s." % self.nickname)
@@ -103,6 +102,7 @@ class IRCBot(NamesIRCClient):
 
     def joined(self, channel):
         loggirc("Joined.", channel)
+        NamesIRCClient.joined(self, channel)
         lowchan = channel.lower()
         self.logger[lowchan] = FileLogger(lowchan)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
@@ -281,25 +281,23 @@ class IRCBot(NamesIRCClient):
         d.addCallback(self._send_message, target, nick, tasks=tasks)
         d.addErrback(self._show_error, target, nick)
 
-    # Hack the endpoint method sending messages to block messages as soon as possible with fuckoff command
-    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
-    def _sendLine(self):
-        if self._queue:
-            line = self._queue.pop(0)
+    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    def _sendLine(self, chan="default"):
+        if self._queue[chan]:
+            line = self._queue[chan].pop(0)
             msg = line
             skip = False
-            chan = self.re_extract_chan.match(line).group(1) if line.startswith('PRIVMSG #') else ""
-            if chan:
-                lowerchan = chan.lower()
+            if self.re_extract_chan.match(line) != "default":
                 msg = self.re_extract_chan.sub('', line)
                 msg_utf = msg.decode('utf-8')
-                if lowerchan in self.silent and self.silent[lowerchan] > datetime.today() and self.re_tweets.search(msg):
+                if chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
                     skip = True
                     reason = "fuckoff until %s" % self.silent[chan]
-                elif lowerchan in self.filters and self.re_tweets.search(msg):
+                elif chan in self.filters and self.re_tweets.search(msg):
                     msg_low = msg_utf.lower()
-                    for keyword in self.filters[lowerchan]:
+                    for keyword in self.filters[chan]:
                         if keyword and ("%s" % keyword in msg_low or (keyword.startswith('@') and msg_low.startswith(keyword[1:]+': '))):
                             skip = True
                             reason = "filter on «%s»" % keyword.encode('utf-8')
@@ -314,12 +312,12 @@ class IRCBot(NamesIRCClient):
                     except:
                         print colr("ERROR encoding filtered msg", 'red'), msg, reason
                         loggvar("FILTERED: %s [%s]" % (msg, reason), chan)
-                self._queueEmptying = reactor.callLater(0.05, self._sendLine)
+                self._queueEmptying[chan] = reactor.callLater(0.05, self._sendLine, chan)
             else:
                 self._reallySendLine(line)
-                self._queueEmptying = reactor.callLater(self.lineRate, self._sendLine)
+                self._queueEmptying[chan] = reactor.callLater(self.lineRate, self._sendLine, chan)
         else:
-            self._queueEmptying = None
+            self._queueEmptying[chan] = None
 
     def msg(self, target, msg):
         NamesIRCClient.msg(self, target, msg, 400)
@@ -1093,6 +1091,7 @@ class IRCBot(NamesIRCClient):
         title = u' '.join(pagetree.xpath('//title/text()')).strip()
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
+
 
    # Admin commands
    # --------------
