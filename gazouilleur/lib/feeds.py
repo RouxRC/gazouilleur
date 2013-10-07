@@ -404,7 +404,7 @@ class FeederProtocol():
         for i, query in enumerate(query_list):
             text = "results of Twitter search for %s" % unquote(query)
             if max_id:
-                text += " before id %s" % max_id
+                text = "%s before id %s" % (text, str(max_id))
             d.addCallback(self.search_twitter, query, max_id=max_id, page=i, randorder=randorder)
             d.addErrback(self._handle_error, "downloading", text)
             d.addCallback(check_twitter_results)
