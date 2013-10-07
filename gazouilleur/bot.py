@@ -560,7 +560,7 @@ class IRCBot(NamesIRCClient):
 
     def command_count(self, rest, *args):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
-        return threads.deferToThread(lambda x: str(countchars(x))+" characters (max 140)", rest)
+        return "%d characters (max 140)" % countchars(rest)
 
     def command_lastcount(self, rest, channel=None, nick=None):
         """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
