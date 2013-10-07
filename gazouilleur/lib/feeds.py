@@ -231,9 +231,9 @@ class FeederProtocol():
                 existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
                 tw_user = ""
                 if self.fact.twitter_user:
-                    tw_user = "@%s" % self.fact.twitter_user.lower()
+                    tw_user = self.fact.twitter_user.lower()
                 for t in news:
-                    if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and tw_user in t['message'].lower()):
+                    if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % tw_user in t['message'].lower()):
                         existing.append(t['uniq_rt_hash'])
                         if not self.fact.status.startswith("clos"):
                             self.displayTweet(t)
