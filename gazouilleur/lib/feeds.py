@@ -124,6 +124,8 @@ class FeederProtocol():
         return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
+        if not page:
+            return
         try:
             feed = parse_feed(StringIO(page+''))
         except TypeError:
@@ -133,7 +135,7 @@ class FeederProtocol():
 
     @defer.inlineCallbacks
     def process_elements(self, feed, url):
-        if not feed.entries:
+        if not feed or not feed.entries:
             defer.returnValue(None)
         sourcename = url
         if feed.feed and 'title' in feed.feed:
@@ -536,11 +538,26 @@ class FeederFactory(protocol.ClientFactory):
         self.cache_urls = {}
         self.runner = None
         self.status = "init"
+        if not config.DEBUG:
+            self.errorlogs = {}
 
     def log(self, msg, action="", error=False, hint=False):
         color = None
         if hint:
             color= 'yellow'
+        if error and not config.DEBUG:
+            hmd5 = md5(msg).hexdigest()
+            if hmd5 not in self.errorlogs or self.errorlogs[hmd5]['ts'] < time.time() - 3600*24:
+                self.errorlogs[hmd5] = {'n': 1, 'ts': time.time()}
+            else:
+                self.errorlogs[hmd5]['n'] += 1
+                if self.errorlogs[hmd5]['n'] > 3:
+                    return
+                elif self.errorlogs[hmd5]['n'] == 3:
+                    msg += " [#3, skipping these errors now for the next 24h...]"
+                else:
+                    msg += " [#%d]" % self.errorlogs[hmd5]['n']
+                self.errorlogs[hmd5]['ts'] = time.time()
         return logg(msg, channel=self.channel, action=action, error=error, color=color)
 
     def start(self):
