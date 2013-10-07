@@ -434,6 +434,7 @@ class FeederProtocol():
         k = 0
         for query in queries:
             q = str(query['query'].encode('utf-8')).lower()
+            # queries starting with @ should return only tweets from corresponding user, stream doesn not know how to handle this so skip
             if self.re_twitter_account.match(q):
                 continue
             elif " OR " in q or " -" in q or '"' in q or len(q) > 60 or len(q) < 6:
@@ -450,6 +451,7 @@ class FeederProtocol():
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
+        # tries to find users corresponding with queries to follow with stream
         users, self.fact.ircclient.twitter_users = conn.lookup_users(track, self.fact.ircclient.twitter_users)
         return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
 

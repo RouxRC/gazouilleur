@@ -205,6 +205,7 @@ def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=Non
         except:
             pass
         for feed in queries:
+            # queries starting with @ should return only tweets from corresponding user
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
             rawrg = arg
             space = " OR "
