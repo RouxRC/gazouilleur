@@ -91,7 +91,7 @@ class Microblog():
                 return err
             exception = sending_error(e)
             if config.DEBUG and exception != previous_exception:
-                loggerr("http://%s/%s/%s.%s %s : %s" % (self.domain, self.api_version, str(function), self.format, args, exception), action=self.site)
+                loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):
