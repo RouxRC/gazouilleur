@@ -1,6 +1,7 @@
 bin/gazouilleur
 cache
-log/*
+*.log
+log
 config.py
 *.pyc
 *.pid
