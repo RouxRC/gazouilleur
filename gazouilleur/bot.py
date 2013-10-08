@@ -57,24 +57,24 @@ class IRCBot(NamesIRCClient):
 
     # Double logger (mongo / files)
     def log(self, message, user=None, channel=config.BOTNAME, filtered=False):
-        if channel == "*" or channel == self.nickname or channel not in self.logger:
+        if channel == "*" or channel == self.nickname or channel.lower() not in self.logger:
             channel = config.BOTNAME
         lowchan = channel.lower()
         if user:
             nick, _, host = user.partition('!')
             if channel not in self.nicks:
                 self.nicks[lowchan] = {}
-            if nick not in self.nicks[channel] or self.nicks[lowchan][nick] != host:
+            if nick not in self.nicks[lowchan] or self.nicks[lowchan][nick] != host:
                 self.nicks[lowchan][nick] = host
             else:
                 user = nick
-            host = self.nicks[channel][nick]
+            host = self.nicks[lowchan][nick]
             self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        self.logger[channel].log(message, filtered)
+        self.logger[lowchan].log(message, filtered)
         if user:
             return nick, user
 
@@ -101,10 +101,10 @@ class IRCBot(NamesIRCClient):
             self.join(channel)
 
     def joined(self, channel):
-        loggirc("Joined.", channel)
         NamesIRCClient.joined(self, channel)
         lowchan = channel.lower()
         self.logger[lowchan] = FileLogger(lowchan)
+        loggirc("Joined.", channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         if lowchan == "#gazouilleur":
             return
