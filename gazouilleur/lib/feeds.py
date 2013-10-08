@@ -52,7 +52,7 @@ class FeederProtocol():
                 error_message = ""
         if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
-        if not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR: network difficulties" in trace_str):
+        if not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR: network difficulties" in trace_str or '111] Connection refused' in trace):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
                 print traceback
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, error_message))), self.fact.channel, admins=True)

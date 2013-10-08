@@ -229,7 +229,7 @@ class Microblog():
             else:
                 todo.append(name)
         users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
-        if "Forbidden" in users or "404" in users:
+        if "Forbidden" in users or "404" in users or not isinstance(users, list):
             return good, cache_users
         list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
