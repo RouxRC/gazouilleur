@@ -625,7 +625,7 @@ class IRCBot(NamesIRCClient):
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm... Didn't you mean !%s instead?" % ("answer" if len(text) > 30 else "rt"))
+            return("Mmmm... Didn't you mean %s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text))
