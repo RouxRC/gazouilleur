@@ -156,6 +156,7 @@ class IRCBot(NamesIRCClient):
             threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
 
     def left(self, channel):
+        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         lowchan = channel.lower()
         if lowchan in self.feeders:
             for f in self.feeders[lowchan].keys():
@@ -163,7 +164,6 @@ class IRCBot(NamesIRCClient):
         if lowchan in self.logger:
             self.logger[lowchan].close()
         loggirc2("Left.", channel)
-        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
 
   # ----------------------------------
   # Identification when nickname used
