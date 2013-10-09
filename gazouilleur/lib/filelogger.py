@@ -5,7 +5,7 @@ import os
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from gazouilleur.config import BOTNAME
-from gazouilleur.lib.log import logg
+from gazouilleur.lib.log import logg, loggerr
 
 class FileLogger:
 
@@ -21,15 +21,18 @@ class FileLogger:
             self.loggers[name] = getLogger("%s%s" % (channel, suffix))
             self.loggers[name].addHandler(RotatingFileHandler(f, backupCount=1000, encoding="utf-8"))
             self.loggers[name].handlers[0].setFormatter(Formatter('%(asctime)s %(message)s', "%Y-%m-%d %H:%M:%S"))
+            channel = channel if channel != "private" else None
             if os.path.isfile(f) and os.path.getsize(f) > 1024*1024:
-                logg("Rolling log file %s" % f, color="yellow", action="LOGS", channel=(channel if channel != "private" else None))
-                self.loggers[name].handlers[0].doRollover()
+                logg("Rolling log file %s" % f, color="yellow", action="LOGS", channel=channel)
+                try:
+                    self.loggers[name].handlers[0].doRollover()
+                except Exception as e:
+                    loggerr("Rolling file %s crashed: %s\n%s" % (f, self.loggers[name].handlers, e), action="LOGS", channel=channel)
 
     def log(self, message, filtered=False):
-        if filtered:
-            self.loggers['filtered'].warn(message)
-        else:
-            self.loggers['normal'].warn(message)
+        i = 'filtered' if filtered else 'normal'
+        self.loggers[i].warn(message)
+        self.loggers[i].handlers[0].flush()
 
     def close(self):
         for i in self.loggers:
