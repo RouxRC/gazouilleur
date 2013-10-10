@@ -988,7 +988,7 @@ class IRCBot(NamesIRCClient):
         task = cleanblanks(task)
         task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
         if task.startswith(config.COMMAND_CHARACTER):
-            message = task.encode('utf-8')
+            message = task.decode('utf-8')
             command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
             if func is None:
