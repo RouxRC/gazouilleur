@@ -977,17 +977,18 @@ class IRCBot(NamesIRCClient):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
         when, task = self._extract_digit(rest)
+        task = task.decode('utf-8')
         when = max(0, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
         try:
             task, channel = self._get_chan_from_command(task, channel)
         except Exception as e:
-           return str(e)
+            return str(e)
         target = nick if channel == self.nickname else channel
         rank = len(self.tasks)
-        task = task.decode('utf-8')
         task = cleanblanks(task)
         task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
+        task = task.encode('utf-8')
         if task.startswith(config.COMMAND_CHARACTER):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
@@ -1002,7 +1003,6 @@ class IRCBot(NamesIRCClient):
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
-        task = task.encode('utf-8')
         loggvar("Task #%s planned at %s by %s: %s" % (rank, then, nick, task), channel, "tasks")
         self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
