@@ -157,7 +157,7 @@ class FeederProtocol():
                 continue
             links.append(link)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
-            _id = md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
+            _id = md5(("%s:%s:%s" % (self.fact.channel, link, title.lower())).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
         existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])]
