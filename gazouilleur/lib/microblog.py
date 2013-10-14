@@ -95,7 +95,6 @@ class Microblog():
             dms = True
             if self.post:
                 trydms = self.get_dms()
-                print type(trydms)
                 dms = isinstance(trydms, list) or (isinstance(trydms, str) and "ERROR 429" in trydms)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
