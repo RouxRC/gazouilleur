@@ -79,17 +79,9 @@ class Microblog():
             return "[%s] Huge success!" % self.site
         except Exception as e:
             exc_str = str(e).lower()
-            pos = exc_str.find('status 4') + 7
-            if pos != 6:
-                code = int(exc_str[pos:pos+3])
-                if code == 404:
-                    err = "[%s] ERROR: Not Found: %s." % (self.site, code)
-                elif code == 501:
-                    err = "[%s] WARNING: Not responding: %s." % (self.site, code)
-                else:
-                    err = "[%s] WARNING: Forbidden: %s. Check your commands (already done? forbidden?) or take a breather and wait a bit, you may have overpassed Twitter's API 15min limits." % (self.site, code)
-                return err
-            exception = sending_error(e)
+            code, exception = get_error_message(exc_str)
+            if code in [183, 187, 403, 404, 429, 503]:
+                return "[%s] %s" % (self.site, exception)
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
@@ -119,13 +111,12 @@ class Microblog():
                 note.send()
                 return "[identica] Huge success!"
             except Exception as e:
-                if "[Errno 111] Connection refused" in str(e):
+                err_msg = re_clean_identica_error.sub('', str(e))
+                if "[Errno 111] Connection refused" in err_msg or "ECONNREFUSED" in err_msg:
                     err_msg = "https://identi.ca seems down"
-                else:
-                    err_msg = sending_error(e)
                 exception = "[identica] %s" % err_msg
                 if config.DEBUG:
-                    loggerr("%s %s" % (exception, e), action=self.site)
+                    loggerr(e, action=self.site)
                 return exception
         text = text.replace('~', '&#126;')
         args = {'status': text}
@@ -162,7 +153,7 @@ class Microblog():
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
                 new_rts = helper.get_retweets_by_id(tweet['id'])
-                if "Forbidden: " in new_rts:
+                if "ERROR 429" in new_rts:
                     break
                 retweets += new_rts
                 done += 1
@@ -215,7 +206,7 @@ class Microblog():
     def search_users(self, query, count=3):
         query = urllib.quote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
         users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
-        if "Forbidden" in users or "404" in users:
+        if "ERROR 429" in users or "ERROR 404" in users:
             return []
         return [u['screen_name'] for u in users]
 
@@ -228,8 +219,10 @@ class Microblog():
                 good[name] = cache_users[name]
             else:
                 todo.append(name)
+        if not todo:
+            return good, cache_users
         users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
-        if "Forbidden" in users or "404" in users or not isinstance(users, list):
+        if "ERROR 429" in users or "ERROR 404" in users or not isinstance(users, list):
             return good, cache_users
         list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
@@ -281,4 +274,44 @@ def grab_extra_meta(source, result):
         elif 'user' in source and meta in source['user']:
             result[key] = source['user'][meta]
     return result
+
+re_clean_identica_error = re.compile(r" \(POST {.*$")
+
+re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
+def get_error_message(error):
+    if "[Errno 111] Connection refused" in error:
+        return format_error_message(111)
+    res = re_twitter_error.search(error)
+    code = int(res.group(1)) if res else 0
+    try:
+        jsonerr = load_json(res.group(2))["errors"]
+        if isinstance(jsonerr, list):
+            jsonerr = jsonerr[0]
+        elif isinstance(jsonerr, unicode):
+            jsonerr = {"message": jsonerr}
+        message = jsonerr["message"]
+        if "code" in jsonerr and jsonerr["code"] in [183,187]:
+            code = jsonerr["code"]
+        elif code == 403 and "statuses/retweet" in error:
+            code = 187
+    except Exception as e:
+        message = ""
+    if str(code).startswith('5'):
+        code = 503
+    return format_error_message(code, message)
+
+twitter_error_codes = {
+    111: "Network difficulties, connection refused",
+    187: "Already done",
+    404: "Cannot find that tweet",
+    429: "Rate limit exhausted, should be good within the next 15 minutes",
+    503: "Twitter is unavailable at the moment"
+}
+def format_error_message(code, error=""):
+    codestr = " %s" % code if code else ""
+    if code in twitter_error_codes:
+        error = twitter_error_codes[code]
+    if not error:
+        error = "UNDEFINED"
+    return code, "ERROR%s: %s." % (codestr, error.rstrip('.'))
 

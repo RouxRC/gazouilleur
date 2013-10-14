@@ -668,7 +668,7 @@ class IRCBot(NamesIRCClient):
             if countchars(tweet) > 140:
                 tweet = "%s…" % tweet[:139]
             return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
-        return "[identica] Cannot find tweet %s on Twitter." % tweet_id
+        return res.replace("twitter", "identica")
 
     def command_rt(self, tweet_id, channel=None, nick=None):
         """rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
