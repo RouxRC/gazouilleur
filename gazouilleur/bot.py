@@ -600,14 +600,11 @@ class IRCBot(NamesIRCClient):
                 return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, ct)
         if command in ['microblog', 'retweet']:
             kwargs['channel'] = channel
-        if "TWITTER" in conf:
-            conn = Microblog("twitter", conf)
-            if 'text' in kwargs and not force and command != "directmsg":
-                bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
-                if not bl:
-                    return "[%s] %s" % (siteprotocol, msg)
-        if siteprotocol == "identica":
-            conn = Microblog(siteprotocol, conf)
+        conn = Microblog(siteprotocol, conf)
+        if siteprotocol == "twitter" and 'text' in kwargs and not force and command != "directmsg":
+            bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
+            if not bl:
+                return "[%s] %s" % (siteprotocol, msg)
         command = getattr(conn, command, None)
         return command(**kwargs)
 
