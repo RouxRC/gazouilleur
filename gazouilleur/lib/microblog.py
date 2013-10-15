@@ -282,7 +282,7 @@ re_clean_identica_error = re.compile(r" \(POST {.*$")
 
 re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
 def get_error_message(error):
-    if "[Errno 111] Connection refused" in error:
+    if "[errno 111] connection refused" in error:
         return format_error_message(111)
     res = re_twitter_error.search(error)
     code = int(res.group(1)) if res else 0

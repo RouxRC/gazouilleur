@@ -297,6 +297,8 @@ class FeederProtocol():
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
             return None
+        if isinstance(listtweets, list):
+            return None
         if query:
             if not isinstance(listtweets, dict):
                 return None
