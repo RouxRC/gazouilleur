@@ -292,7 +292,7 @@ def get_error_message(error):
             jsonerr = jsonerr[0]
         elif isinstance(jsonerr, unicode):
             jsonerr = {"message": jsonerr}
-        message = jsonerr["message"]
+        message = jsonerr["message"][0].upper() + jsonerr["message"][1:] if jsonerr["message"] else ""
         if "code" in jsonerr and jsonerr["code"] in [183,187]:
             code = jsonerr["code"]
         elif code == 403 and "statuses/retweet" in error:
@@ -301,6 +301,9 @@ def get_error_message(error):
         message = ""
     if str(code).startswith('5'):
         code = 503
+    elif code == 404 and "direct_messages/new" in error:
+        code = 403
+        message = "No twitter account found with this name"
     return format_error_message(code, message)
 
 twitter_error_codes = {
