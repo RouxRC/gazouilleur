@@ -59,7 +59,7 @@ Add --nologs option do disable log display after start.
 Add the following line via `crontab -e` where $GAZOUILLEUR_PATH is Gazouilleur's install path:
 
  ```bash
- @reboot     $GAZOUILLEUR_PATH/bin/gazouilleur start --nologs
+ @reboot     $GAZOUILLEUR_PATH/bin/gazouilleur start --quiet
  ```
 
 
