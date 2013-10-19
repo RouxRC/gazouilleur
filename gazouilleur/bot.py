@@ -114,15 +114,14 @@ class IRCBot(NamesIRCClient):
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-        # Get OAuth2 tokens for twitter search
+        # Get OAuth2 tokens for twitter search extra limitrate
             try:
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
                 loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
-        # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's API App only extra limitrate
             except Exception as e:
                 oauth2_token = None
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
-        # Follow Searched Tweets matching queries set for this channel with !follow via more rate limited Twitter's regular API
+        # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
             self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
