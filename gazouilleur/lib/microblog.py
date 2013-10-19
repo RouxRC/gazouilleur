@@ -5,6 +5,8 @@ import urllib
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
@@ -282,10 +284,13 @@ re_clean_identica_error = re.compile(r" \(POST {.*$")
 
 re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
 def get_error_message(error):
-    if "[errno 111] connection refused" in error:
+    if "[errno 111] connection refused" in error or " operation timed out" in error or "reset by peer" in error:
         return format_error_message(111)
     res = re_twitter_error.search(error)
     code = int(res.group(1)) if res else 0
+    if str(code).startswith('5'):
+        return format_error_message(503)
+    message = ""
     try:
         jsonerr = load_json(res.group(2))["errors"]
         if isinstance(jsonerr, list):
@@ -298,16 +303,15 @@ def get_error_message(error):
         elif code == 403 and "statuses/retweet" in error:
             code = 187
     except Exception as e:
-        message = ""
-    if str(code).startswith('5'):
-        code = 503
-    elif code == 404 and "direct_messages/new" in error:
+        if config.DEBUG:
+            loggerr("%s: %s" % (code, error))
+    if code == 404 and "direct_messages/new" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
 
 twitter_error_codes = {
-    111: "Network difficulties, connection refused",
+    111: "Network difficulties, connection refused or timed-out",
     187: "Already done",
     404: "Cannot find that tweet",
     429: "Rate limit exhausted, should be good within the next 15 minutes",

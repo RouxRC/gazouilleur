@@ -10,6 +10,9 @@ from hashlib import md5
 from datetime import datetime, timedelta
 from urllib import unquote
 from feedparser import parse as parse_feed
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser', message="To avoid breaking existing software while fixing issue 310")
+filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
@@ -49,13 +52,13 @@ class FeederProtocol():
             try:
                 error_message = getattr(traceback, 'message')
             except:
-                error_message = ""
+                error_message = trace_str
         if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
-        if not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
+        if trace_str and not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
-                print traceback
-            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, error_message))), self.fact.channel, admins=True)
+                self.log(trace_str, self.fact.database, error=True)
+            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s: %s" % (msg, details, error_message))), self.fact.channel, admins=True)
         if ('403 Forbidden' in trace_str or '111: Connection refused' in trace_str) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
