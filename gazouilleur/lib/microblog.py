@@ -5,6 +5,8 @@ import urllib
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config

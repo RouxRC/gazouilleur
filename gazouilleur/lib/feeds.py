@@ -10,6 +10,9 @@ from hashlib import md5
 from datetime import datetime, timedelta
 from urllib import unquote
 from feedparser import parse as parse_feed
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser', message="To avoid breaking existing software while fixing issue 310")
+filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
