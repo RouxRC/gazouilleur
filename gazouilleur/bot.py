@@ -40,6 +40,8 @@ class IRCBot(NamesIRCClient):
         self.filters = {}
         self.silent = {}
         self.lastqueries = {}
+        self.twitter = {}
+        self.set_twitter_url_length()
         self.twitter_users = {}
         self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
@@ -54,6 +56,19 @@ class IRCBot(NamesIRCClient):
         self.db['tweets'].ensure_index([('uniq_rt_hash', pymongo.ASCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('source', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+
+    def set_twitter_url_length(self):
+        for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
+            try:
+                self.twitter["url_length"] = Microblog("twitter", config.CHANNELS[c]).get_twitter_url_size()
+                break
+            except:
+                pass
+        if "url_length" not in self.twitter:
+            loggerr("Could not get Twitter's configuration, setting shortened urls length to default value.", action="twitter")
+            self.twitter["url_length"] = 23
+        loggvar("Set Twitter shortened urls length to for %scount to %s characters." % (config.COMMAND_CHARACTER, self.twitter["url_length"]), action="twitter")
+
 
     # Double logger (mongo / files)
     def log(self, message, user=None, channel=config.BOTNAME, filtered=False):
@@ -557,7 +572,7 @@ class IRCBot(NamesIRCClient):
 
     def command_count(self, rest, *args):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
-        return "%d characters (max 140)" % countchars(rest)
+        return "%d characters (max 140)" % countchars(rest, self.twitter["url_length"])
 
     def command_lastcount(self, rest, channel=None, nick=None):
         """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
@@ -590,7 +605,7 @@ class IRCBot(NamesIRCClient):
             kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
             try:
-                ct = countchars(kwargs['text'])
+                ct = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 ct = 100
             if ct < 30 and not nolimit:
@@ -664,7 +679,7 @@ class IRCBot(NamesIRCClient):
         res = conn.show_status(tweet_id)
         if res and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
-            if countchars(tweet) > 140:
+            if countchars(tweet, self.twitter["url_length"]) > 140:
                 tweet = "%s…" % tweet[:139]
             return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
         return res.replace("twitter", "identica")
@@ -993,7 +1008,7 @@ class IRCBot(NamesIRCClient):
             if not self._can_user_do(nick, channel, func):
                 return "I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command)
             if self.re_clean_twitter_task.match(task):
-                count = countchars(task)
+                count = countchars(task, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
                     return("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)

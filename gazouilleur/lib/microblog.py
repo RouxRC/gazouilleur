@@ -106,6 +106,10 @@ class Microblog():
                 loggerr("Ping failed: %s" % e, action=self.site)
             return False
 
+    def get_twitter_url_size(self):
+        res = self._send_query(self.conn.help.configuration, return_result=True)
+        return res.get('short_url_length_https', res.get('short_url_length') + 1)
+
     def microblog(self, text="", tweet_id=None, channel=None):
         if text.startswith("%scount" % config.COMMAND_CHARACTER):
             text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
