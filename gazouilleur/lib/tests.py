@@ -62,7 +62,7 @@ except KeyError as e:
 try:
     from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, stats, utils
 except Exception as e:
-    logerr("Oups, looks like something is wrong somewhere in the code, shoudln't be committed...")
+    logerr("Oups, looks like something is wrong somewhere in the code, shouldn't be committed...")
     _, _, exc_traceback = sys.exc_info()
     logerr("%s\n%s" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
     exit(1)
