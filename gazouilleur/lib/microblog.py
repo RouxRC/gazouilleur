@@ -282,10 +282,13 @@ re_clean_identica_error = re.compile(r" \(POST {.*$")
 
 re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
 def get_error_message(error):
-    if "[Errno 111] Connection refused" in error:
+    if "[Errno 111] Connection refused" in error or " operation timed out" in error:
         return format_error_message(111)
     res = re_twitter_error.search(error)
     code = int(res.group(1)) if res else 0
+    if str(code).startswith('5'):
+        return format_error_message(503)
+    message = ""
     try:
         jsonerr = load_json(res.group(2))["errors"]
         if isinstance(jsonerr, list):
@@ -298,13 +301,12 @@ def get_error_message(error):
         elif code == 403 and "statuses/retweet" in error:
             code = 187
     except Exception as e:
-        message = ""
-    if str(code).startswith('5'):
-        code = 503
+        if config.DEBUG:
+            loggerr("%s: %s" % (code, error))
     return format_error_message(code, message)
 
 twitter_error_codes = {
-    111: "Network difficulties, connection refused",
+    111: "Network difficulties, connection refused or timed-out",
     187: "Already done",
     404: "Cannot find that tweet",
     429: "Rate limit exhausted, should be good within the next 15 minutes",
