@@ -300,8 +300,6 @@ class FeederProtocol():
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
             return None
-        if isinstance(listtweets, list):
-            return None
         if query:
             if not isinstance(listtweets, dict):
                 return None
@@ -310,6 +308,8 @@ class FeederProtocol():
                 nexturl = self.re_max_id.sub(r'\1', listtweets['search_metadata']['next_results'])
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
+        elif not isinstance(listtweets, list):
+            return None
         feed = []
         for tweet in listtweets:
             if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
