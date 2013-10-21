@@ -48,6 +48,7 @@ class IRCBot(NamesIRCClient):
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db['tasks'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.ASCENDING)], background=True)
         self.db['feeds'].ensure_index([('channel', pymongo.ASCENDING), ('database', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['filters'].ensure_index([('channel', pymongo.ASCENDING), ('keyword', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
         self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('id', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
@@ -114,6 +115,7 @@ class IRCBot(NamesIRCClient):
         loggirc("Signed on as %s." % self.nickname)
         for channel in self.factory.channels:
             self.join(channel)
+        self._refresh_tasks_from_db()
 
     def joined(self, channel):
         NamesIRCClient.joined(self, channel)
@@ -1018,8 +1020,29 @@ class IRCBot(NamesIRCClient):
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
         loggvar("Task #%s planned at %s by %s: %s" % (rank, then, nick, task), channel, "tasks")
-        self.tasks.append({'rank': rank, 'channel': channel, 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'id': taskid})
+        task_obj = {'rank': rank, 'channel': channel.lower(), 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'target': target}
+        self.db['tasks'].insert(task_obj)
+        task_obj['id'] = taskid
+        self.tasks.append(task_obj)
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
+
+    def _refresh_tasks_from_db(self):
+        now = time.time()
+        tasks = list(self.db['tasks'].find({'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, sort=[('scheduled_ts', pymongo.ASCENDING)]))
+        for task in tasks:
+            for x in filter(lambda x: isinstance(task[x], unicode), task):
+                task[x] = task[x].encode('utf-8')
+            task['rank'] = len(self.tasks)
+            when = max(11, task['scheduled_ts'] + 60 - now)
+            then = shortdate(datetime.fromtimestamp(now + when))
+            reactor.callLater(10, self._send_message, "Task #%s from %s rescheduled after restart at %s : %s" % (task['rank'], task['author'], then, task['command']), task['channel'])
+            if task['command'].startswith(config.COMMAND_CHARACTER):
+                taskid = reactor.callLater(when, self.privmsg, task['author'], task['channel'], task['command'], tasks=task['rank'])
+            else:
+                taskid = reactor.callLater(when, self._send_message, task['command'], task['target'])
+            task['id'] = taskid
+            self.tasks.append(task)
+            loggvar("Task #%s from %s re-planned at %s: %s" % (task['rank'], task['author'], then, task['command']), task['channel'], "tasks")
 
     def command_tasks(self, rest, channel=None, *args):
         """tasks [--chan <channel>] : Prints the list of coming tasks scheduled for current channel or optional <channel>./AUTH"""
@@ -1028,7 +1051,7 @@ class IRCBot(NamesIRCClient):
         except Exception as e:
            return str(e)
         now = time.time()
-        res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel and task['scheduled_ts'] > now and 'canceled' not in task])
+        res = "\n".join(["#%s [%s]: %s" % (task['rank'], task['scheduled'], task['command']) for task in self.tasks if task['channel'] == channel.lower() and task['scheduled_ts'] > now and 'canceled' not in task])
         if res == "":
             return "No task scheduled."
         return res
@@ -1042,7 +1065,7 @@ class IRCBot(NamesIRCClient):
         task_id = safeint(rest.lstrip('#'))
         try:
             task = self.tasks[task_id]
-            if task['channel'] != channel:
+            if task['channel'] != channel.lower():
                 return "Task #%s is not scheduled for this channel." % task_id
             task['id'].cancel()
             self.tasks[task_id]['canceled'] = True
