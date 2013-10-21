@@ -555,13 +555,12 @@ class IRCBot(NamesIRCClient):
         if user == '':
             return "Please ask for a specific nickname."
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
-        query = {'user': user.lower(), 'message': re_user}
-        if channel != self.nickname:
-            query['channel'] = channel
+        channel = self.getMasterChan(channel)
+        query = {'user': user.lower(), 'message': re_user, 'channel': channel}
         res = list(self.db['logs'].find(query, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         if res:
             res.reverse()
-            return " —— ".join(["%s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1]) for m in res])
+            return " —— " .join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res])
         return self.command_lastfrom(user, channel, nick)
 
 
