@@ -440,7 +440,7 @@ class IRCBot(NamesIRCClient):
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
+        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
         nb = 0
         def_nb = 1
@@ -471,6 +471,8 @@ class IRCBot(NamesIRCClient):
                 current = ""
             elif current == "c":
                 chan = '#'+arg.lower().lstrip('#')
+                if 'channel' not in query:
+                    return "Either use --allchans or --chan <channel> but both is just stupid :p"
                 if chan.lower() in self.factory.channels:
                     query['channel'] = re.compile(r'^%s$' % chan, re.I)
                 else:
@@ -483,6 +485,8 @@ class IRCBot(NamesIRCClient):
                 query['$and'].remove({'filtered': {'$ne': True}})
                 if arg == "--filtered":
                     query['$and'].append({'filtered': True})
+            elif arg == "--allchans":
+                del query['channel']
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
         if not nb:
