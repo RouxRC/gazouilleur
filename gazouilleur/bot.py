@@ -566,7 +566,7 @@ class IRCBot(NamesIRCClient):
         res = list(self.db['logs'].find(query, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
         if res:
             res.reverse()
-            return " —— " .join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res])
+            return " —— ".join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res])
         return self.command_lastfrom(user, channel, nick)
 
 
