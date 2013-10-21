@@ -67,7 +67,7 @@ def _shorten_url(text, twitter_url_length):
     for res in URL_REGEX.findall(text):
         if ACCENTS_URL.match(res[2]) or "@" in res[2] and not res[2].startswith('http'):
             continue
-        text = text.replace(res[0], '%shttps___t_co_%s%s' % (res[1], tco_extra, res[4]))
+        text = text.replace(res[0], '%shttp%s___t_co_%s%s' % (res[1], res[3], tco_extra, res[4]))
     return text
 
 re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt|answ)er(only|last)?)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER), re.I)
