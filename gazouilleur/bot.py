@@ -1029,7 +1029,7 @@ class IRCBot(NamesIRCClient):
     def _refresh_tasks_from_db(self):
         now = time.time()
         tasks = list(self.db['tasks'].find({'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, sort=[('scheduled_ts', pymongo.ASCENDING)]))
-        for task in tasks:
+        for task in filter(lambda x: "canceled" not in x, tasks):
             for x in filter(lambda x: isinstance(task[x], unicode), task):
                 task[x] = task[x].encode('utf-8')
             task['rank'] = len(self.tasks)
@@ -1068,6 +1068,7 @@ class IRCBot(NamesIRCClient):
             if task['channel'] != channel.lower():
                 return "Task #%s is not scheduled for this channel." % task_id
             task['id'].cancel()
+            self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
             self.tasks[task_id]['canceled'] = True
             return "#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command'])
         except:
