@@ -12,12 +12,16 @@ def colr(text, color, bold=True):
         return colorize(text, color, style='bold' if bold else '')
     return text
 
-def _logg(text, color=None, channel=None, action=None, error=False):
+def _logg(text, color=None, channel=None, action=None, error=False, debug=True):
     if color:
         text = colr(text, color)
     elif error:
         text = colr("ERROR %s" % text, 'red')
     tmp = ""
+    if debug:
+        tmp += colr("DEBUG", 'magenta')
+        if channel or action:
+            tmp += ":"
     if channel:
         tmp += colr(channel, 'blue')
     if channel and action:
@@ -28,8 +32,8 @@ def _logg(text, color=None, channel=None, action=None, error=False):
         text = "[%s] %s" % (tmp, text)
     return text
 
-def logg(text, color=None, channel=None, action=None, error=False):
-    return log.msg(_logg(text, color, channel, action, error))
+def logg(text, color=None, channel=None, action=None, error=False, debug=False):
+    return log.msg(_logg(text, color, channel, action, error, debug))
 
 def loggirc(text, chan=None):
     if chan:
@@ -48,3 +52,5 @@ def loggvar(text, chan=None, action=None):
 def logerr(text):
     return sys.stderr.write(_logg("%s\n" % text, error=True))
 
+def debug(text, chan=None, action=None):
+    return logg(text, color="green", action=action, channel=chan, debug=True)
