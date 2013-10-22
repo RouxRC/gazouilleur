@@ -117,7 +117,7 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
                 if "403" in str(e) or "Error 30" in str(e):
                     urls[url0] = url00
                 url1 = url00
-        if not last and url1 != url00:
+        if not last and url1 != url00 and not re_shorteners.search(url1):
             url1 = url1.replace('http', '##HTTP##')
         try:
             url1 = url1.decode('utf-8')
@@ -129,10 +129,12 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, urls))
 
+shorteners = ['t.co', 'bit.ly', 'goog.gl', 'fb.me', 'ow.ly', 'is.gd', 'po.st', 'ulu.ly', 'lnk.co', 'bc.vc', 'q.gs', 'lemde.fr', 'u.bb', 'x.co', 'u.to', 'j.mp', 'tinyurl.com', 'adf.ly', 'go2.do', 'dlvr.it', 'youtu.be', 'rfi.my', 'ulu.ly', 'path.com', 'ask.fm', 'vine.co', 'dailym.ai', 'eonli.ne', 'itun.es', 'ift.tt', 'trap.it', 'wp.me', 'cmplx.it', 'disq.us', 'ln.is', 'gaw.kr']
+re_shorteners = re.compile(r'(%s)/' % '|'.join([s.replace('.', '\.') for s in shorteners]), re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, urls, pool=None):
     text, urls = yield _clean_redir_urls(text, urls, pool=pool)
-    if "t.co/" in text:
+    if re_shorteners.search(text):
         text, urls = yield _clean_redir_urls(text, urls, pool=pool)
     text, urls = yield _clean_redir_urls(text, urls, True, pool=pool)
     defer.returnValue((text, urls))

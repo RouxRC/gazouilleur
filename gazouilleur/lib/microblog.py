@@ -146,10 +146,10 @@ class Microblog():
         return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1}, return_result=True)
 
     def get_mentions(self, **kwargs):
-        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_entities': 'false', 'include_rts': 1}, return_result=True)
+        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1}, return_result=True)
 
     def get_retweets(self, retweets_processed={}, bearer_token=None, **kwargs):
-        tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
+        tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_user_entities': 'false'}, return_result=True)
         done = 0
         retweets = []
         check_twitter_results(tweets)
@@ -195,7 +195,7 @@ class Microblog():
         return res, last, timestamp
 
     def search(self, query, count=15, max_id=None):
-        args = {'q': query, 'count': count, 'include_entities': 'false', 'result_type': 'recent'}
+        args = {'q': query, 'count': count, 'result_type': 'recent'}
         if max_id:
             args['max_id'] = max_id
         return self._send_query(self.conn.search.tweets, args, return_result=True)

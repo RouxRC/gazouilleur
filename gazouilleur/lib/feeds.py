@@ -312,6 +312,10 @@ class FeederProtocol():
             return None
         feed = []
         for tweet in listtweets:
+            if 'entities' in tweet and 'urls' in tweet['entities']:
+                for entity in tweet['entities']['urls']:
+                    if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
+                        self.fact.cache_urls[entity['url']] = entity['expanded_url'].encode('utf-8')
             if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
                 text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
             else:
