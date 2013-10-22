@@ -129,7 +129,7 @@ def _clean_redir_urls(text, cache_urls, pool, last=False):
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, cache_urls))
 
-re_shorteners = re.compile(r'://[a-z0-9\-]{1,6}\.[a-z]{2,3}/', re.I)
+re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls, pool):
     text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool)
