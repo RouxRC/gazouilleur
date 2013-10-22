@@ -34,7 +34,7 @@ def _context(channel=None, action=None, debug=True):
     return tmp
 
 def logg(text, color=None, channel=None, action=None, error=False, debug=False):
-    return log.msg(_logg(text, color, error), system=_context(channel, action, debug), timeFormat="%Y-%m-%d %H:%M")
+    return log.msg(_logg(text, color, error), system=_context(channel, action, debug))
 
 def loggirc(text, chan=None):
     if chan:
