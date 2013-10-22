@@ -1173,6 +1173,8 @@ if __name__ == '__main__':
 # ... or in the background when called with 'twistd -y gazouilleur/bot.py'
 elif __name__ == '__builtin__':
     application = service.Application('Gazouilleur IRC Bot')
-    application.setComponent(log.ILogObserver, log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a')).emit)
+    filelog = log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a'))
+    filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
+    application.setComponent(log.ILogObserver, filelog.emit)
     ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
