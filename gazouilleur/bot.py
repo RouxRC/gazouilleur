@@ -68,7 +68,7 @@ class IRCBot(NamesIRCClient):
         if "url_length" not in self.twitter:
             loggerr("Could not get Twitter's configuration, setting shortened urls length to default value.", action="twitter")
             self.twitter["url_length"] = 23
-        loggvar("Set Twitter shortened urls length to for %scount to %s characters." % (config.COMMAND_CHARACTER, self.twitter["url_length"]), action="twitter")
+        loggvar("Set Twitter http/https shortened urls length to for %scount to %s/%s characters." % (config.COMMAND_CHARACTER, (self.twitter["url_length"]-1, self.twitter["url_length"])), action="twitter")
 
 
     # Double logger (mongo / files)
