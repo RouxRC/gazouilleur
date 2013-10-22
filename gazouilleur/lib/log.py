@@ -25,12 +25,12 @@ def _context(channel=None, action=None, debug=True):
         tmp += colr("DEBUG", 'magenta')
         if channel or action:
             tmp += ":"
-    if channel:
-        tmp += colr(channel, 'blue')
-    if channel and action:
-        tmp += "/"
     if action:
         tmp += colr(action, 'green')
+    if channel and action:
+        tmp += "/"
+    if channel:
+        tmp += colr(channel, 'blue')
     return tmp
 
 def logg(text, color=None, channel=None, action=None, error=False, debug=False):

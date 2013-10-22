@@ -113,7 +113,7 @@ def _clean_redir_urls(text, cache_urls, pool, last=False):
                 cache_urls[url1] = url1
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
-                    loggerr("trying to resolve %s : %s" % (url0, e))
+                    loggerr("trying to resolve %s : %s" % (url0, e), action="utils")
                 if "403" in str(e) or "Error 30" in str(e):
                     cache_urls[url0] = url00
                 url1 = url00
@@ -124,7 +124,7 @@ def _clean_redir_urls(text, cache_urls, pool, last=False):
             text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[4]))
         except:
             if config.DEBUG:
-                logerr("encoding %s" % url1)
+                logerr("encoding %s" % url1, action="utils")
     if last:
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, cache_urls))

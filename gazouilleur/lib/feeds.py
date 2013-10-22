@@ -578,7 +578,7 @@ class FeederFactory(protocol.ClientFactory):
 
     def start(self):
         if config.DEBUG:
-            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), hint=True)
+            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), self.database, hint=True)
         args = {}
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
