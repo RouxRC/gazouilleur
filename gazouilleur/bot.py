@@ -25,6 +25,16 @@ reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
 class IRCBot(NamesIRCClient):
 
+    sourceURL = 'https://github.com/RouxRC/gazouilleur'
+    nicks = {}
+    tasks = []
+    feeders = {}
+    cache_urls = {}
+    filters = {}
+    silent = {}
+    lastqueries = {}
+    twitter = {}
+    twitter_users = {}
     lineRate = 0.75
 
     def __init__(self):
@@ -34,16 +44,7 @@ class IRCBot(NamesIRCClient):
         self.username = config.BOTNAME
         self.password = config.BOTPASS
         self.breathe = datetime.today()
-        self.nicks = {}
-        self.tasks = []
-        self.feeders = {}
-        self.filters = {}
-        self.silent = {}
-        self.lastqueries = {}
-        self.twitter = {}
         self.set_twitter_url_length()
-        self.twitter_users = {}
-        self.sourceURL = 'https://github.com/RouxRC/gazouilleur'
         self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
         self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)

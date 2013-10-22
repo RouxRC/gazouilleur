@@ -153,7 +153,7 @@ class FeederProtocol():
                 date = datetime.fromtimestamp(time.mktime(date))
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS+6):
                     break
-            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls, pool=self.threadpool)
+            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls, self.threadpool)
             if not link.startswith('http'):
                 link = "%s/%s" % (url[:url.find('/',8)], link.lstrip('/'))
             if link in links:
@@ -208,7 +208,7 @@ class FeederProtocol():
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
-            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls, pool=self.threadpool)
+            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls, self.threadpool)
             tweet = tweet.replace('&#126;', '~')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
@@ -297,25 +297,30 @@ class FeederProtocol():
         return self.process_twitter_feed(listtweets, "tweets")
 
     re_max_id = re.compile(r'^.*max_id=(\d+)(&.*)?$', re.I)
+    @defer.inlineCallbacks
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
-            return None
+            defer.returnValue(None)
         if query:
             if not isinstance(listtweets, dict):
-                return None
+                defer.returnValue(None)
             nexturl = ""
             if 'next_results' in listtweets['search_metadata']:
                 nexturl = self.re_max_id.sub(r'\1', listtweets['search_metadata']['next_results'])
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
         elif not isinstance(listtweets, list):
-            return None
+            defer.returnValue(None)
         feed = []
         for tweet in listtweets:
             if 'entities' in tweet and 'urls' in tweet['entities']:
                 for entity in tweet['entities']['urls']:
+                  try:
                     if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
-                        self.fact.cache_urls[entity['url']] = entity['expanded_url'].encode('utf-8')
+                        self.fact.cache_urls[entity['url']] = clean_url(entity['expanded_url'].encode('utf-8'))
+                        _, self.fact.cache_urls = yield clean_redir_urls(self.fact.cache_urls[entity['url']].decode('utf-8'), self.fact.cache_urls, self.threadpool)
+                  except Exception as e:
+                     self.log(e, error=True)
             if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
                 text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
             else:
@@ -325,8 +330,10 @@ class FeederProtocol():
             feed.append(tw)
         if query:
             res['tweets'] = feed
-            return self.process_tweets(res, 'search', query=query, pagecount=pagecount)
-        return self.process_tweets(feed, 'my%s' % feedtype)
+            processed = yield self.process_tweets(res, 'search', query=query, pagecount=pagecount)
+        else:
+            processed = yield self.process_tweets(feed, 'my%s' % feedtype)
+        defer.returnValue(processed)
 
     @defer.inlineCallbacks
     def process_dms(self, listdms, user):
@@ -346,7 +353,7 @@ class FeederProtocol():
             if tid:
                 ids.append(tid)
                 sender = i.get('sender_screen_name', '')
-                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls, pool=self.threadpool)
+                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls, self.threadpool)
                 dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
         existing = [t['_id'] for t in self.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         news = [t for t in dms if t['_id'] not in existing]
@@ -524,6 +531,8 @@ class FeederFactory(protocol.ClientFactory):
 
     def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
+        self.cache = {}
+        self.cache_urls = ircclient.cache_urls
         self.channel = channel
         self.database = database
 
@@ -543,8 +552,6 @@ class FeederFactory(protocol.ClientFactory):
         self.cache_dir = os.path.join('cache', channel)
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
-        self.cache = {}
-        self.cache_urls = {}
         self.runner = None
         self.status = "init"
         if not config.DEBUG:

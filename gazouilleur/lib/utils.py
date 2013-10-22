@@ -91,7 +91,7 @@ def get_url(url, timeout=12):
     return urlopen(url, timeout=timeout).geturl()
 
 @defer.inlineCallbacks
-def _clean_redir_urls(text, urls={}, last=False, pool=None):
+def _clean_redir_urls(text, cache_urls, pool, last=False):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
@@ -101,21 +101,21 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
             url0 = "http://%s" % url00
         if url0.startswith('http://t.co/') and url0[-1] in [".", ',', ':', '"', "'"]:
             url0 = url0[:-1]
-        if url0 in urls:
-            url1 = urls[url0]
+        if url0 in cache_urls:
+            url1 = cache_urls[url0]
             if url1 == url0:
                 continue
         else:
             try:
                 url1 = yield deferToThreadPool(reactor, pool, get_url, url0, timeout=8)
                 url1 = clean_url(url1)
-                urls[url0] = url1
-                urls[url1] = url1
+                cache_urls[url0] = url1
+                cache_urls[url1] = url1
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
                     loggerr("trying to resolve %s : %s" % (url0, e))
                 if "403" in str(e) or "Error 30" in str(e):
-                    urls[url0] = url00
+                    cache_urls[url0] = url00
                 url1 = url00
         if not last and url1 != url00 and not re_shorteners.search(url1):
             url1 = url1.replace('http', '##HTTP##')
@@ -127,16 +127,16 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
                 logerr("encoding %s" % url1)
     if last:
         text = text.replace('##HTTP##', 'http')
-    defer.returnValue((text, urls))
+    defer.returnValue((text, cache_urls))
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,6}\.[a-z]{2,3}/', re.I)
 @defer.inlineCallbacks
-def clean_redir_urls(text, urls, pool=None):
-    text, urls = yield _clean_redir_urls(text, urls, pool=pool)
+def clean_redir_urls(text, cache_urls, pool):
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool)
     if re_shorteners.search(text):
-        text, urls = yield _clean_redir_urls(text, urls, pool=pool)
-    text, urls = yield _clean_redir_urls(text, urls, True, pool=pool)
-    defer.returnValue((text, urls))
+        text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool)
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool, True)
+    defer.returnValue((text, cache_urls))
 
 def get_hash(url):
     hash = hashlib.md5(url)
