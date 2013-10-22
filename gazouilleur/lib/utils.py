@@ -129,8 +129,7 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, urls))
 
-shorteners = ['t.co', 'bit.ly', 'goog.gl', 'fb.me', 'ow.ly', 'is.gd', 'po.st', 'ulu.ly', 'lnk.co', 'bc.vc', 'q.gs', 'lemde.fr', 'u.bb', 'x.co', 'u.to', 'j.mp', 'tinyurl.com', 'adf.ly', 'go2.do', 'dlvr.it', 'youtu.be', 'rfi.my', 'ulu.ly', 'path.com', 'ask.fm', 'vine.co', 'dailym.ai', 'eonli.ne', 'itun.es', 'ift.tt', 'trap.it', 'wp.me', 'cmplx.it', 'disq.us', 'ln.is', 'gaw.kr']
-re_shorteners = re.compile(r'(%s)/' % '|'.join([s.replace('.', '\.') for s in shorteners]), re.I)
+re_shorteners = re.compile(r'://[a-z0-9\-]{1,6}\.[a-z]{2,3}/', re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, urls, pool=None):
     text, urls = yield _clean_redir_urls(text, urls, pool=pool)
