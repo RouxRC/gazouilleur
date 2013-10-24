@@ -34,7 +34,6 @@ class IRCBot(NamesIRCClient):
     silent = {}
     lastqueries = {}
     twitter = {}
-    twitter_users = {}
     lineRate = 0.75
 
     def __init__(self):
@@ -622,7 +621,7 @@ class IRCBot(NamesIRCClient):
             kwargs['channel'] = channel
         conn = Microblog(siteprotocol, conf)
         if siteprotocol == "twitter" and 'text' in kwargs and not force and command != "directmsg":
-            bl, self.twitter_users, msg = conn.test_microblog_users(kwargs['text'], self.twitter_users)
+            bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
             if not bl:
                 return "[%s] %s" % (siteprotocol, msg)
         command = getattr(conn, command, None)
