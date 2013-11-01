@@ -25,7 +25,7 @@
  * **Exclude regexp :** `'(last(from|with|seen)?|.*more)'`
  * **List :**
 
-  + `last [<N>] [--from <nick>] [--with <text>] [--chan <chan>] [--skip <nb>] [--filtered|--nofilter]`
+  + `last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter]`
 
      > Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by &lt;word&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
 
