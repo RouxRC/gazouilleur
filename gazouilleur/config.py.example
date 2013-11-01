@@ -9,6 +9,7 @@
 # Remember to register it with a botpass
 HOST = 'irc.freenode.net'
 PORT = 6667
+SSL = False
 BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
 

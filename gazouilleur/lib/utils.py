@@ -343,3 +343,5 @@ def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
 
 timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
 
+def is_ssl(conf):
+    return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"

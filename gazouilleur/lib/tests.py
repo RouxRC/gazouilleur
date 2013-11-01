@@ -119,7 +119,7 @@ for chan, conf in config.CHANNELS.iteritems():
         exit(1)
 
 # Check IRC server
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, ssl
 from twisted.words.protocols.irc import IRCClient
 
 class IRCBotTest(IRCClient):
@@ -132,4 +132,7 @@ class IRCBotTester(protocol.ClientFactory):
         logerr("Cannot connect to IRC server %s on port %d: %s.\nERROR: Please check your configuration in `gazouilleur/config.py`.\n" % (config.HOST, config.PORT, reason.getErrorMessage()))
         reactor.stop()
 
-d = reactor.connectTCP(config.HOST, config.PORT, IRCBotTester())
+if utils.is_ssl(config):
+    d = reactor.connectSSL(config.HOST, config.PORT, IRCBotTester(), ssl.ClientContextFactory())
+else:
+    d = reactor.connectTCP(config.HOST, config.PORT, IRCBotTester())

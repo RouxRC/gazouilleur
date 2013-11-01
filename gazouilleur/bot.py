@@ -9,7 +9,7 @@ import random, time
 from datetime import datetime
 import lxml.html
 import pymongo
-from twisted.internet import reactor, defer, protocol, threads
+from twisted.internet import reactor, defer, protocol, threads, ssl
 from twisted.web.client import getPage
 from twisted.application import internet, service
 from twisted.python import log
@@ -1166,7 +1166,10 @@ class IRCBotFactory(protocol.ReconnectingClientFactory):
 
 # Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
-    reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
+    if is_ssl(config):
+        reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
+    else:
+        reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
     log.startLogging(sys.stdout)
     reactor.run()
 # ... or in the background when called with 'twistd -y gazouilleur/bot.py'
@@ -1175,5 +1178,8 @@ elif __name__ == '__builtin__':
     filelog = log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a'))
     filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
     application.setComponent(log.ILogObserver, filelog.emit)
-    ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
+    if is_ssl(config):
+        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
+    else:
+        ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
