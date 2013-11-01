@@ -9,7 +9,7 @@
 # Remember to register it with a botpass
 HOST = 'irc.freenode.net'
 PORT = 6667
-SSL = False
+SSL = False         # Set to True for IRC servers accepting SSL mode
 BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
 
