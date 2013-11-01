@@ -33,7 +33,7 @@ class IRCBot(NamesIRCClient):
     filters = {}
     silent = {}
     lastqueries = {}
-    twitter = {}
+    twitter = {"users": {}}
     lineRate = 0.75
 
     def __init__(self):
