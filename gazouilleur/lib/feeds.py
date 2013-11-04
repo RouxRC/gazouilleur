@@ -562,7 +562,7 @@ class FeederFactory(protocol.ClientFactory):
         if hint:
             color= 'yellow'
         if error and not config.DEBUG:
-            hmd5 = md5(msg).hexdigest()
+            hmd5 = md5(str(msg)).hexdigest()
             if hmd5 not in self.errorlogs or self.errorlogs[hmd5]['ts'] < time.time() - 3600*24:
                 self.errorlogs[hmd5] = {'n': 1, 'ts': time.time()}
             else:
