@@ -99,7 +99,7 @@ class IRCBot(NamesIRCClient):
 
     def connectionMade(self):
         loggirc('Connection made')
-        self.logger = {config.BOTNAME: FileLogger()}
+        self.logger = {config.BOTNAME.lower(): FileLogger()}
         self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
         NamesIRCClient.connectionMade(self)
 
@@ -108,7 +108,7 @@ class IRCBot(NamesIRCClient):
             self.left(channel)
         loggirc2('Connection lost because: %s.' % reason)
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
-        self.logger[config.BOTNAME].close()
+        self.logger[config.BOTNAME.lower()].close()
         NamesIRCClient.connectionLost(self, reason)
 
     def signedOn(self):
