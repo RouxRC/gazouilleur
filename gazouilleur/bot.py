@@ -90,7 +90,8 @@ class IRCBot(NamesIRCClient):
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        self.logger[lowchan].log(message, filtered)
+        if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()):
+            self.logger[lowchan].log(message, filtered)
         if user:
             return nick, user
 
