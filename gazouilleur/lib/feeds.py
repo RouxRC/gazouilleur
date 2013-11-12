@@ -305,7 +305,9 @@ class FeederProtocol():
             if not isinstance(listtweets, dict):
                 defer.returnValue(None)
             nexturl = ""
-            if 'next_results' in listtweets['search_metadata']:
+            if 'max_id_str' in listtweets['search_metadata']:
+                nexturl = listtweets['search_metadata']['max_id_str']
+            elif 'next_results' in listtweets['search_metadata']:
                 nexturl = self.re_max_id.sub(r'\1', listtweets['search_metadata']['next_results'])
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
