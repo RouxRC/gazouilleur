@@ -801,7 +801,7 @@ class IRCBot(NamesIRCClient):
         if database == "news":
             query = "%s <%s>" % (name, query)
         if database == "tweets":
-            self._restart_feeds(channel)
+            reactor.callLater(0.5, self._restart_feeds, channel)
         return '"%s" query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
@@ -818,8 +818,8 @@ class IRCBot(NamesIRCClient):
         if not res or not res['n']:
             return "I could not find such query in my database"
         if database == "tweets":
-            self._restart_feeds(channel)
-        return '"%s" query removed from %s database for %s'  % (query, database, channel)
+            reactor.callLater(0.5, self._restart_feeds, channel)
+        return '"%s" query removed from %s database for %s' % (query, database, channel)
 
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word> : Filters the display of tweets or news containing <word>./AUTH"""
