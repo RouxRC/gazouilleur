@@ -780,22 +780,17 @@ class IRCBot(NamesIRCClient):
                 self.feeders[lowchan][feed].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
-    def _parse_follow_command(self, query):
-        if not self.re_url.search(query):
-            database = 'tweets'
-            url = query
-            name = 'TWEETS: %s' % query
-        else:
-            query = remove_ext_quotes(query)
-            database = 'news'
-            url = self.re_url.search(query).group(1)
-            name = self.re_url.sub('', query).strip().lower()
-        return database, url, name
-
     def command_follow(self, query, channel=None, nick=None):
         """follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
-        database, query, name = self._parse_follow_command(query)
+        url = self.re_url.search(query)
+        if url and url.group(1):
+            database = 'news'
+            name = remove_ext_quotes(query.replace(url.group(1), '').strip().lower())
+            query = url.group(1)
+        else:
+            database = 'tweets'
+            name = 'TWEETS: %s' % query
         if query == "":
             return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
         if len(query) > 300:
@@ -813,15 +808,18 @@ class IRCBot(NamesIRCClient):
     def command_unfollow(self, query, channel=None, *args):
         """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
-        query = query.lstrip('«').rstrip('»')
-        database, query, name = self._parse_follow_command(query)
+        query = remove_ext_quotes(query)
         re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
-        res = self.db['feeds'].remove({'channel': channel, '$or': [{'name': re_query}, {'query': re_query}]}, safe=True)
+        database = 'news'
+        res = self.db['feeds'].remove({'channel': channel, 'name': re_query, 'database': database}, safe=True)
+        if not res or not res['n']:
+            database = 'tweets'
+            res = self.db['feeds'].remove({'channel': channel, 'query': re_query, 'database': database}, safe=True)
         if not res or not res['n']:
             return "I could not find such query in my database"
         if database == "tweets":
             self._restart_feeds(channel)
-        return '"%s" query removed from feeds database for %s'  % (query, channel)
+        return '"%s" query removed from %s database for %s'  % (query, database, channel)
 
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word> : Filters the display of tweets or news containing <word>./AUTH"""
