@@ -349,8 +349,11 @@ class IRCBot(NamesIRCClient):
         if msgs is None:
             return
         if not isinstance(msgs, types.ListType):
-            msgs = str(msgs).strip()
-            msgs = [(True, m) for m in msgs.split('\n')]
+            try:
+                msgs = msgs.encode('utf-8')
+            except:
+                msgs = str(msgs)
+            msgs = [(True, m) for m in msgs.strip().split('\n')]
         nb_m = len(msgs)
         if nb_m == 2 and msgs[0][0] == msgs[1][0] and self.re_clean_protocol.match(msgs[0][1]) and self.re_clean_protocol.match(msgs[1][1]) and self.re_clean_protocol.sub('', msgs[0][1]) == self.re_clean_protocol.sub('', msgs[1][1]):
             msgs = [(msgs[0][0], "[identica/twitter] %s" % self.re_clean_protocol.sub('', msgs[0][1]))]
