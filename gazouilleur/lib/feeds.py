@@ -510,7 +510,7 @@ class FeederProtocol():
                     flush = time.time() + 14
         except Exception as e:
             if not str(e).strip():
-                self.log("Stream crashed with %s: %s", (type(e), e))
+                self.log("Stream crashed with %s: %s", (type(e), e), error=True)
             else:
                 self._handle_error(e, "following", "stream")
         self._flush_tweets(tweets, deleted, wait=False)
@@ -565,7 +565,7 @@ class FeederFactory(protocol.ClientFactory):
     def log(self, msg, action="", error=False, hint=False):
         color = None
         if hint:
-            color= 'yellow'
+            color = 'yellow'
         if error and not config.DEBUG:
             hmd5 = md5(str(msg)).hexdigest()
             if hmd5 not in self.errorlogs or self.errorlogs[hmd5]['ts'] < time.time() - 3600*24:
