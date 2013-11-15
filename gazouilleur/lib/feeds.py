@@ -509,7 +509,10 @@ class FeederProtocol():
                     deleted = []
                     flush = time.time() + 14
         except Exception as e:
-            self._handle_error(e, "following", "stream")
+            if not str(e).strip():
+                self.log("Stream crashed with %s: %s", (type(e), e))
+            else:
+                self._handle_error(e, "following", "stream")
         self._flush_tweets(tweets, deleted, wait=False)
         self.log("Feeder closed.", "stream", hint=True)
         return
