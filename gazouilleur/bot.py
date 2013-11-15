@@ -110,6 +110,7 @@ class IRCBot(NamesIRCClient):
         loggirc2('Connection lost because: %s.' % reason)
         self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME.lower()].close()
+        self.feeders = {}
         NamesIRCClient.connectionLost(self, reason)
 
     def signedOn(self):
@@ -201,6 +202,10 @@ class IRCBot(NamesIRCClient):
         loggirc("SERVER NOTICE [%s]: %s" % (user, message), channel)
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
+        elif 'has been regained' in message and 'NickServ' in user and not self.feeders:
+            for chan in self.factory.channels:
+                self.joined(chan)
+
 
   # ------------------------
   # Users connexions logger
