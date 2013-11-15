@@ -140,14 +140,14 @@
      > Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from &lt;@user&gt;.
      > > restricted to /AUTH
 
-  + `filter <word>`
+  + `filter <word|@user>`
 
-     > Filters the display of tweets or news containing &lt;word&gt;.
+     > Filters the display of tweets or news containing <word> or sent by user &lt;@user&gt;.
      > > restricted to /AUTH
 
-  + `unfilter <word>`
+  + `unfilter <word|@user>`
 
-     > Removes a tweets display filter for &lt;word&gt;.
+     > Removes a tweets display filter for <word> or &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `list [--chan <channel>] <tweets|news|filters>`

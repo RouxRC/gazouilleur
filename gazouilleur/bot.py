@@ -822,7 +822,7 @@ class IRCBot(NamesIRCClient):
         return '"%s" query removed from %s database for %s' % (query, database, channel)
 
     def command_filter(self, keyword, channel=None, nick=None):
-        """filter <word> : Filters the display of tweets or news containing <word>./AUTH"""
+        """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         if keyword == "":
@@ -832,7 +832,7 @@ class IRCBot(NamesIRCClient):
         return '"%s" filter added for tweets displays on %s' % (keyword, channel)
 
     def command_unfilter(self, keyword, channel=None, nick=None):
-        """unfilter <word> : Removes a tweets display filter for <word>./AUTH"""
+        """unfilter <word|@user> : Removes a tweets display filter for <word> or <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         res = self.db['filters'].remove({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
