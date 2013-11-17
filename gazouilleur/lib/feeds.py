@@ -440,7 +440,7 @@ class FeederProtocol():
         if config.DEBUG:
             text = unquote(query)
             if max_id:
-                text += " before id %s" % max_id
+                text = "%s before id %s" % (text, max_id.encode('utf-8'))
             self.log("Query Twitter search for %s" % text, "search")
         conn = Microblog('twitter', chanconf(self.fact.channel), bearer_token=self.fact.twitter_token)
         return conn.search(query, max_id=max_id)
