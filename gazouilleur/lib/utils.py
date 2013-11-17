@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import re, urllib, hashlib
-from urllib2 import urlopen
 from datetime import timedelta
 import pymongo, htmlentitydefs
-from twisted.internet import defer, reactor
-from twisted.internet.threads import deferToThreadPool
+from twisted.internet import defer
+from twisted.internet.error import DNSLookupError
+from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
 from gazouilleur.lib.log import loggerr
 
@@ -77,7 +77,7 @@ def countchars(text, twitter_url_length):
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
-def clean_url(url):
+def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
         if i[1] == "?":
@@ -85,13 +85,11 @@ def clean_url(url):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
-    return url
-
-def get_url(url, timeout=12):
-    return urlopen(url, timeout=timeout).geturl()
+    cache_urls[url0] = url
+    return url, cache_urls
 
 @defer.inlineCallbacks
-def _clean_redir_urls(text, cache_urls, pool, last=False):
+def _clean_redir_urls(text, cache_urls, last=False):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
@@ -107,10 +105,11 @@ def _clean_redir_urls(text, cache_urls, pool, last=False):
                 continue
         else:
             try:
-                url1 = yield deferToThreadPool(reactor, pool, get_url, url0, timeout=8)
-                url1 = clean_url(url1)
-                cache_urls[url0] = url1
-                cache_urls[url1] = url1
+                agent = ResolverAgent(url0)
+                yield agent.resolve()
+                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+            except DNSLookupError:
+                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
                     loggerr("trying to resolve %s : %s" % (url0, e), action="utils")
@@ -131,11 +130,11 @@ def _clean_redir_urls(text, cache_urls, pool, last=False):
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 @defer.inlineCallbacks
-def clean_redir_urls(text, cache_urls, pool):
-    text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool)
+def clean_redir_urls(text, cache_urls):
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     if re_shorteners.search(text):
-        text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool)
-    text, cache_urls = yield _clean_redir_urls(text, cache_urls, pool, True)
+        text, cache_urls = yield _clean_redir_urls(text, cache_urls)
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls, True)
     defer.returnValue((text, cache_urls))
 
 def get_hash(url):

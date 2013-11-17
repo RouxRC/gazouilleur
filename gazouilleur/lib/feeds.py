@@ -153,7 +153,7 @@ class FeederProtocol():
                 date = datetime.fromtimestamp(time.mktime(date))
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS+6):
                     break
-            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls, self.threadpool)
+            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
             if not link.startswith('http'):
                 link = "%s/%s" % (url[:url.find('/',8)], link.lstrip('/'))
             if link in links:
@@ -208,7 +208,7 @@ class FeederProtocol():
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
-            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls, self.threadpool)
+            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
             tweet = tweet.replace('&#126;', '~')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
@@ -253,7 +253,8 @@ class FeederProtocol():
                 if nb_rts:
                     nb_rts_str = " (%s RTs filtered)" % nb_rts
                 self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
-            self.db['tweets'].insert(news, continue_on_error=True, safe=True)
+            for t in news:
+                self.db['tweets'].save(t, safe=True)
         defer.returnValue(None)
 
     def displayTweet(self, t):
@@ -319,8 +320,8 @@ class FeederProtocol():
                 for entity in tweet['entities']['urls']:
                   try:
                     if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
-                        self.fact.cache_urls[entity['url']] = clean_url(entity['expanded_url'].encode('utf-8'))
-                        _, self.fact.cache_urls = yield clean_redir_urls(self.fact.cache_urls[entity['url']].decode('utf-8'), self.fact.cache_urls, self.threadpool)
+                        cleaned, self.fact.cache_urls = clean_url(entity['expanded_url'].encode('utf-8'), entity['url'].encode('utf-8'), self.fact.cache_urls)
+                        _, self.fact.cache_urls = yield clean_redir_urls(cleaned.decode('utf-8'), self.fact.cache_urls)
                   except Exception as e:
                      self.log(e, error=True)
             if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
@@ -355,7 +356,7 @@ class FeederProtocol():
             if tid:
                 ids.append(tid)
                 sender = i.get('sender_screen_name', '')
-                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls, self.threadpool)
+                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
                 dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
         existing = [t['_id'] for t in self.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
         news = [t for t in dms if t['_id'] not in existing]
