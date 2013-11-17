@@ -841,26 +841,27 @@ class IRCBot(NamesIRCClient):
         self.filters[channel.lower()].remove(keyword)
         return '«%s» filter removed for tweets display on %s'  % (keyword, channel)
 
+    @defer.inlineCallbacks
     def command_list(self, database, channel=None, *args):
         """list [--chan <channel>] <tweets|news|filters> : Displays the list of filters or news or tweets queries followed for current channel or optional <channel>."""
         try:
             database, channel = self._get_chan_from_command(database, channel)
         except Exception as e:
-           return str(e)
+           defer.returnValue(str(e))
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
-            return 'Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
+            defer.returnValue('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:
-            feeds = getFeeds(channel, database, self.db, url_format=False)
+            feeds = yield getFeeds(channel, database, db=None, url_format=False)
         if database == 'tweets':
             res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         else:
             res = "\n".join(feeds)
         if res:
-            return res
-        return "No query set for %s." % database
+            defer.returnValue(res)
+        defer.returnValue("No query set for %s." % database)
 
     def command_newsurl(self, name, channel=None, *args):
         """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""

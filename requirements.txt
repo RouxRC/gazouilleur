@@ -2,7 +2,7 @@ lxml
 feedparser
 twisted
 pyOpenSSL
-pymongo
+txmongo
 
 # Twitter: Switch preferably to personal branch fixing POST for Twitter Streaming API until v1.10.1 with pull request released
 # To reinstall cleanly, do within the virtualenv:

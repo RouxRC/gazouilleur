@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import os, time
-import pymongo
 from json import dump as write_json
+from txmongo.filter import sort as mongosort, ASCENDING, DESCENDING
+from twisted.internet import defer
 from datetime import datetime
 from gazouilleur import config
 from gazouilleur.lib.log import loggerr
@@ -20,12 +21,12 @@ class Stats():
         except:
             self.url = None
 
+    @defer.inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        stats = self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, sort=[('timestamp', pymongo.DESCENDING)])
+        stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=mongosort(DESCENDING('timestamp')))
         if not stats.count():
-            return "%s %s %s" % (self.user, self.now, since)
+            defer.returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
         rts = 0
         fols = 0
@@ -69,14 +70,13 @@ class Stats():
             res.append("RTs: " + " ; ".join(textrts))
         if self.url and res:
             res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
-        return [(True, "[Stats] %s" % m) for m in res]
+        defer.returnValue([(True, "[Stats] %s" % m) for m in res])
 
     def dump_data(self):
         if not self.url:
             return
-
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        stats = list(self.db['stats'].find({'user': self.user}, sort=[('timestamp', pymongo.ASCENDING)]))
+        stats = yield self.db['stats'].find({'user': self.user}, filter=mongosort(ASCENDING('timestamp')))
+        stats = list(stats)
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]

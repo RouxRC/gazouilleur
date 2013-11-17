@@ -4,11 +4,15 @@
 import re, urllib, hashlib
 from datetime import timedelta
 import pymongo, htmlentitydefs
+from txmongo import MongoConnection, _MongoFactory
+from txmongo.filter import sort as mongosort, ASCENDING
 from twisted.internet import defer
 from twisted.internet.error import DNSLookupError
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
 from gazouilleur.lib.log import loggerr
+if not config.DEBUG:
+    _MongoFactory.noisy = False
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)
@@ -23,6 +27,13 @@ re_leftbrk = re.compile(r'(\[)([^\]]*)$')
 re_righbrk = re.compile(r'^([^\[]*)(\])')
 def clean_regexp(text):
     return re_leftacc.sub(r'\\\1\2', re_leftbrk.sub(r'\\\1\2', re_righacc.sub(r'\1\\\2', re_righbrk.sub(r'\1\\\2', text))))
+
+@defer.inlineCallbacks
+def prepareDB():
+    conn = yield MongoConnection(config.MONGODB['HOST'], config.MONGODB['PORT'])
+    db = conn[config.MONGODB['DATABASE']]
+    yield db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+    defer.returnValue(db)
 
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
@@ -182,10 +193,17 @@ def formatQuery(query, add_url=None):
             query = getTopsyFeedUrl(query)
     return query
 
-def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=None):
+@defer.inlineCallbacks
+def getFeeds(channel, database, db=None, url_format=True, add_url=None, randorder=None):
     urls = []
-    db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    queries = list(db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
+    closedb = False
+    if not db:
+        closedb = True
+        db = yield prepareDB()
+    feeds = yield db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=mongosort(ASCENDING('timestamp')))
+    queries = list(feeds)
+    if closedb:
+        yield db._Database__factory.doStop()
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
@@ -220,7 +238,7 @@ def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=Non
             urls = assembleResults([feed['name'] for feed in queries])
         else:
             urls = [str(feed['query']) for feed in queries]
-    return urls
+    defer.returnValue(urls)
 
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
 def next_page(url):

@@ -8,6 +8,7 @@ from datetime import datetime
 from warnings import filterwarnings
 filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
+from txmongo.filter import sort as mongosort, DESCENDING
 from pypump import PyPump
 from gazouilleur import config
 from gazouilleur.lib.log import *
@@ -181,18 +182,28 @@ class Microblog():
     def get_dms(self, **kwargs):
         return self._send_query(self.conn.direct_messages, return_result=True)
 
+    @defer.inlineCallbacks
     def get_stats(self, db=None, **kwargs):
         timestamp = timestamp_hour(datetime.today())
-        db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        last = db['stats'].find_one({'user': self.user.lower()}, sort=[('timestamp', pymongo.DESCENDING)])
-        if last and timestamp == last['timestamp']:
+        closedb = False
+        if not db:
+            closedb = True
+            db = yield prepareDB()
+        last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=mongosort(DESCENDING('timestamp')))
+        if closedb:
+            yield db._Database__factory.doStop()
+        try:
+            last = last[0]
+        except:
+            last = {}
+        if last and last['timestamp'] == timestamp:
             res = None
         elif self.api_version == 1:
             res = self._send_query(self.conn.account.totals, return_result=True)
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         check_twitter_results(res)
-        return res, last, timestamp
+        defer.returnValue((res, last, timestamp))
 
     def search(self, query, count=15, max_id=None):
         args = {'q': query, 'count': count, 'result_type': 'recent'}
