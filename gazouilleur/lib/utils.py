@@ -134,7 +134,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
             text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[4]))
         except:
             if config.DEBUG:
-                logerr("encoding %s" % url1, action="utils")
+                loggerr("encoding %s" % url1, action="utils")
     if last:
         text = text.replace('##HTTP##', 'http')
     defer.returnValue((text, cache_urls))

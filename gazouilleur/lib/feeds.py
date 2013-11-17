@@ -386,7 +386,7 @@ class FeederProtocol():
             last['lists'] = 0
         re_match_rts = re.compile(u'(([MLR]T|%s|♺)\s*)+@?%s' % (QUOTE_CHARS, user), re.I)
         rts = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, fields=['_id'])
-        nb_rts = rts.count() if rts.count() else 0
+        nb_rts = len(list(rts))
         if config.TWITTER_API_VERSION == 1:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
@@ -596,9 +596,9 @@ class FeederFactory(protocol.ClientFactory):
 
     @inlineCallbacks
     def start(self):
-        self.db = yield prepareDB()
         if config.DEBUG:
             self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), self.database, hint=True)
+        self.db = yield prepareDB()
         args = {}
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
