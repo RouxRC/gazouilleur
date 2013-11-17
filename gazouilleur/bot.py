@@ -802,7 +802,7 @@ class IRCBot(NamesIRCClient):
             query = "%s <%s>" % (name, query)
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
-        return '"%s" query added to %s database for %s' % (query, database, channel)
+        return '«%s» query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
     def command_unfollow(self, query, channel=None, *args):
@@ -819,7 +819,7 @@ class IRCBot(NamesIRCClient):
             return "I could not find such query in my database"
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
-        return '"%s" query removed from %s database for %s' % (query, database, channel)
+        return '«%s» query removed from %s database for %s' % (query, database, channel)
 
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>./AUTH"""
@@ -829,7 +829,7 @@ class IRCBot(NamesIRCClient):
             return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
         self.db['filters'].update({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel.lower()].append(keyword)
-        return '"%s" filter added for tweets displays on %s' % (keyword, channel)
+        return '«%s» filter added for tweets displays on %s' % (keyword, channel)
 
     def command_unfilter(self, keyword, channel=None, nick=None):
         """unfilter <word|@user> : Removes a tweets display filter for <word> or <@user>./AUTH"""
@@ -839,7 +839,7 @@ class IRCBot(NamesIRCClient):
         if not res or not res['n']:
             return "I could not find such filter in my database"
         self.filters[channel.lower()].remove(keyword)
-        return '"%s" filter removed for tweets display on %s'  % (keyword, channel)
+        return '«%s» filter removed for tweets display on %s'  % (keyword, channel)
 
     def command_list(self, database, channel=None, *args):
         """list [--chan <channel>] <tweets|news|filters> : Displays the list of filters or news or tweets queries followed for current channel or optional <channel>."""
@@ -849,7 +849,7 @@ class IRCBot(NamesIRCClient):
            return str(e)
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
-            return 'Please enter either "%slist tweets", "%slist news" or "%slist filters".' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
+            return 'Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER)
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:
@@ -868,7 +868,7 @@ class IRCBot(NamesIRCClient):
         res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
         if res:
             return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
-        return "No news feed named « %s » for this channel" % name
+        return "No news feed named «%s» for this channel" % name
 
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweet(self, tweet, channel=None, nick=None):
