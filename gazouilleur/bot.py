@@ -172,15 +172,17 @@ class IRCBot(NamesIRCClient):
         for i, f in enumerate(self.feeders[lowchan].keys()):
             threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
 
-    def left(self, channel):
-        self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+    def left(self, channel, silent=False):
+        if not silent:
+            self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         lowchan = channel.lower()
         if lowchan in self.feeders:
             for f in self.feeders[lowchan].keys():
                 self.feeders[lowchan][f].end()
         if lowchan in self.logger:
             self.logger[lowchan].close()
-        loggirc2("Left.", channel)
+        if not silent:
+            loggirc2("Left.", channel)
 
   # ----------------------------------
   # Identification when nickname used
@@ -203,7 +205,7 @@ class IRCBot(NamesIRCClient):
             self._reclaimNick()
         elif 'has been regained' in message and 'NickServ' in user:
             for chan in self.factory.channels:
-                self.left(chan)
+                self.left(chan, silent=True)
                 self.joined(chan)
 
 
