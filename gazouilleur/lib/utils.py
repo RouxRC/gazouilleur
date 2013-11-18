@@ -123,7 +123,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
                 url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
-                    loggerr("trying to resolve %s : %s" % (url0, e), action="utils")
+                    loggerr("%s trying to resolve %s : %s" % (type(e), url0, e), action="utils")
                 if "403" in str(e) or "Error 30" in str(e):
                     cache_urls[url0] = url00
                 url1 = url00
