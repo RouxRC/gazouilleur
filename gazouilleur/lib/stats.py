@@ -25,7 +25,7 @@ class Stats():
     def print_last(self):
         since = self.now - timedelta(days=30)
         stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=mongosort(DESCENDING('timestamp')))
-        if not stats.count():
+        if not len(stats):
             defer.returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
         rts = 0
@@ -76,7 +76,6 @@ class Stats():
         if not self.url:
             return
         stats = yield self.db['stats'].find({'user': self.user}, filter=mongosort(ASCENDING('timestamp')))
-        stats = list(stats)
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]

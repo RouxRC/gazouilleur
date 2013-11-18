@@ -200,8 +200,7 @@ def getFeeds(channel, database, db=None, url_format=True, add_url=None, randorde
     if not db:
         closedb = True
         db = yield prepareDB()
-    feeds = yield db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=mongosort(ASCENDING('timestamp')))
-    queries = list(feeds)
+    queries = yield db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=mongosort(ASCENDING('timestamp')))
     if closedb:
         yield db._Database__factory.doStop()
     if database == "tweets":

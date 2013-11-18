@@ -386,7 +386,7 @@ class FeederProtocol():
             last['lists'] = 0
         re_match_rts = re.compile(u'(([MLR]T|%s|♺)\s*)+@?%s' % (QUOTE_CHARS, user), re.I)
         rts = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, fields=['_id'])
-        nb_rts = len(list(rts))
+        nb_rts = len(rts)
         if config.TWITTER_API_VERSION == 1:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
@@ -457,8 +457,7 @@ class FeederProtocol():
     def start_stream(self, conf):
         if self.fact.status == "running":
             returnD(None)
-        feeds = yield self.fact.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
-        queries = list(feeds)
+        queries = yield self.fact.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
         track = []
         skip = []
         k = 0
@@ -634,8 +633,7 @@ class FeederFactory(protocol.ClientFactory):
     @inlineCallbacks
     def run_twitter_search(self):
         queries = yield self.db["feeds"].find({'database': self.database, 'channel': self.channel})
-        nqueries = len(list(queries))
-        randorder = range(int(nqueries))
+        randorder = range(len(queries))
         shuffle(randorder)
         urls = yield getFeeds(self.channel, self.database, db=self.db, randorder=randorder)
         self.protocol.start_twitter_search(urls, randorder=randorder)
