@@ -529,11 +529,9 @@ class FeederProtocol():
         if deleted:
             if config.DEBUG:
                 self.log("Mark %s tweets as deleted." % len(deleted), "stream", hint=True)
-            args = {'spec': {'id': {'$in': deleted}}, 'document': {'$set': {'deleted': True}}, 'multi': True}
-            if wait:
-                reactor.callLater(3, self._update_deleted_tweets, args)
-            else:
-                self._update_deleted_tweets(args)
+
+            wait = 3 if wait else 0
+            reactor.callLater(wait, self._update_deleted_tweets, {'spec': {'id': {'$in': deleted}}, 'document': {'$set': {'deleted': True}}, 'multi': True})
         if tweets:
             if config.DEBUG:
                 self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
