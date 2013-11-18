@@ -24,7 +24,13 @@ class ResolverAgent(RedirectAgent):
             err = error.RedirectWithNoLocation(
                 response.code, 'No location header field', uri)
             raise ResponseFailed([failure.Failure(err)], response)
-        self.lastURI = locationHeaders[0]
+        try:
+            host = self.lastURI[:(self.lastURI+"/").index('/', 8)]
+        except:
+            host = "http:/"
+        self.lastURI = locationHeaders[0].lstrip('/')
+        if not self.lastURI.startswith('http'):
+            self.lastURI = "%s/%s" % (host, self.lastURI)
         deferred = self._agent.request(method, self.lastURI, headers)
         return deferred.addCallback(self._handleResponse, method, uri, headers, redirectCount + 1)
 
