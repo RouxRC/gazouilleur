@@ -15,6 +15,7 @@ from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
 from gazouilleur.lib.log import *
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog

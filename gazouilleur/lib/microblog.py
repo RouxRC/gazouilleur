@@ -8,9 +8,9 @@ from datetime import datetime
 from warnings import filterwarnings
 filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
-from txmongo.filter import sort as mongosort, DESCENDING
 from pypump import PyPump
 from gazouilleur import config
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
@@ -189,9 +189,9 @@ class Microblog():
         if not db:
             closedb = True
             db = yield prepareDB()
-        last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=mongosort(DESCENDING('timestamp')))
+        last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
         if closedb:
-            yield db._Database__factory.doStop()
+            yield closeDB(db)
         try:
             last = last[0]
         except:

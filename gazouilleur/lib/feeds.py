@@ -3,7 +3,6 @@
 # RSS feeder part adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os, time
-from txmongo.filter import sort as mongosort, DESCENDING
 from random import shuffle, random
 from operator import itemgetter
 from hashlib import md5
@@ -27,6 +26,7 @@ except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
 from gazouilleur.lib.log import logg
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
@@ -164,7 +164,7 @@ class FeederProtocol():
             _id = md5(("%s:%s:%s" % (self.fact.channel, link, title.lower())).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
-        existings = yield self.fact.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], filter=mongosort(DESCENDING('_id')))
+        existings = yield self.fact.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], filter=sortdesc('_id'))
         existing = [n['_id'] for n in existings]
         new = [n for n in news if n['_id'] not in existing]
         if new:
@@ -221,7 +221,7 @@ class FeederProtocol():
                 tw = {'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': uniq_rt_hash(tweet), 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': source}
                 tw = grab_extra_meta(i, tw)
                 tweets.append(tw)
-        existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=mongosort(DESCENDING('id')))
+        existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
         if news:
@@ -236,7 +236,7 @@ class FeederProtocol():
                     deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
-                existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=mongosort(DESCENDING('id')))
+                existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
                 existing = [t['uniq_rt_hash'] for t in existings]
                 tw_user = ""
                 if self.fact.twitter_user:
@@ -361,7 +361,7 @@ class FeederProtocol():
                 sender = i.get('sender_screen_name', '')
                 dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
                 dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
-        existings = yield self.fact.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=mongosort(DESCENDING('id')))
+        existings = yield self.fact.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in dms if t['_id'] not in existing]
         if news:
@@ -396,7 +396,7 @@ class FeederProtocol():
         laststats = Stats(self.fact.db, user)
         if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
             self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
-        last_tweet = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=mongosort(DESCENDING('timestamp'))) #TODO check sort actually used
+        last_tweet = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=sortdesc('timestamp')) #TODO check sort actually used
         if chan_displays_stats(self.fact.channel) and last_tweet and timestamp - last_tweet[0]['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
@@ -618,10 +618,7 @@ class FeederFactory(protocol.ClientFactory):
             self.status = "closing"
             self.protocol.threadpool.stop()
             self.runner.stop()
-            try:
-                yield self.db._Database__factory.doStop()
-            except Exception as e:
-                self.log(e, self.database, error=True)
+            yield closeDB(self.db)
             if config.DEBUG and self.database != "stream":
                 self.log("Feeder closed.", self.database, hint=True)
             self.runner = None

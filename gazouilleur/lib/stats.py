@@ -3,10 +3,10 @@
 
 import os, time
 from json import dump as write_json
-from txmongo.filter import sort as mongosort, ASCENDING, DESCENDING
 from twisted.internet import defer
 from datetime import datetime
 from gazouilleur import config
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
@@ -24,7 +24,7 @@ class Stats():
     @defer.inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
-        stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=mongosort(DESCENDING('timestamp')))
+        stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
             defer.returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
@@ -75,7 +75,7 @@ class Stats():
     def dump_data(self):
         if not self.url:
             return
-        stats = yield self.db['stats'].find({'user': self.user}, filter=mongosort(ASCENDING('timestamp')))
+        stats = yield self.db['stats'].find({'user': self.user}, filter=sortasc('timestamp'))
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]
