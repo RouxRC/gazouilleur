@@ -818,17 +818,17 @@ class IRCBot(NamesIRCClient):
         return '«%s» query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
+    regexp_feedquery = lambda self, x: re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', x), re.I)
     @inlineCallbacks
     def command_unfollow(self, query, channel=None, *args):
         """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
-        query = remove_ext_quotes(query)
-        re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
+        query = query.strip("«»")
         database = 'news'
-        res = yield self.db['feeds'].remove({'channel': channel, 'name': re_query, 'database': database}, safe=True)
+        res = yield self.db['feeds'].remove({'channel': channel, 'name': self.regexp_feedquery(remove_ext_quotes(query)), 'database': database}, safe=True)
         if not res or not res['n']:
             database = 'tweets'
-            res = yield self.db['feeds'].remove({'channel': channel, 'query': re_query, 'database': database}, safe=True)
+            res = yield self.db['feeds'].remove({'channel': channel, 'query': self.regexp_feedquery(query), 'database': database}, safe=True)
         if not res or not res['n']:
             returnD("I could not find such query in my database")
         if database == "tweets":
