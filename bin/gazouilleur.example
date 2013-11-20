@@ -119,7 +119,7 @@ function test_success_in_log {
   tail -n 20 log/run.log | grep "Signed on as" > /dev/null
 }
 function test_error_in_log {
-  tail -n 2 log/run.log | grep -i "Error\|Exception" > /dev/null
+  tail -n 2 log/run.log | grep -i "Server Shut Down\|Error\|Exception" > /dev/null
 }
 function exit_on_error {
   stop_gazouilleur nolog
