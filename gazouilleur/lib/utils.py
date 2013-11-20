@@ -3,7 +3,7 @@
 
 import re, urllib, hashlib
 from datetime import timedelta
-import pymongo, htmlentitydefs
+import htmlentitydefs
 from twisted.internet import defer
 from twisted.internet.error import DNSLookupError
 from gazouilleur.lib.resolver import ResolverAgent
@@ -192,7 +192,7 @@ def getFeeds(channel, database, db=None, url_format=True, add_url=None, randorde
         db = yield prepareDB()
     queries = yield db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
     if closedb:
-        yield closeDB(db)
+        closeDB(db)
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
@@ -239,11 +239,11 @@ def next_page(url):
     p += 1
     return "%s&p=%s" % (url, p)
 
+@defer.inlineCallbacks
 def save_lasttweet_id(channel, tweet_id):
-    db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])
-    db[config.MONGODB['DATABASE']].authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    db[config.MONGODB['DATABASE']]['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
-    db.close()
+    db = yield prepareDB()
+    db['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
+    closeDB(db)
 
 def safeint(n):
     try:

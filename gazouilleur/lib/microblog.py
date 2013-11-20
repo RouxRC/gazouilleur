@@ -7,6 +7,7 @@ from json import loads as load_json
 from datetime import datetime
 from warnings import filterwarnings
 filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
@@ -182,7 +183,7 @@ class Microblog():
     def get_dms(self, **kwargs):
         return self._send_query(self.conn.direct_messages, return_result=True)
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def get_stats(self, db=None, **kwargs):
         timestamp = timestamp_hour(datetime.today())
         closedb = False
@@ -191,7 +192,7 @@ class Microblog():
             db = yield prepareDB()
         last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
         if closedb:
-            yield closeDB(db)
+            closeDB(db)
         try:
             last = last[0]
         except:
@@ -203,7 +204,7 @@ class Microblog():
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         check_twitter_results(res)
-        defer.returnValue((res, last, timestamp))
+        returnValue((res, last, timestamp))
 
     def search(self, query, count=15, max_id=None):
         args = {'q': query, 'count': count, 'result_type': 'recent'}

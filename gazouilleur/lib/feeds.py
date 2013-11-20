@@ -140,7 +140,7 @@ class FeederProtocol():
     @inlineCallbacks
     def process_elements(self, feed, url):
         if not feed or not feed.entries:
-            returnD(None)
+            returnD(False)
         sourcename = url
         if feed.feed and 'title' in feed.feed:
             sourcename = feed.feed['title']
@@ -171,11 +171,11 @@ class FeederProtocol():
             new.reverse()
             new = new[:5]
             try:
-                yield self.fact.db['news'].insert(new, safe=True)
+                self.fact.db['news'].insert(new, safe=True)
             except:
                 self._handle_error(e, "recording news batch", url)
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
-        returnD(None)
+        returnD(True)
 
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
@@ -191,7 +191,7 @@ class FeederProtocol():
                 nexturl = feed["nexturl"]
                 elements = feed["tweets"]
             else:
-                returnD(None)
+                returnD(False)
         if query:
             source = "%s https://api.twitter.com/api/1.1/search/tweets.json?q=%s" % (source, query)
         ids = []
@@ -258,8 +258,8 @@ class FeederProtocol():
                     nb_rts_str = " (%s RTs filtered)" % nb_rts
                 self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
             for t in news:
-                yield self.fact.db['tweets'].save(t, safe=True)
-        returnD(None)
+                self.fact.db['tweets'].save(t, safe=True)
+        returnD(True)
 
     def displayTweet(self, t):
         msg = "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))
@@ -304,10 +304,10 @@ class FeederProtocol():
     @inlineCallbacks
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
-            returnD(None)
+            returnD(False)
         if query:
             if not isinstance(listtweets, dict):
-                returnD(None)
+                returnD(False)
             nexturl = ""
             if 'max_id_str' in listtweets['search_metadata']:
                 nexturl = listtweets['search_metadata']['max_id_str']
@@ -316,7 +316,7 @@ class FeederProtocol():
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
         elif not isinstance(listtweets, list):
-            returnD(None)
+                returnD(False)
         feed = []
         for tweet in listtweets:
             if 'entities' in tweet and 'urls' in tweet['entities']:
@@ -344,7 +344,7 @@ class FeederProtocol():
     @inlineCallbacks
     def process_dms(self, listdms, user):
         if not listdms:
-            returnD(None)
+            returnD(False)
         ids = []
         dms = []
         for i in listdms:
@@ -366,17 +366,17 @@ class FeederProtocol():
         news = [t for t in dms if t['_id'] not in existing]
         if news:
             news.reverse()
-            yield self.fact.db['dms'].insert(news, safe=True)
+            self.fact.db['dms'].insert(news, safe=True)
             self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
-        returnD(None)
+        returnD(True)
 
     @inlineCallbacks
     def process_stats(self, res, user):
         if not res:
-            returnD(None)
+            returnD(False)
         stats, last, timestamp = res
         if not stats:
-            returnD(None)
+            returnD(False)
         if not last:
             last = {'tweets': 0, 'followers': 0}
             since = timestamp - timedelta(hours=1)
@@ -391,16 +391,16 @@ class FeederProtocol():
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
-        yield self.fact.db['stats'].insert(stat)
+        self.fact.db['stats'].insert(stat)
         weekday = timestamp.weekday()
         laststats = Stats(self.fact.db, user)
         if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
             self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
-        last_tweet = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=sortdesc('timestamp')) #TODO check sort actually used
+        last_tweet = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=sortdesc('timestamp'))
         if chan_displays_stats(self.fact.channel) and last_tweet and timestamp - last_tweet[0]['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
         reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
-        returnD(None)
+        returnD(True)
 
     def start_twitter(self, database, conf, user):
         d = succeed(Microblog('twitter', conf, bearer_token=self.fact.twitter_token))
@@ -442,7 +442,7 @@ class FeederProtocol():
                 query = yield getFeeds(self.fact.channel, "tweets", db=self.fact.db, randorder=randorder)
                 query = query[page]
             except Exception as e:
-                returnD(None)
+                returnD(False)
         if config.DEBUG:
             text = unquote(query)
             if max_id:
@@ -456,7 +456,7 @@ class FeederProtocol():
     @inlineCallbacks
     def start_stream(self, conf):
         if self.fact.status == "running":
-            returnD(None)
+            returnD(False)
         queries = yield self.fact.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
         track = []
         skip = []
@@ -531,20 +531,17 @@ class FeederProtocol():
                 self.log("Mark %s tweets as deleted." % len(deleted), "stream", hint=True)
 
             wait = 3 if wait else 0
-            reactor.callLater(wait, self._update_deleted_tweets, {'spec': {'id': {'$in': deleted}}, 'document': {'$set': {'deleted': True}}, 'multi': True})
+            reactor.callLater(wait, self.fact.db["tweets"].update, spec={'id': {'$in': deleted}}, document={'$set': {'deleted': True}}, multi=True)
         if tweets:
             if config.DEBUG:
                 self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
             reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
 
-    @inlineCallbacks
-    def _update_deleted_tweets(self, args):
-        yield self.fact.db["tweets"].update(**args)
-        returnD(True)
 
 class FeederFactory(protocol.ClientFactory):
 
     db = None
+
     def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
         self.cache = {}
@@ -610,15 +607,13 @@ class FeederFactory(protocol.ClientFactory):
             run_command = self.run_rss_feeds
         self.runner = LoopingCall(run_command, **args)
         self.runner.start(self.delay)
-        returnD(True)
 
-    @inlineCallbacks
     def end(self):
         if self.runner and self.runner.running:
             self.status = "closing"
             self.protocol.threadpool.stop()
             self.runner.stop()
-            yield closeDB(self.db)
+            closeDB(self.db)
             if config.DEBUG and self.database != "stream":
                 self.log("Feeder closed.", self.database, hint=True)
             self.runner = None
@@ -642,5 +637,4 @@ class FeederFactory(protocol.ClientFactory):
         for url in urls:
             ct += 3 + int(random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
-        returnD(True)
 

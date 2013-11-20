@@ -3,7 +3,7 @@
 
 import os, time
 from json import dump as write_json
-from twisted.internet import defer
+from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
 from gazouilleur.lib.mongo import *
@@ -21,12 +21,12 @@ class Stats():
         except:
             self.url = None
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
         stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
-            defer.returnValue("%s %s %s" % (self.user, self.now, since))
+            returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
         rts = 0
         fols = 0
@@ -70,7 +70,7 @@ class Stats():
             res.append("RTs: " + " ; ".join(textrts))
         if self.url and res:
             res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
-        defer.returnValue([(True, "[Stats] %s" % m) for m in res])
+        returnValue([(True, "[Stats] %s" % m) for m in res])
 
     def dump_data(self):
         if not self.url:

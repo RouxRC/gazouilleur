@@ -11,7 +11,7 @@ except (ImportError, TypeError) as e:
     sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.")
     exit(1)
 try:
-    import pymongo, lxml, twisted, twitter, feedparser, pypump
+    import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
     sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
@@ -60,7 +60,7 @@ except KeyError as e:
     exit(1)
 
 try:
-    from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, stats, utils
+    from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, mongo, stats, utils
 except Exception as e:
     logerr("Oups, looks like something is wrong somewhere in the code, shouldn't be committed...")
     _, _, exc_traceback = sys.exc_info()

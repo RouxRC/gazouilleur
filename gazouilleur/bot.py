@@ -8,8 +8,8 @@ import sys, os.path, types, re
 import random, time
 from datetime import datetime
 import lxml.html
-import pymongo
-from twisted.internet import reactor, defer, protocol, threads, ssl
+from twisted.internet import reactor, protocol, threads, ssl
+from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
 from twisted.web.client import getPage
 from twisted.application import internet, service
 from twisted.python import log
@@ -45,19 +45,13 @@ class IRCBot(NamesIRCClient):
         self.password = config.BOTPASS
         self.breathe = datetime.today()
         self.set_twitter_url_length()
-        self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['logs'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['tasks'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.ASCENDING)], background=True)
-        self.db['feeds'].ensure_index([('channel', pymongo.ASCENDING), ('database', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['filters'].ensure_index([('channel', pymongo.ASCENDING), ('keyword', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('id', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['lasttweets'].ensure_index([('channel', pymongo.ASCENDING)], background=True)
-        self.db['tweets'].ensure_index([('channel', pymongo.ASCENDING), ('user', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['tweets'].ensure_index([('uniq_rt_hash', pymongo.ASCENDING)], background=True)
-        self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
-        self.db['news'].ensure_index([('channel', pymongo.ASCENDING), ('source', pymongo.ASCENDING), ('timestamp', pymongo.DESCENDING)], background=True)
+        self.db = None
+        self.init_db()
+
+    @inlineCallbacks
+    def init_db(self):
+        self.db = yield prepareDB()
+        ensure_indexes(self.db)
 
     def set_twitter_url_length(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -106,10 +100,11 @@ class IRCBot(NamesIRCClient):
         NamesIRCClient.connectionMade(self)
 
     def connectionLost(self, reason):
+        self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         for channel in self.factory.channels:
             self.left(channel)
+        closeDB(self.db)
         loggirc2('Connection lost because: %s.' % reason)
-        self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         self.logger[config.BOTNAME.lower()].close()
         NamesIRCClient.connectionLost(self, reason)
 
@@ -119,6 +114,7 @@ class IRCBot(NamesIRCClient):
             self.join(channel)
         self._refresh_tasks_from_db()
 
+    @inlineCallbacks
     def joined(self, channel):
         NamesIRCClient.joined(self, channel)
         lowchan = channel.lower()
@@ -126,9 +122,10 @@ class IRCBot(NamesIRCClient):
         loggirc("Joined.", channel)
         self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         if lowchan == "#gazouilleur":
-            return
+            returnD(None)
         self.lastqueries[lowchan] = {'n': 1, 'skip': 0}
-        self.filters[lowchan] = [keyword['keyword'] for keyword in self.db['filters'].find({'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])]
+        filters = yield self.db['filters'].find({'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])
+        self.filters[lowchan] = [keyword['keyword'] for keyword in filters]
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
@@ -172,6 +169,7 @@ class IRCBot(NamesIRCClient):
         n = self.factory.channels.index(lowchan) + 1
         for i, f in enumerate(self.feeders[lowchan].keys()):
             threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
+        returnD(True)
 
     def left(self, channel, silent=False):
         if not silent:
@@ -223,17 +221,20 @@ class IRCBot(NamesIRCClient):
         msg += "]"
         self.log(msg, user, channel)
 
+    @inlineCallbacks
     def _get_user_channels(self, nick):
         res = []
         for c in self.factory.channels:
-            last_log = self.db['logs'].find_one({'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)])
-            if last_log and not last_log['message'].encode('utf-8').endswith(' left]'):
+            last_log = yield self.db['logs'].find({'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], limit=1, filter=sortdesc('timestamp'))
+            if last_log and not last_log[0]['message'].encode('utf-8').endswith(' left]'):
                 res.append(c)
-        return res
+        returnD(res)
 
+    @inlineCallbacks
     def userQuit(self, user, quitMessage):
         nick, _, _ = user.partition('!')
-        for c in self._get_user_channels(nick):
+        chans = yield self._get_user_channels(nick)
+        for c in chans:
             self.userLeft(nick, c, quitMessage)
 
     def userRenamed(self, oldnick, newnick):
@@ -282,7 +283,7 @@ class IRCBot(NamesIRCClient):
             return
         if not message.startswith(config.COMMAND_CHARACTER):
             if self.nickname.lower() in message.lower() and chan_is_verbose(channel):
-                d = defer.maybeDeferred(self.command_test)
+                d = maybeDeferred(self.command_test)
             else:
                 return
         message = message.encode('utf-8')
@@ -292,13 +293,13 @@ class IRCBot(NamesIRCClient):
         func = self._find_command_function(command)
         if func is None and d is None:
             if chan_is_verbose(channel):
-                d = defer.maybeDeferred(self.command_help, command, channel, nick, discreet=True)
+                d = maybeDeferred(self.command_help, command, channel, nick, discreet=True)
             else:
                 return
         target = nick if channel == self.nickname else channel
         if d is None:
             if self._can_user_do(nick, channel, func):
-                d = defer.maybeDeferred(func, rest, channel, nick)
+                d = maybeDeferred(func, rest, channel, nick)
             else:
                 if chan_is_verbose(channel):
                     return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
@@ -453,6 +454,7 @@ class IRCBot(NamesIRCClient):
         return nb, string.strip()
 
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
+    @inlineCallbacks
     def command_last(self, rest, channel=None, nick=None, reverse=False):
         """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
@@ -486,11 +488,11 @@ class IRCBot(NamesIRCClient):
             elif current == "c":
                 chan = '#'+arg.lower().lstrip('#')
                 if 'channel' not in query:
-                    return "Either use --allchans or --chan <channel> but both is just stupid :p"
+                    returnD("Either use --allchans or --chan <channel> but both is just stupid :p")
                 if chan.lower() in self.factory.channels:
                     query['channel'] = re.compile(r'^%s$' % chan, re.I)
                 else:
-                    return "I do not follow this channel."
+                    returnD("I do not follow this channel.")
                 current = ""
             elif arg.isdigit():
                 maxnb = 5 if def_nb == 1 else def_nb
@@ -508,16 +510,16 @@ class IRCBot(NamesIRCClient):
         self.lastqueries[channel.lower()] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
-        matches = list(self.db['logs'].find(query, sort=[('timestamp', pymongo.DESCENDING)], fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st))
+        matches = yield self.db['logs'].find(query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st)
         if len(matches) == 0:
             more = " more" if st > 1 else ""
-            return "No"+more+" match found in my history log."
+            returnD("No"+more+" match found in my history log.")
         if reverse:
             matches.reverse()
         if clean_my_nick:
             for i, m in enumerate(matches):
                 matches[i] = m.replace("%s — " % self.nickname, '')
-        return "\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches])
+        returnD("\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
 
     def command_lastfrom(self, rest, channel=None, nick=None):
         """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
@@ -532,6 +534,7 @@ class IRCBot(NamesIRCClient):
     re_lastcommand = re.compile(r'^%s(last|more)' % config.COMMAND_CHARACTER, re.I)
     re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
     re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
+    @inlineCallbacks
     def command_lastmore(self, rest, channel=None, nick=None):
         """lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
         master = get_master_chan(self.nickname)
@@ -545,7 +548,7 @@ class IRCBot(NamesIRCClient):
             nb, rest = self._extract_digit(rest)
         tmprest = rest
         st = self.lastqueries[truechannel]['skip']
-        last = self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], sort=[('timestamp', pymongo.DESCENDING)], skip=1)
+        last = yield self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], filter=sortdesc('timestamp'), skip=1)
         for m in last:
             command, _, text = m['message'].encode('utf-8').lstrip(config.COMMAND_CHARACTER).partition(' ')
             if command == "lastseen":
@@ -560,26 +563,29 @@ class IRCBot(NamesIRCClient):
                 if command != "lastcount":
                     tmprest = "%s %s" % (nb, tmprest)
                 if function:
-                    return function(tmprest, channel, nick)
-        return "No %slast like command found in my history log." % config.COMMAND_CHARACTER
+                    res = yield function(tmprest, channel, nick)
+                    returnD(res)
+        returnD("No %slast like command found in my history log." % config.COMMAND_CHARACTER)
 
     def command_more(self, rest, channel=None, nick=None):
         """more [<N>] : Alias for "lastmore". Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
         return self.command_lastmore(rest, channel, nick)
 
+    @inlineCallbacks
     def command_lastseen(self, rest, channel=None, nick=None):
         """lastseen <nickname> : Prints the last time <nickname> was seen logging in and out."""
         user, _, msg = rest.partition(' ')
         if user == '':
-            return "Please ask for a specific nickname."
+            returnD("Please ask for a specific nickname.")
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
         channel = self.getMasterChan(channel)
         query = {'user': user.lower(), 'message': re_user, 'channel': channel}
-        res = list(self.db['logs'].find(query, fields=['timestamp', 'message'], sort=[('timestamp', pymongo.DESCENDING)], limit=2))
+        res = yield self.db['logs'].find(query, fields=['timestamp', 'message'], filter=sortdesc('timestamp'), limit=2)
         if res:
             res.reverse()
-            return " —— ".join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res])
-        return self.command_lastfrom(user, channel, nick)
+            returnD(" —— ".join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res]))
+        res = yield self.command_lastfrom(user, channel, nick)
+        returnD(res)
 
 
    # Twitter counting commands
@@ -656,10 +662,10 @@ class IRCBot(NamesIRCClient):
             return("Mmmm... Didn't you mean %s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
-        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text))
+        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text))
         if chan_has_identica(channel):
-            dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
-        return defer.DeferredList(dl, consumeErrors=True)
+            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
+        return DeferredList(dl, consumeErrors=True)
 
     def command_answer(self, rest, channel=None, nick=None, check=True):
         """answer <tweet_id> <@author text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
@@ -678,18 +684,20 @@ class IRCBot(NamesIRCClient):
             else:
                 return "[twitter] Cannot find tweet %s on Twitter." % tweet_id
         dl = []
-        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
+        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
         if chan_has_identica(channel):
-            dl.append(defer.maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
-        return defer.DeferredList(dl, consumeErrors=True)
+            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
+        return DeferredList(dl, consumeErrors=True)
 
+    @inlineCallbacks
     def command_answerlast(self, rest, channel=None, nick=None):
         """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
+        lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
-            return "Sorry, no last tweet id found for this chan."
-        return self.command_answer("%s %s" % (str(lasttweetid["tweet_id"]), rest), channel, nick, check=False)
+            returnD("Sorry, no last tweet id found for this chan." )
+        res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick, check=False)
+        returnD(res)
 
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
         conn = Microblog('twitter', conf)
@@ -708,11 +716,11 @@ class IRCBot(NamesIRCClient):
         if not tweet_id:
             return "Please input a correct tweet_id."
         dl = []
-        dl.append(defer.maybeDeferred(self._send_via_protocol, 'twitter', 'retweet', channel, nick, tweet_id=tweet_id))
+        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'retweet', channel, nick, tweet_id=tweet_id))
         conf = chanconf(channel)
         if chan_has_identica(channel, conf):
-            dl.append(defer.maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
-        return defer.DeferredList(dl, consumeErrors=True)
+            dl.append(maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
+        return DeferredList(dl, consumeErrors=True)
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
@@ -722,13 +730,15 @@ class IRCBot(NamesIRCClient):
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
 
+    @inlineCallbacks
     def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
         """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        lasttweetid = self.db['lasttweets'].find_one({'channel': channel})
+        lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
-            return "Sorry, no last tweet id found for this chan."
-        return self.command_rmtweet(str(lasttweetid['tweet_id']), channel, nick)
+            returnD("Sorry, no last tweet id found for this chan.")
+        res = yield self.command_rmtweet(str(lasttweetid[0]['tweet_id']), channel, nick)
+        returnD(res)
 
     def command_dm(self, rest, channel=None, nick=None):
         """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
@@ -808,21 +818,22 @@ class IRCBot(NamesIRCClient):
         return '«%s» query added to %s database for %s' % (query, database, channel)
 
     re_clean_query = re.compile(r'([()+|])')
+    @inlineCallbacks
     def command_unfollow(self, query, channel=None, *args):
         """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         query = remove_ext_quotes(query)
         re_query = re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', query), re.I)
         database = 'news'
-        res = self.db['feeds'].remove({'channel': channel, 'name': re_query, 'database': database}, safe=True)
+        res = yield self.db['feeds'].remove({'channel': channel, 'name': re_query, 'database': database}, safe=True)
         if not res or not res['n']:
             database = 'tweets'
-            res = self.db['feeds'].remove({'channel': channel, 'query': re_query, 'database': database}, safe=True)
+            res = yield self.db['feeds'].remove({'channel': channel, 'query': re_query, 'database': database}, safe=True)
         if not res or not res['n']:
-            return "I could not find such query in my database"
+            returnD("I could not find such query in my database")
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
-        return '«%s» query removed from %s database for %s' % (query, database, channel)
+        returnD('«%s» query removed from %s database for %s' % (query, database, channel))
 
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>./AUTH"""
@@ -834,45 +845,47 @@ class IRCBot(NamesIRCClient):
         self.filters[channel.lower()].append(keyword)
         return '«%s» filter added for tweets displays on %s' % (keyword, channel)
 
+    @inlineCallbacks
     def command_unfilter(self, keyword, channel=None, nick=None):
         """unfilter <word|@user> : Removes a tweets display filter for <word> or <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
-        res = self.db['filters'].remove({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
+        res = yield self.db['filters'].remove({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
         if not res or not res['n']:
-            return "I could not find such filter in my database"
+            returnD("I could not find such filter in my database")
         self.filters[channel.lower()].remove(keyword)
-        return '«%s» filter removed for tweets display on %s'  % (keyword, channel)
+        returnD('«%s» filter removed for tweets display on %s'  % (keyword, channel))
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def command_list(self, database, channel=None, *args):
         """list [--chan <channel>] <tweets|news|filters> : Displays the list of filters or news or tweets queries followed for current channel or optional <channel>."""
         try:
             database, channel = self._get_chan_from_command(database, channel)
         except Exception as e:
-           defer.returnValue(str(e))
+           returnD(str(e))
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
-            defer.returnValue('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))
+            returnD('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:
-            feeds = yield getFeeds(channel, database, db=None, url_format=False)
+            feeds = yield getFeeds(channel, database, db=self.db, url_format=False)
         if database == 'tweets':
             res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         else:
             res = "\n".join(feeds)
         if res:
-            defer.returnValue(res)
-        defer.returnValue("No query set for %s." % database)
+            returnD(res)
+        returnD("No query set for %s." % database)
 
+    @inlineCallbacks
     def command_newsurl(self, name, channel=None, *args):
         """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
         channel = self.getMasterChan(channel)
-        res = self.db['feeds'].find_one({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'])
+        res = yield self.db['feeds'].find({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'], limit=1)
         if res:
-            return "«%s» : %s" % (res['name'].encode('utf-8'), res['query'].encode('utf-8'))
-        return "No news feed named «%s» for this channel" % name
+            returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
+        returnD("No news feed named «%s» for this channel" % name)
 
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweet(self, tweet, channel=None, nick=None):
@@ -897,12 +910,13 @@ class IRCBot(NamesIRCClient):
    ## Exclude regexp : '.*ping.*'
 
     re_comment = re.compile(r'^\[')
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def command_ping(self, rest, channel=None, nick=None, onlyteam=False, pingall=False):
         """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
         channel = self.getMasterChan(channel)
         names = yield self._names(channel)
-        skip = [user['lower'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['lower'])] + [nick.lower(), self.nickname.lower()]
+        noping = yield self.db['noping_users'].find({'channel': channel}, fields=['lower'])
+        skip = [user['lower'].encode('utf-8') for user in noping] + [nick.lower(), self.nickname.lower()]
         left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
         users = [name.strip('@') for name, _ in left if name.startswith('@')]
         lowerops = [name.lower() for name in users]
@@ -924,7 +938,7 @@ class IRCBot(NamesIRCClient):
                 limit = 50
             else:
                 lowerothers = [name.lower() for name in others]
-                recent_logs = self.db['logs'].find({'channel': channel, 'timestamp': {'$gte': datetime.today() - timedelta(hours=18)}, 'message': {'$not': self.re_comment}}, fields=['screenname'])
+                recent_logs = yield self.db['logs'].find({'channel': channel, 'timestamp': {'$gte': datetime.today() - timedelta(hours=18)}, 'message': {'$not': self.re_comment}}, fields=['screenname'])
                 recents = []
                 recents = set([user['screenname'] for user in recent_logs if user['screenname'].lower() in lowerothers])
                 lowerrecents = [name.lower() for name in recents]
@@ -936,13 +950,13 @@ class IRCBot(NamesIRCClient):
                 others = others[:limit]
             users += others
         if not len(users):
-            defer.returnValue("There's no one to ping here :(")
+            returnD("There's no one to ping here :(")
         if rest.strip() == "":
             rest = "Ping!"
         else:
             rest = rest.decode('utf-8')
         rest += " %s" % " ".join(users)
-        defer.returnValue(rest.encode('utf-8'))
+        returnD(rest.encode('utf-8'))
 
     def command_pingall(self, rest, channel=None, nick=None):
         """pingall [<text>] : Pings all ops, admins and at most 50 more random users on the chan by saying <text> except for users set with noping./AUTH"""
@@ -955,15 +969,17 @@ class IRCBot(NamesIRCClient):
     re_stop = re.compile(r'\s*--stop\s*', re.I)
     re_list = re.compile(r'\s*--list\s*', re.I)
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
+    @inlineCallbacks
     def command_noping(self, rest, channel=None, nick=None):
         """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
         channel = self.getMasterChan(channel)
         if self.re_list.search(rest):
-            skip = [user['user'].encode('utf-8') for user in self.db['noping_users'].find({'channel': channel}, fields=['user'])]
+            noping = yield self.db['noping_users'].find({'channel': channel}, fields=['user'])
+            skip = [user['user'].encode('utf-8') for user in noping]
             text = "are"
             if len(skip) < 2:
                 text = "is"
-            return "%s %s actually registered as noping." % (" ".join(skip), text)
+            returnD("%s %s actually registered as noping." % (" ".join(skip), text))
         if self.re_stop.search(rest):
             no = ""
             again = "again"
@@ -976,7 +992,7 @@ class IRCBot(NamesIRCClient):
             users = rest.split(" ")
             for user in users:
                 self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
-        return "All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again)
+        returnD("All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again))
 
 
    # Tasks commands
@@ -1037,9 +1053,10 @@ class IRCBot(NamesIRCClient):
         self.tasks.append(task_obj)
         return "Task #%s scheduled at %s : %s" % (rank, then, task)
 
+    @inlineCallbacks
     def _refresh_tasks_from_db(self):
         now = time.time()
-        tasks = list(self.db['tasks'].find({'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, sort=[('scheduled_ts', pymongo.ASCENDING)]))
+        tasks = yield self.db['tasks'].find({'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
         for task in filter(lambda x: "canceled" not in x, tasks):
             for x in filter(lambda x: isinstance(task[x], unicode), task):
                 task[x] = task[x].encode('utf-8')
@@ -1121,13 +1138,14 @@ class IRCBot(NamesIRCClient):
             return "Current pad is now set to %s" % rest
         return "This is not a valid pad url."
 
+    @inlineCallbacks
     def command_pad(self, rest, channel=None, *args):
         """pad : Prints the url of the current etherpad."""
         channel = self.getMasterChan(channel)
-        res = self.db['feeds'].find_one({'database': 'pad', 'channel': channel}, fields=['query'])
+        res = yield self.db['feeds'].find({'database': 'pad', 'channel': channel}, fields=['query'])
         if res:
-            return "Current pad is available at: %s" % res['query']
-        return "No pad is currently set for this channel."
+            returnD("Current pad is available at: %s" % res[0]['query'])
+        returnD("No pad is currently set for this channel.")
 
     def command_title(self, url, *args):
         """title <url> : Prints the title of the webpage at <url>."""
