@@ -13,7 +13,7 @@ if not DEBUG:
 def prepareDB():
     conn = yield MongoConnection(MONGODB['HOST'], MONGODB['PORT'])
     db = conn[MONGODB['DATABASE']]
-    db.authenticate(MONGODB['USER'], MONGODB['PSWD'])
+    yield db.authenticate(MONGODB['USER'], MONGODB['PSWD'])
     returnD(db)
 
 def closeDB(db):
