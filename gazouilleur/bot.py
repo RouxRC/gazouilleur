@@ -901,16 +901,16 @@ class IRCBot(NamesIRCClient):
         """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)."""
         chan = self.getMasterChan(channel)
         twuser = get_chan_twitter_user(chan)
-        return self.command_lastwith("'^%s: .*%s%s/statuses/' %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
+        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
 
     def command_lasttweets(self, tweet, channel=None, nick=None):
         """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("'%s' %s" % (self.str_re_tweets, tweet), channel, nick)
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, tweet), channel, nick)
 
-    str_re_news = '^\[News — '
+    str_re_news = '^[News — '
     def command_lastnews(self, tweet, channel=None, nick=None):
         """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("'%s' %s" % (self.str_re_news, tweet), channel, nick)
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, tweet), channel, nick)
 
 
    # Ping commands
