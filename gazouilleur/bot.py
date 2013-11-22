@@ -297,6 +297,8 @@ class IRCBot(NamesIRCClient):
         if config.DEBUG:
             loggvar("COMMAND: %s: %s" % (user, message), channel)
         command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
+        if not command:
+            return
         func = self._find_command_function(command)
         if func is None and d is None:
             if chan_is_verbose(channel):
