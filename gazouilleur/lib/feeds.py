@@ -240,8 +240,6 @@ class FeederProtocol():
                     deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, nexturl)
                 elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
                     deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
-            for t in news:
-                yield self.fact.db['tweets'].save(t, safe=True)
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
                 existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
@@ -265,6 +263,8 @@ class FeederProtocol():
                 if nb_rts:
                     nb_rts_str = " (%s RTs filtered)" % nb_rts
                 self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
+            for t in news:
+                yield self.fact.db['tweets'].save(t, safe=True)
         returnD(True)
 
     def displayTweet(self, t):
