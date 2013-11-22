@@ -515,14 +515,12 @@ class FeederProtocol():
                         except:
                             if config.DEBUG:
                                 self.log(tweet, "stream", hint=True)
-                elif not (ct + len(deleted)):
-                    continue
-                if ct > 9 or len(deleted) or time.time() > flush:
+                if ct + len(deleted) and (time.time() > flush or ct > 9):
                     self._flush_tweets(tweets, deleted)
                     ct = 0
                     tweets = []
                     deleted = []
-                    flush = time.time() + 14
+                    flush = time.time() + 2
         except Exception as e:
             if not str(e).strip():
                 self.log("Stream crashed with %s: %s", (type(e), e), error=True)
