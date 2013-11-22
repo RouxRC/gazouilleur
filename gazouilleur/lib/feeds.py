@@ -171,7 +171,7 @@ class FeederProtocol():
             new.reverse()
             new = new[:5]
             try:
-                self.fact.db['news'].insert(new, safe=True)
+                yield self.fact.db['news'].insert(new, safe=True)
             except:
                 self._handle_error(e, "recording news batch", url)
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
@@ -372,7 +372,7 @@ class FeederProtocol():
         news = [t for t in dms if t['_id'] not in existing]
         if news:
             news.reverse()
-            self.fact.db['dms'].insert(news, safe=True)
+            yield self.fact.db['dms'].insert(news, safe=True)
             self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
         returnD(True)
 
@@ -397,7 +397,7 @@ class FeederProtocol():
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
-        self.fact.db['stats'].insert(stat)
+        yield self.fact.db['stats'].insert(stat)
         weekday = timestamp.weekday()
         laststats = Stats(self.fact.db, user)
         if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
