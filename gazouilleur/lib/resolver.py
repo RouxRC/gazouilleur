@@ -28,9 +28,13 @@ class ResolverAgent(RedirectAgent):
             host = self.lastURI[:(self.lastURI+"/").index('/', 8)]
         except:
             host = "http:/"
-        self.lastURI = locationHeaders[0].lstrip('/')
-        if not self.lastURI.startswith('http'):
-            self.lastURI = "%s/%s" % (host, self.lastURI)
+        newURI = locationHeaders[0].lstrip('/')
+        # Handle relative redirects
+        if not newURI.startswith('http'):
+            newURI = "%s/%s" % (host, newURI)
+        # Keep minified urls when extended one is too long
+        if len(newURI) < 250:
+            self.lastURI = newURI
         deferred = self._agent.request(method, self.lastURI, headers)
         return deferred.addCallback(self._handleResponse, method, uri, headers, redirectCount + 1)
 
