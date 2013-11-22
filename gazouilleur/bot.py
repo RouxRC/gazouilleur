@@ -982,10 +982,12 @@ class IRCBot(NamesIRCClient):
     def command_noping(self, rest, channel=None, nick=None):
         """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
         channel = self.getMasterChan(channel)
-        if self.re_list.search(rest):
+        if not rest or self.re_list.search(rest):
             noping = yield self.db['noping_users'].find({'channel': channel}, fields=['user'])
             skip = [user['user'].encode('utf-8') for user in noping]
             text = "are"
+            if not skip:
+                skip.append("No one")
             if len(skip) < 2:
                 text = "is"
             returnD("%s %s actually registered as noping." % (" ".join(skip), text))
