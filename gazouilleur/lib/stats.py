@@ -6,7 +6,7 @@ from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 

@@ -44,3 +44,9 @@ def ensure_indexes(db):
     db['tweets'].ensure_index(sortasc('uniq_rt_hash'), background=True)
     db['lasttweets'].ensure_index(sortasc('channel'), background=True)
 
+@inlineCallbacks
+def save_lasttweet_id(channel, tweet_id):
+    db = yield prepareDB()
+    db['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
+    closeDB(db)
+

@@ -11,7 +11,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import sortdesc, save_lasttweet_id
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
@@ -186,14 +186,8 @@ class Microblog():
     @inlineCallbacks
     def get_stats(self, db=None, **kwargs):
         timestamp = timestamp_hour(datetime.today())
-        closedb = False
-        if not db:
-            closedb = True
-            db = yield prepareDB()
-        last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
-        if closedb:
-            closeDB(db)
         try:
+            last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
             last = last[0]
         except:
             last = {}
