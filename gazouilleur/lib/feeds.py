@@ -401,7 +401,8 @@ class FeederProtocol():
         weekday = timestamp.weekday()
         laststats = Stats(self.fact.db, user)
         if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
-            self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
+            stats = yield laststats.print_last()
+            self.fact.ircclient._send_message(stats, self.fact.channel)
         last_tweet = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=sortdesc('timestamp'))
         if chan_displays_stats(self.fact.channel) and last_tweet and timestamp - last_tweet[0]['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
             reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
