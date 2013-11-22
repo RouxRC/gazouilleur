@@ -544,8 +544,6 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    db = None
-
     def __init__(self, ircclient, channel, db, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
         self.cache = {}

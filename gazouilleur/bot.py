@@ -52,7 +52,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def init_db(self):
         self.db = yield prepareDB()
-        ensure_indexes(self.db)
+        yield ensure_indexes(self.db)
 
     def set_twitter_url_length(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -798,7 +798,7 @@ class IRCBot(NamesIRCClient):
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
                 oauth2_token = self.feeders[lowchan][feed].twitter_token or None
                 self.feeders[lowchan][feed].end()
-                self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
+                self.feeders[lowchan][feed] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
                 self.feeders[lowchan][feed].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
