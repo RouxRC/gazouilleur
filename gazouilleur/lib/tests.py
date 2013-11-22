@@ -8,12 +8,12 @@ try:
     from colifrapy.tools.colorize import colorize
     colorize('a', style='bold')
 except (ImportError, TypeError) as e:
-    sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.")
+    sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.")
     exit(1)
 try:
     import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
-    sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
+    sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
 
 #Load decorator
@@ -73,7 +73,7 @@ if hasattr(config, 'URL_STATS'):
         import pystache, pylab, matplotlib
         import gazouilleur.lib.plots
     except (NameError, ImportError) as e:
-        logerr("Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
+        logerr("Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `./bin/update_requirements.sh` to update the dependencies.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
         exit(1)
 
 # Check MongoDB
