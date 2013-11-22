@@ -14,7 +14,7 @@ filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser'
 filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue as returnD
-from twisted.internet.task import LoopingCall
+from twisted.internet.task import deferLater, LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python import failure
@@ -177,6 +177,9 @@ class FeederProtocol():
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         returnD(True)
 
+    def deferredSleep(self, sleep=5):
+        return deferLater(reactor, sleep, lambda : None)
+
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
         # handle tweets from icerocket or topsy fake rss
@@ -221,6 +224,9 @@ class FeederProtocol():
                 tw = {'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': uniq_rt_hash(tweet), 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': source}
                 tw = grab_extra_meta(i, tw)
                 tweets.append(tw)
+        # Delay displaying to avoid duplicates from the stream
+        if source != "mystream":
+            yield self.deferredSleep()
         existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
@@ -234,6 +240,8 @@ class FeederProtocol():
                     deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, nexturl)
                 elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
                     deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
+            for t in news:
+                yield self.fact.db['tweets'].save(t, safe=True)
             if not self.fact.displayRT:
                 hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
                 existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
@@ -257,8 +265,6 @@ class FeederProtocol():
                 if nb_rts:
                     nb_rts_str = " (%s RTs filtered)" % nb_rts
                 self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
-            for t in news:
-                self.fact.db['tweets'].save(t, safe=True)
         returnD(True)
 
     def displayTweet(self, t):
