@@ -218,5 +218,4 @@ To use an Identi.ca account since the Pump.io migration, the following commands 
  ```
 
 
-### [Come over see the bot in action and ask any question on Regards Citoyens's IRC channel on Freenode! (irc://irc.freenode.net:#regardscitoyens)](http://webchat.freenode.net/?channels=regardscitoyens)
-
+### [Come over see the bot in action and ask any question on Regards Citoyens's IRC channel on Freenode! (irc://irc.freenode.net:#RegardsCitoyens)](https://kiwiirc.com/client/irc.freenode.net/?nick=gazou|?#regardscitoyens)
