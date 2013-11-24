@@ -244,8 +244,10 @@ class IRCBot(NamesIRCClient):
         for c in chans:
             self.userLeft(nick, c, quitMessage)
 
+    @inlineCallbacks
     def userRenamed(self, oldnick, newnick):
-        for c in self._get_user_channels(oldnick):
+        users = yield self._get_user_channels(oldnick)
+        for c in users:
             self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
 
     def getMasterChan(self, channel):
