@@ -17,6 +17,8 @@ def prepareDB():
     returnD(db)
 
 def closeDB(db):
+    if not db:
+        return True
     try:
         db._Database__factory.doStop()
         return True

@@ -26,7 +26,7 @@ except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
 from gazouilleur.lib.log import logg
-from gazouilleur.lib.mongo import sortdesc
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
@@ -311,6 +311,7 @@ class FeederProtocol():
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
             returnD(False)
+        yield self.fact.reloadDB()
         if query:
             if not isinstance(listtweets, dict):
                 returnD(False)
@@ -351,6 +352,7 @@ class FeederProtocol():
     def process_dms(self, listdms, user):
         if not listdms:
             returnD(False)
+        yield self.fact.reloadDB()
         ids = []
         dms = []
         for i in listdms:
@@ -383,6 +385,7 @@ class FeederProtocol():
         stats, last, timestamp = res
         if not stats:
             returnD(False)
+        yield self.fact.reloadDB()
         if not last:
             last = {'tweets': 0, 'followers': 0}
             since = timestamp - timedelta(hours=1)
@@ -399,7 +402,7 @@ class FeederProtocol():
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
         yield self.fact.db['stats'].insert(stat)
         weekday = timestamp.weekday()
-        laststats = Stats(self.fact.db, user)
+        laststats = Stats(user)
         if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
             stats = yield laststats.print_last()
             self.fact.ircclient._send_message(stats, self.fact.channel)
@@ -417,7 +420,7 @@ class FeederProtocol():
             raise Exception("No process existing for %s" % database)
         source = getattr(Microblog, 'get_%s' % database, passs)
         processor = getattr(self, 'process_%s' % database, passs)
-        d.addCallback(source, db=self.fact.db, retweets_processed=self.fact.retweets_processed, bearer_token=self.fact.twitter_token)
+        d.addCallback(source, retweets_processed=self.fact.retweets_processed, bearer_token=self.fact.twitter_token)
         d.addErrback(self._handle_error, "downloading %s for" % database, user)
         d.addCallback(check_twitter_results)
         d.addErrback(self._handle_error, "examining %s for" % database, user)
@@ -446,7 +449,7 @@ class FeederProtocol():
     def search_twitter(self, data, query, max_id=None, page=0, randorder=None):
         if page and randorder:
             try:
-                query = yield getFeeds(self.fact.channel, "tweets", self.fact.db, randorder=randorder)
+                query = yield getFeeds(self.fact.channel, "tweets", randorder=randorder)
                 query = query[page]
             except Exception as e:
                 returnD(False)
@@ -464,6 +467,7 @@ class FeederProtocol():
     def start_stream(self, conf):
         if self.fact.status == "running":
             returnD(False)
+        yield self.fact.reloadDB()
         queries = yield self.fact.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
         track = []
         skip = []
@@ -545,12 +549,12 @@ class FeederProtocol():
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, db, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
+    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
         self.cache = {}
         self.cache_urls = ircclient.cache_urls
         self.channel = channel
-        self.db = db
+        self.db = None
         self.database = database
 
         self.delay = delay
@@ -610,6 +614,11 @@ class FeederFactory(protocol.ClientFactory):
         self.runner = LoopingCall(run_command, **args)
         self.runner.start(self.delay)
 
+    @inlineCallbacks
+    def reloadDB(self):
+        closeDB(self.db)
+        self.db = yield prepareDB()
+
     def end(self):
         if self.runner and self.runner.running:
             self.status = "closing"
@@ -619,21 +628,23 @@ class FeederFactory(protocol.ClientFactory):
                 self.log("Feeder closed.", self.database, hint=True)
             self.runner = None
             self.status = "closed"
-
+        closeDB(self.db)
 
     @inlineCallbacks
     def run_twitter_search(self):
+        yield self.reloadDB()
         queries = yield self.db["feeds"].find({'database': self.database, 'channel': self.channel})
         randorder = range(len(queries))
         shuffle(randorder)
-        urls = yield getFeeds(self.channel, self.database, self.db, randorder=randorder)
+        urls = yield getFeeds(self.channel, self.database, randorder=randorder)
         self.protocol.start_twitter_search(urls, randorder=randorder)
 
     @inlineCallbacks
     def run_rss_feeds(self):
+        yield self.reloadDB()
         urls = self.feeds
         if not urls:
-            urls = yield getFeeds(self.channel, self.database, self.db, add_url=self.tweets_search_page)
+            urls = yield getFeeds(self.channel, self.database, add_url=self.tweets_search_page)
         ct = 0
         for url in urls:
             ct += 3 + int(random()*500)/100

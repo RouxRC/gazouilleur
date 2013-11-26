@@ -6,14 +6,13 @@ from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
-from gazouilleur.lib.mongo import sortasc, sortdesc
+from gazouilleur.lib.mongo import *
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
 class Stats():
 
-    def __init__(self, db, user):
-        self.db = db
+    def __init__(self, user):
         self.now = timestamp_hour(datetime.today())
         self.user = user
         try:
@@ -24,7 +23,9 @@ class Stats():
     @inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
-        stats = yield self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
+        db = yield prepareDB()
+        stats = yield db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
+        closeDB(db)
         if not len(stats):
             returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
@@ -75,7 +76,9 @@ class Stats():
     def dump_data(self):
         if not self.url:
             return
-        stats = yield self.db['stats'].find({'user': self.user}, filter=sortasc('timestamp'))
+        db = yield prepareDB()
+        stats = yield db['stats'].find({'user': self.user}, filter=sortasc('timestamp'))
+        closeDB(db)
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]

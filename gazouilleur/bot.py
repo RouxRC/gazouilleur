@@ -30,7 +30,6 @@ class IRCBot(NamesIRCClient):
     nicks = {}
     tasks = []
     feeders = {}
-    feeders_dbs = {}
     cache_urls = {}
     filters = {}
     silent = {}
@@ -68,6 +67,7 @@ class IRCBot(NamesIRCClient):
 
 
     # Double logger (mongo / files)
+    @inlineCallbacks
     def log(self, message, user=None, channel=config.BOTNAME, filtered=False):
         if channel == "*" or channel == self.nickname or channel.lower() not in self.logger:
             channel = config.BOTNAME
@@ -81,15 +81,16 @@ class IRCBot(NamesIRCClient):
             else:
                 user = nick
             host = self.nicks[lowchan][nick]
-            self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
+            yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
-                self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
+                yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
         if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()):
             self.logger[lowchan].log(message, filtered)
         if user:
-            return nick, user
+            returnD((nick, user))
+        returnD(None)
 
   # -------------------
   # Connexion loggers
@@ -130,13 +131,10 @@ class IRCBot(NamesIRCClient):
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
-        self.feeders_dbs[lowchan] = {}
         # Follow RSS Feeds matching url queries set for this channel with !follow
-        self.feeders_dbs[lowchan]['news'] = yield prepareDB()
-        self.feeders[lowchan]['news'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['news'], 'news', 299, 35)
+        self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, 35)
         if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
         # Get OAuth2 tokens for twitter search extra limitrate
-            self.feeders_dbs[lowchan]['tweets'] = yield prepareDB()
             try:
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
                 loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
@@ -144,30 +142,30 @@ class IRCBot(NamesIRCClient):
                 oauth2_token = None
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
-            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
+            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'stream', 20, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
-                self.feeders[lowchan]['stats'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['news'], 'stats', 600)
+                self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
+                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
             # Follow DMs sent to Twitter USER
-                self.feeders[lowchan]['dms'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['news'], 'dms', 90)
+                self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
-                self.feeders[lowchan]['retweets'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'retweets', 360)
+                self.feeders[lowchan]['retweets'] = FeederFactory(self, channel, 'retweets', 360)
         # Follow Mentions of Twitter USER in tweets
-            self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'mentions', 90)
+            self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
-            self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], 'tweets', 277, 30, tweetsSearchPage='icerocket')
+            self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 30, tweetsSearchPage='icerocket')
         # ... or via Topsy.com
         #   self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
         n = self.factory.channels.index(lowchan) + 1
@@ -182,9 +180,6 @@ class IRCBot(NamesIRCClient):
         if lowchan in self.feeders:
             for f in self.feeders[lowchan].keys():
                 self.feeders[lowchan][f].end()
-        if lowchan in self.feeders_dbs:
-            for db in self.feeders_dbs[lowchan].keys():
-                closeDB(self.feeders_dbs[lowchan][db])
         if lowchan in self.logger:
             self.logger[lowchan].close()
         if not silent:
@@ -276,6 +271,7 @@ class IRCBot(NamesIRCClient):
         return has_user_rights_in_doc(nick, channel, self._get_command_name(command), self._get_command_doc(command))
 
     re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, config.COMMAND_CHARACTER), re.I)
+    @inlineCallbacks
     def privmsg(self, user, channel, message, tasks=None):
         try:
             message = message.decode('utf-8')
@@ -286,37 +282,38 @@ class IRCBot(NamesIRCClient):
                 message = message.decode('cp1252')
         message = cleanblanks(message)
         message = self.re_catch_command.sub(config.COMMAND_CHARACTER, message)
-        nick, user = self.log(message, user, channel)
+        nick, user = yield self.log(message, user, channel)
         d = None
         if channel == "#gazouilleur" and not message.startswith("%schans" % config.COMMAND_CHARACTER):
-            return
+            returnD(None)
         if not message.startswith(config.COMMAND_CHARACTER):
             if self.nickname.lower() in message.lower() and chan_is_verbose(channel):
                 d = maybeDeferred(self.command_test)
             else:
-                return
+                returnD(None)
         message = message.encode('utf-8')
         if config.DEBUG:
             loggvar("COMMAND: %s: %s" % (user, message), channel)
         command, _, rest = message.lstrip(config.COMMAND_CHARACTER).partition(' ')
         if not command:
-            return
+            returnD(None)
         func = self._find_command_function(command)
         if func is None and d is None:
             if chan_is_verbose(channel):
                 d = maybeDeferred(self.command_help, command, channel, nick, discreet=True)
             else:
-                return
+                returnD(None)
         target = nick if channel == self.nickname else channel
         if d is None:
             if self._can_user_do(nick, channel, func):
                 d = maybeDeferred(func, rest, channel, nick)
             else:
                 if chan_is_verbose(channel):
-                    return self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
-                return
+                    self._send_message("Sorry, you don't have the rights to use this command in this channel.", target, nick)
+                returnD(None)
         d.addCallback(self._send_message, target, nick, tasks=tasks)
         d.addErrback(self._show_error, target, nick)
+        returnD(None)
 
     # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
@@ -782,7 +779,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
-            stats = Stats(self.db, conf["TWITTER"]["USER"].lower())
+            stats = Stats(conf["TWITTER"]["USER"].lower())
             return stats.print_last()
         return "No Twitter account set for this channel."
 
@@ -800,10 +797,11 @@ class IRCBot(NamesIRCClient):
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
                 oauth2_token = self.feeders[lowchan][feed].twitter_token or None
                 self.feeders[lowchan][feed].end()
-                self.feeders[lowchan][feed] = FeederFactory(self, channel, self.feeders_dbs[lowchan]['tweets'], database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
+                self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
                 self.feeders[lowchan][feed].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
+    @inlineCallbacks
     def command_follow(self, query, channel=None, nick=None):
         """follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
@@ -816,17 +814,17 @@ class IRCBot(NamesIRCClient):
             database = 'tweets'
             name = 'TWEETS: %s' % query
         if query == "":
-            return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
+            returnD("Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER)
         if len(query) > 300:
-            return "Please limit your follow queries to a maximum of 300 characters"
+            returnD("Please limit your follow queries to a maximum of 300 characters")
         if database == "news" and name == "":
-            return "Please provide a name for this url feed."
-        self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            returnD("Please provide a name for this url feed.")
+        yield self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         if database == "news":
             query = "%s <%s>" % (name, query)
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
-        return '«%s» query added to %s database for %s' % (query, database, channel)
+        returnD('«%s» query added to %s database for %s' % (query, database, channel))
 
     re_clean_query = re.compile(r'([()+|])')
     regexp_feedquery = lambda self, x: re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', x), re.I)
@@ -846,15 +844,16 @@ class IRCBot(NamesIRCClient):
             reactor.callLater(0.5, self._restart_feeds, channel)
         returnD('«%s» query removed from %s database for %s' % (query, database, channel))
 
+    @inlineCallbacks
     def command_filter(self, keyword, channel=None, nick=None):
         """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         if keyword == "":
-            return "Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER
-        self.db['filters'].update({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            returnD("Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER)
+        yield self.db['filters'].update({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel.lower()].append(keyword)
-        return '«%s» filter added for tweets displays on %s' % (keyword, channel)
+        returnD('«%s» filter added for tweets displays on %s' % (keyword, channel))
 
     @inlineCallbacks
     def command_unfilter(self, keyword, channel=None, nick=None):
@@ -880,7 +879,7 @@ class IRCBot(NamesIRCClient):
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:
-            feeds = yield getFeeds(channel, database, self.db, url_format=False)
+            feeds = yield getFeeds(channel, database, url_format=False)
         if database == 'tweets':
             res = "\n".join([f.replace(')OR(', '').replace(r')$', '').replace('^(', '').replace('from:', '@') for f in feeds])
         else:
@@ -998,13 +997,13 @@ class IRCBot(NamesIRCClient):
             again = "again"
             rest = self.re_stop.sub(' ', rest).replace('  ', ' ')
             users = rest.split(" ")
-            self.db['noping_users'].remove({'channel': channel, 'lower': {'$in': [x.lower() for x in users]}})
+            yield self.db['noping_users'].remove({'channel': channel, 'lower': {'$in': [x.lower() for x in users]}})
         else:
             no = "not "
             again = "anymore"
             users = rest.split(" ")
             for user in users:
-                self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
+                yield self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
         returnD("All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again))
 
 
@@ -1029,6 +1028,7 @@ class IRCBot(NamesIRCClient):
         return task, channel
 
     re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % config.COMMAND_CHARACTER, re.I)
+    @inlineCallbacks
     def command_runlater(self, rest, channel=None, nick=None):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
         now = time.time()
@@ -1039,7 +1039,7 @@ class IRCBot(NamesIRCClient):
         try:
             task, channel = self._get_chan_from_command(task, channel)
         except Exception as e:
-            return str(e)
+            returnD(str(e))
         target = nick if channel == self.nickname else channel
         rank = len(self.tasks)
         task = cleanblanks(task)
@@ -1049,22 +1049,22 @@ class IRCBot(NamesIRCClient):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
             if func is None:
-                return "I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command)
+                returnD("I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command))
             if not self._can_user_do(nick, channel, func):
-                return "I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command)
+                returnD("I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command))
             if self.re_clean_twitter_task.match(task):
                 count = countchars(task, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
-                    return("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
+                    returnD("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
         loggvar("Task #%s planned at %s by %s: %s" % (rank, then, nick, task), channel, "tasks")
         task_obj = {'rank': rank, 'channel': channel.lower(), 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'target': target}
-        self.db['tasks'].insert(task_obj)
+        yield self.db['tasks'].insert(task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
-        return "Task #%s scheduled at %s : %s" % (rank, then, task)
+        returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
 
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
@@ -1097,23 +1097,24 @@ class IRCBot(NamesIRCClient):
             return "No task scheduled."
         return res
 
+    @inlineCallbacks
     def command_cancel(self, rest, channel=None, *args):
         """cancel [--chan <channel>] <task_id> : Cancels the scheduled task <task_id> for current channel or optional <channel>./AUTH"""
         try:
             rest, channel = self._get_chan_from_command(rest, channel)
         except Exception as e:
-           return str(e)
+           returnD(str(e))
         task_id = safeint(rest.lstrip('#'))
         try:
             task = self.tasks[task_id]
             if task['channel'] != channel.lower():
-                return "Task #%s is not scheduled for this channel." % task_id
+                returnD("Task #%s is not scheduled for this channel." % task_id)
             task['id'].cancel()
-            self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
+            yield self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
             self.tasks[task_id]['canceled'] = True
-            return "#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command'])
+            returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
         except:
-            return "The task #%s does not exist yet or is already canceled." % task_id
+            returnD("The task #%s does not exist yet or is already canceled." % task_id)
 
 
    # Other commands...
@@ -1142,14 +1143,15 @@ class IRCBot(NamesIRCClient):
         return "It's good to be back!"
 
     re_url_pad = re.compile(r'https?://.*pad', re.I)
+    @inlineCallbacks
     def command_setpad(self, rest, channel=None, nick=None):
         """setpad <url> : Defines <url> of the current etherpad./AUTH"""
         channel = self.getMasterChan(channel)
         url = rest.strip()
         if self.re_url_pad.match(url):
-            self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
-            return "Current pad is now set to %s" % rest
-        return "This is not a valid pad url."
+            yield self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            returnD("Current pad is now set to %s" % rest)
+        returnD("This is not a valid pad url.")
 
     @inlineCallbacks
     def command_pad(self, rest, channel=None, *args):

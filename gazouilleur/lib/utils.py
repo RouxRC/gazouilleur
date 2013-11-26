@@ -8,7 +8,7 @@ from twisted.internet import defer
 from twisted.internet.error import DNSLookupError
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
-from gazouilleur.lib.mongo import sortasc
+from gazouilleur.lib.mongo import prepareDB, closeDB, sortasc
 from gazouilleur.lib.log import loggerr
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
@@ -184,9 +184,11 @@ def formatQuery(query, add_url=None):
     return query
 
 @defer.inlineCallbacks
-def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=None):
+def getFeeds(channel, database, url_format=True, add_url=None, randorder=None):
     urls = []
+    db = yield prepareDB()
     queries = yield db["feeds"].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
+    closeDB(db)
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
