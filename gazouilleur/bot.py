@@ -701,7 +701,9 @@ class IRCBot(NamesIRCClient):
     def command_answerlast(self, rest, channel=None, nick=None):
         """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
+        db = yield prepareDB()
+        lasttweetid = yield db['lasttweets'].find({'channel': channel})
+        closeDB(db)
         if not lasttweetid:
             returnD("Sorry, no last tweet id found for this chan." )
         res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick, check=False)
@@ -742,6 +744,9 @@ class IRCBot(NamesIRCClient):
     def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
         """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
+        db = yield prepareDB()
+        lasttweetid = yield db['lasttweets'].find({'channel': channel})
+        closeDB(db)
         lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
             returnD("Sorry, no last tweet id found for this chan.")

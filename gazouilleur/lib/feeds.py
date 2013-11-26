@@ -618,6 +618,7 @@ class FeederFactory(protocol.ClientFactory):
     def reloadDB(self):
         closeDB(self.db)
         self.db = yield prepareDB()
+        returnD(True)
 
     def end(self):
         if self.runner and self.runner.running:
@@ -638,6 +639,7 @@ class FeederFactory(protocol.ClientFactory):
         shuffle(randorder)
         urls = yield getFeeds(self.channel, self.database, randorder=randorder)
         self.protocol.start_twitter_search(urls, randorder=randorder)
+        returnD(True)
 
     @inlineCallbacks
     def run_rss_feeds(self):
@@ -649,4 +651,5 @@ class FeederFactory(protocol.ClientFactory):
         for url in urls:
             ct += 3 + int(random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
+        returnD(True)
 
