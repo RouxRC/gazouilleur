@@ -73,9 +73,10 @@ class Stats():
             res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
         returnValue([(True, "[Stats] %s" % m) for m in res])
 
+    @inlineCallbacks
     def dump_data(self):
         if not self.url:
-            return
+            returnValue(False)
         db = yield prepareDB()
         stats = yield db['stats'].find({'user': self.user}, filter=sortasc('timestamp'))
         closeDB(db)
@@ -126,6 +127,7 @@ class Stats():
             loggerr("Could not write images in web/img for %s : %s" % (self.user, e), action="stats")
 
         self.render_template(os.path.join("web", "templates"), "static_stats.html")
+        returnValue(True)
 
     def render_template(self, path, filename):
         data = {'user': self.user, 'url': self.url}
