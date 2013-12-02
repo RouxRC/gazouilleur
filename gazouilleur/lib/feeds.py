@@ -41,6 +41,9 @@ class FeederProtocol(object):
         reactor.callFromThread(self.threadpool.start)
         # Allow Ctrl-C to get you out cleanly:
         reactor.addSystemEventTrigger('after', 'shutdown', self.threadpool.stop)
+        self.pile = []
+        self.depiler = None
+        self.depiler_running = False
 
     def log(self, msg, action="", error=False, hint=False):
         self.fact.log(msg, action, error=error, hint=hint)
@@ -491,14 +494,12 @@ class FeederProtocol(object):
         users, self.fact.ircclient.twitter['users'] = conn.lookup_users(track, self.fact.ircclient.twitter['users'])
         self.fact.status = "running"
         deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
+        self.depiler = LoopingCall(self.flush_tweets)
+        self.depiler.start(1)
         returnD(True)
 
     def follow_stream(self, conf, follow, track):
         conn = Microblog("twitter", conf, streaming=True)
-        ct = 0
-        tweets = []
-        deleted = []
-        flush = time.time() + 14
         try:
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status.startswith("clos"):
@@ -508,39 +509,42 @@ class FeederProtocol(object):
                         self.log("Disconnected %s" % tweet, "stream", error=True)
                         break
                     if tweet.get('text'):
-                        tweets.append(tweet)
-                        ct += 1
+                        self.pile.insert(0, tweet)
                     else:
                         try:
-                            deleted.append(tweet['delete']['status']['id'])
-                        except:
+                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}})
+                            if config.DEBUG:
+                                self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], "stream", hint=True)
+                        except Exception as e:
                             if config.DEBUG:
                                 self.log(tweet, "stream", hint=True)
-                if ct + len(deleted) and (time.time() > flush or ct > 9):
-                    self._flush_tweets(tweets, deleted)
-                    ct = 0
-                    tweets = []
-                    deleted = []
-                    flush = time.time() + 2
         except Exception as e:
             if not str(e).strip():
                 self.log("Stream crashed with %s: %s", (type(e), e), error=True)
             else:
                 self._handle_error(e, "following", "stream")
-        self._flush_tweets(tweets, deleted, wait=False)
+        self.depiler.stop()
+        self.flush_tweets()
         self.log("Feeder closed.", "stream", hint=True)
 
-    def _flush_tweets(self, tweets, deleted, wait=True):
-        if deleted:
-            if config.DEBUG:
-                self.log("Mark %s tweets as deleted." % len(deleted), "stream", hint=True)
-
-            wait = 3 if wait else 0
-            reactor.callLater(wait, self.fact.db["tweets"].update, spec={'id': {'$in': deleted}}, document={'$set': {'deleted': True}}, multi=True)
-        if tweets:
-            if config.DEBUG:
-                self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
-            reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
+    @inlineCallbacks
+    def flush_tweets(self):
+        if self.depiler_running or not self.pile:
+            returnD(None)
+        self.depiler_running = True
+        todo = []
+        while self.pile and len(todo) < 35:
+            todo.append(self.pile.pop())
+        if len(self.pile) > 1000:
+            self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. Dumping the data to the trash now... You should still use %sfuckoff and %sunfollow to clean the guilty query." % (self.fact.channel, len(self.pile), config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))), self.fact.channel, admins=True)
+            del self.pile[:]
+        elif len(self.pile) > 300:
+            self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. You should use %sfuckoff and %sunfollow the guilty query or at least restart." % (self.fact.channel, len(self.pile), config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))), self.fact.channel, admins=True)
+        if config.DEBUG:
+            self.log("Flush %s tweets%s." % (len(todo), " (%s left to do)" % len(self.pile) if len(self.pile) else ""), "stream", hint=True)
+        yield self.process_twitter_feed(todo, "stream")
+        self.depiler_running = False
+        returnD(True)
 
 
 class FeederFactory(protocol.ClientFactory):
