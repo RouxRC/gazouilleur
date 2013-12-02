@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import inspect, time
-from socket import setdefaulttimeout
+import inspect
 from twisted.internet.defer import inlineCallbacks, returnValue as returnD
 from txmongo import MongoConnection, _MongoFactory, collection
 from txmongo.filter import sort as mongosort, ASCENDING, DESCENDING
