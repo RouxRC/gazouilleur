@@ -341,7 +341,8 @@ class IRCBot(NamesIRCClient):
                             break
             else:
                 msg_utf = line.decode('utf-8')
-            self.log(msg_utf, self.nickname, chan, filtered=skip)
+            if not msg_utf.startswith('JOIN #'):
+                self.log(msg_utf, self.nickname, chan, filtered=skip)
             if skip:
                 if config.DEBUG:
                     try:
