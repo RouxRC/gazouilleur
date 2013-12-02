@@ -125,7 +125,7 @@ class IRCBot(NamesIRCClient):
             returnD(None)
         self.lastqueries[lowchan] = {'n': 1, 'skip': 0}
         filters = yield Mongo('filters', 'find', {'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])
-        self.filters[lowchan] = [keyword['keyword'] for keyword in filters]
+        self.filters[lowchan] = [keyword['keyword'].encode('utf-8') for keyword in filters]
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
@@ -337,9 +337,10 @@ class IRCBot(NamesIRCClient):
                     reason = "fuckoff until %s" % self.silent[chan]
                 elif chan in self.filters and self.re_tweets.search(msg):
                     for keyword in self.filters[chan]:
-                        if keyword and ("%s" % keyword in msg_low or (keyword.startswith('@') and msg_low.startswith(keyword[1:]+': '))):
+                        k = keyword.decode('utf-8')
+                        if (k in msg_low or (k.startswith('@') and msg_low.startswith(k[1:]+': '))):
                             skip = True
-                            reason = "filter on «%s»" % keyword.encode('utf-8')
+                            reason = "filter on «%s»" % keyword
                             break
             else:
                 msg_utf = line.decode('utf-8')
