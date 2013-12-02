@@ -880,7 +880,7 @@ class IRCBot(NamesIRCClient):
         try:
             database, channel = self._get_chan_from_command(database, channel)
         except Exception as e:
-           returnD(str(e))
+            returnD(str(e))
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
             returnD('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))
@@ -1122,7 +1122,7 @@ class IRCBot(NamesIRCClient):
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
         except:
-            returnD("The task #%s does not exist yet or is already canceled." % task_id)
+            returnD("The task #%s does not exist yet or anymore." % task_id)
 
 
    # Other commands...
