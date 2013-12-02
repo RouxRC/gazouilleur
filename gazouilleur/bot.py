@@ -15,7 +15,7 @@ from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
 from gazouilleur.lib.log import *
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import Mongo, sortasc, sortdesc, ensure_indexes
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog
@@ -44,13 +44,8 @@ class IRCBot(NamesIRCClient):
         self.password = config.BOTPASS
         self.breathe = datetime.today()
         self.set_twitter_url_length()
-        self.db = None
-        self.init_db()
-
-    @inlineCallbacks
-    def init_db(self):
-        self.db = yield prepareDB()
-        yield ensure_indexes(self.db)
+        self.logger =  {}
+        self.feeders = {}
 
     def set_twitter_url_length(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -80,40 +75,44 @@ class IRCBot(NamesIRCClient):
             else:
                 user = nick
             host = self.nicks[lowchan][nick]
-            yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
+            yield Mongo('logs', 'insert', {'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
-                yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
+                yield Mongo('logs', 'insert', {'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
         if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()):
             self.logger[lowchan].log(message, filtered)
         if user:
             returnD((nick, user))
-        returnD(None)
 
   # -------------------
   # Connexion loggers
 
+    @inlineCallbacks
     def connectionMade(self):
         loggirc('Connection made')
-        self.logger = {config.BOTNAME.lower(): FileLogger()}
-        self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
+        yield ensure_indexes()
+        lowname = config.BOTNAME.lower()
+        self.logger[lowname] = FileLogger()
+        yield self.log("[connected at %s]" % time.asctime(time.localtime(time.time())))
         NamesIRCClient.connectionMade(self)
 
+    @inlineCallbacks
     def connectionLost(self, reason):
-        self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        yield self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
         for channel in self.factory.channels:
             self.left(channel)
-        closeDB(self.db)
+        lowname = config.BOTNAME.lower()
         loggirc2('Connection lost because: %s.' % reason)
-        self.logger[config.BOTNAME.lower()].close()
+        self.logger[lowname].close()
         NamesIRCClient.connectionLost(self, reason)
 
+    @inlineCallbacks
     def signedOn(self):
         loggirc("Signed on as %s." % self.nickname)
         for channel in self.factory.channels:
             self.join(channel)
-        self._refresh_tasks_from_db()
+        yield self._refresh_tasks_from_db()
 
     @inlineCallbacks
     def joined(self, channel):
@@ -121,11 +120,11 @@ class IRCBot(NamesIRCClient):
         lowchan = channel.lower()
         self.logger[lowchan] = FileLogger(lowchan)
         loggirc("Joined.", channel)
-        self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+        yield self.log("[joined at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         if lowchan == "#gazouilleur":
             returnD(None)
         self.lastqueries[lowchan] = {'n': 1, 'skip': 0}
-        filters = yield self.db['filters'].find({'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])
+        filters = yield Mongo('filters', 'find', {'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])
         self.filters[lowchan] = [keyword['keyword'] for keyword in filters]
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
@@ -525,7 +524,7 @@ class IRCBot(NamesIRCClient):
         self.lastqueries[channel.lower()] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
-        matches = yield self.db['logs'].find(query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st)
+        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st)
         if len(matches) == 0:
             more = " more" if st > 1 else ""
             returnD("No"+more+" match found in my history log.")
@@ -563,7 +562,7 @@ class IRCBot(NamesIRCClient):
             nb, rest = self._extract_digit(rest)
         tmprest = rest
         st = self.lastqueries[truechannel]['skip']
-        last = yield self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], filter=sortdesc('timestamp'), skip=1)
+        last = yield Mongo('logs', 'find', {'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], filter=sortdesc('timestamp'), skip=1)
         for m in last:
             command, _, text = m['message'].encode('utf-8').lstrip(config.COMMAND_CHARACTER).partition(' ')
             if command == "lastseen":
@@ -595,7 +594,7 @@ class IRCBot(NamesIRCClient):
         re_user = re.compile(r'^\[[^\[]*'+user, re.I)
         channel = self.getMasterChan(channel)
         query = {'user': user.lower(), 'message': re_user, 'channel': channel}
-        res = yield self.db['logs'].find(query, fields=['timestamp', 'message'], filter=sortdesc('timestamp'), limit=2)
+        res = yield Mongo('logs', 'find', query, fields=['timestamp', 'message'], filter=sortdesc('timestamp'), limit=2)
         if res:
             res.reverse()
             returnD(" —— ".join(["%s %s %s" % (shortdate(m['timestamp']), m['message'].encode('utf-8')[1:-1], channel) for m in res]))
@@ -708,9 +707,7 @@ class IRCBot(NamesIRCClient):
     def command_answerlast(self, rest, channel=None, nick=None):
         """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        db = yield prepareDB()
-        lasttweetid = yield db['lasttweets'].find({'channel': channel})
-        closeDB(db)
+        lasttweetid = yield Mongo('lasttweets', 'find', {'channel': channel})
         if not lasttweetid:
             returnD("Sorry, no last tweet id found for this chan." )
         res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick, check=False)
@@ -751,10 +748,7 @@ class IRCBot(NamesIRCClient):
     def command_rmlasttweet(self, tweet_id, channel=None, nick=None):
         """rmlasttweet : Deletes last tweet sent to Twitter from the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        db = yield prepareDB()
-        lasttweetid = yield db['lasttweets'].find({'channel': channel})
-        closeDB(db)
-        lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
+        lasttweetid = yield Mongo('lasttweets', 'find', {'channel': channel})
         if not lasttweetid:
             returnD("Sorry, no last tweet id found for this chan.")
         res = yield self.command_rmtweet(str(lasttweetid[0]['tweet_id']), channel, nick)
@@ -832,7 +826,7 @@ class IRCBot(NamesIRCClient):
             returnD("Please limit your follow queries to a maximum of 300 characters")
         if database == "news" and name == "":
             returnD("Please provide a name for this url feed.")
-        yield self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        yield Mongo('feeds', 'update', {'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         if database == "news":
             query = "%s <%s>" % (name, query)
         if database == "tweets":
@@ -847,10 +841,10 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         query = query.strip("«»")
         database = 'news'
-        res = yield self.db['feeds'].remove({'channel': channel, 'name': self.regexp_feedquery(remove_ext_quotes(query)), 'database': database}, safe=True)
+        res = yield Mongo('feeds', 'remove', {'channel': channel, 'name': self.regexp_feedquery(remove_ext_quotes(query)), 'database': database}, safe=True)
         if not res or not res['n']:
             database = 'tweets'
-            res = yield self.db['feeds'].remove({'channel': channel, 'query': self.regexp_feedquery(query), 'database': database}, safe=True)
+            res = yield Mongo('feeds', 'remove', {'channel': channel, 'query': self.regexp_feedquery(query), 'database': database}, safe=True)
         if not res or not res['n']:
             returnD("I could not find such query in my database")
         if database == "tweets":
@@ -864,7 +858,7 @@ class IRCBot(NamesIRCClient):
         keyword = keyword.lower().strip()
         if keyword == "":
             returnD("Please specify what you want to follow (%shelp follow for more info)." % config.COMMAND_CHARACTER)
-        yield self.db['filters'].update({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        yield Mongo('filters', 'update', {'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel.lower()].append(keyword)
         returnD('«%s» filter added for tweets displays on %s' % (keyword, channel))
 
@@ -873,7 +867,7 @@ class IRCBot(NamesIRCClient):
         """unfilter <word|@user> : Removes a tweets display filter for <word> or <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
-        res = yield self.db['filters'].remove({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
+        res = yield Mongo('filters', 'remove', {'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
         if not res or not res['n']:
             returnD("I could not find such filter in my database")
         self.filters[channel.lower()].remove(keyword)
@@ -905,7 +899,7 @@ class IRCBot(NamesIRCClient):
     def command_newsurl(self, name, channel=None, *args):
         """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
         channel = self.getMasterChan(channel)
-        res = yield self.db['feeds'].find({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'], limit=1)
+        res = yield Mongo('feeds', 'find', {'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'], limit=1)
         if res:
             returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
         returnD("No news feed named «%s» for this channel" % name)
@@ -938,7 +932,7 @@ class IRCBot(NamesIRCClient):
         """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
         channel = self.getMasterChan(channel)
         names = yield self._names(channel)
-        noping = yield self.db['noping_users'].find({'channel': channel}, fields=['lower'])
+        noping = yield Mongo('noping_users', 'find',{'channel': channel}, fields=['lower'])
         skip = [user['lower'].encode('utf-8') for user in noping] + [nick.lower(), self.nickname.lower()]
         left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
         users = [name.strip('@') for name, _ in left if name.startswith('@')]
@@ -961,7 +955,7 @@ class IRCBot(NamesIRCClient):
                 limit = 50
             else:
                 lowerothers = [name.lower() for name in others]
-                recent_logs = yield self.db['logs'].find({'channel': channel, 'timestamp': {'$gte': datetime.today() - timedelta(hours=18)}, 'message': {'$not': self.re_comment}}, fields=['screenname'])
+                recent_logs = yield Mongo('logs', 'find', {'channel': channel, 'timestamp': {'$gte': datetime.today() - timedelta(hours=18)}, 'message': {'$not': self.re_comment}}, fields=['screenname'])
                 recents = []
                 recents = set([user['screenname'] for user in recent_logs if user['screenname'].lower() in lowerothers])
                 lowerrecents = [name.lower() for name in recents]
@@ -997,7 +991,7 @@ class IRCBot(NamesIRCClient):
         """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
         channel = self.getMasterChan(channel)
         if not rest or self.re_list.search(rest):
-            noping = yield self.db['noping_users'].find({'channel': channel}, fields=['user'])
+            noping = yield Mongo('noping_users', 'find', {'channel': channel}, fields=['user'])
             skip = [user['user'].encode('utf-8') for user in noping]
             text = "are"
             if not skip:
@@ -1010,13 +1004,13 @@ class IRCBot(NamesIRCClient):
             again = "again"
             rest = self.re_stop.sub(' ', rest).replace('  ', ' ')
             users = rest.split(" ")
-            yield self.db['noping_users'].remove({'channel': channel, 'lower': {'$in': [x.lower() for x in users]}})
+            yield Mongo('noping_users', 'remove', {'channel': channel, 'lower': {'$in': [x.lower() for x in users]}})
         else:
             no = "not "
             again = "anymore"
             users = rest.split(" ")
             for user in users:
-                yield self.db['noping_users'].update({'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
+                yield Mongo('noping_users', 'update', {'channel': channel, 'lower': user.lower()}, {'channel': channel, 'user': user, 'lower': user.lower(), 'timestamp': datetime.today()}, upsert=True)
         returnD("All right, %s will %sbe pinged %s." % (" ".join(users).strip(), no, again))
 
 
@@ -1074,7 +1068,7 @@ class IRCBot(NamesIRCClient):
             taskid = reactor.callLater(when, self._send_message, task, target)
         loggvar("Task #%s planned at %s by %s: %s" % (rank, then, nick, task), channel, "tasks")
         task_obj = {'rank': rank, 'channel': channel.lower(), 'author': nick, 'command': task, 'created': shortdate(datetime.fromtimestamp(now)), 'scheduled': then, 'scheduled_ts': now + when, 'target': target}
-        yield self.db['tasks'].insert(task_obj)
+        yield Mongo('tasks', 'insert', task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
         returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
@@ -1082,7 +1076,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
         now = time.time()
-        tasks = yield self.db['tasks'].find({'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
+        tasks = yield Mongo('tasks', 'find', {'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
         for task in filter(lambda x: "canceled" not in x, tasks):
             for x in filter(lambda x: isinstance(task[x], unicode), task):
                 task[x] = task[x].encode('utf-8')
@@ -1123,7 +1117,7 @@ class IRCBot(NamesIRCClient):
             if task['channel'] != channel.lower():
                 returnD("Task #%s is not scheduled for this channel." % task_id)
             task['id'].cancel()
-            yield self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
+            yield Mongo('tasks', 'update', {"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
         except:
@@ -1162,7 +1156,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         url = rest.strip()
         if self.re_url_pad.match(url):
-            yield self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            yield Mongo('feeds', 'update', {'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
             returnD("Current pad is now set to %s" % rest)
         returnD("This is not a valid pad url.")
 
@@ -1170,7 +1164,7 @@ class IRCBot(NamesIRCClient):
     def command_pad(self, rest, channel=None, *args):
         """pad : Prints the url of the current etherpad."""
         channel = self.getMasterChan(channel)
-        res = yield self.db['feeds'].find({'database': 'pad', 'channel': channel}, fields=['query'])
+        res = yield Mongo('feeds', 'find', {'database': 'pad', 'channel': channel}, fields=['query'])
         if res:
             returnD("Current pad is available at: %s" % res[0]['query'])
         returnD("No pad is currently set for this channel.")

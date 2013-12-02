@@ -187,9 +187,7 @@ class Microblog(object):
     def get_stats(self, **kwargs):
         timestamp = timestamp_hour(datetime.today())
         try:
-            db = yield prepareDB()
-            last = yield db['stats'].find({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
-            closeDB(db)
+            last = yield find_stats({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
             last = last[0]
         except:
             last = {}

@@ -23,9 +23,7 @@ class Stats(object):
     @inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
-        db = yield prepareDB()
-        stats = yield db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
-        closeDB(db)
+        stats = yield find_stats({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
             returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
@@ -77,9 +75,7 @@ class Stats(object):
     def dump_data(self):
         if not self.url:
             returnValue(False)
-        db = yield prepareDB()
-        stats = yield db['stats'].find({'user': self.user}, filter=sortasc('timestamp'))
-        closeDB(db)
+        stats = yield find_stats({'user': self.user}, filter=sortasc('timestamp'))
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]
