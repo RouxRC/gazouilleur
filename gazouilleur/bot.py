@@ -329,11 +329,14 @@ class IRCBot(NamesIRCClient):
             if self.re_extract_chan.match(line) != "default":
                 msg = self.re_extract_chan.sub('', line)
                 msg_utf = msg.decode('utf-8')
-                if chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
+                msg_low = msg_utf.lower()
+                twuser = get_chan_twitter_user(chan)
+                if twuser and twuser.lower() in msg_low:
+                    pass
+                elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
                     skip = True
                     reason = "fuckoff until %s" % self.silent[chan]
                 elif chan in self.filters and self.re_tweets.search(msg):
-                    msg_low = msg_utf.lower()
                     for keyword in self.filters[chan]:
                         if keyword and ("%s" % keyword in msg_low or (keyword.startswith('@') and msg_low.startswith(keyword[1:]+': '))):
                             skip = True
