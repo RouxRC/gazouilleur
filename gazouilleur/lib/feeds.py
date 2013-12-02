@@ -26,14 +26,14 @@ except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
 from gazouilleur.lib.log import logg
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import Mongo, MongoConn, sortdesc
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
 
-class FeederProtocol():
+class FeederProtocol(object):
 
     def __init__(self, factory):
         self.fact = factory

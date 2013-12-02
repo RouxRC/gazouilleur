@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 from gazouilleur.config import BOTNAME
 from gazouilleur.lib.log import logg, loggerr
 
-class FileLogger:
+class FileLogger(object):
 
     def __init__(self, channel='private'):
         filename = BOTNAME

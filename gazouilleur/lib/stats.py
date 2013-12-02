@@ -6,11 +6,11 @@ from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import find_stats, sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
-class Stats():
+class Stats(object):
 
     def __init__(self, user):
         self.now = timestamp_hour(datetime.today())

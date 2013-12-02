@@ -27,15 +27,14 @@ reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 class IRCBot(NamesIRCClient):
 
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
-    nicks = {}
+    lineRate = 0.75
     tasks = []
-    feeders = {}
-    cache_urls = {}
-    filters = {}
+    nicks = {}
     silent = {}
+    filters = {}
+    cache_urls = {}
     lastqueries = {}
     twitter = {"users": {}}
-    lineRate = 0.75
 
     def __init__(self):
         #NickServ identification handled automatically by twisted
@@ -173,9 +172,10 @@ class IRCBot(NamesIRCClient):
             threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
         returnD(True)
 
+    @inlineCallbacks
     def left(self, channel, silent=False):
         if not silent:
-            self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
+            yield self.log("[left at %s]" % time.asctime(time.localtime(time.time())), None, channel)
         lowchan = channel.lower()
         if lowchan in self.feeders:
             for f in self.feeders[lowchan].keys():
@@ -200,34 +200,37 @@ class IRCBot(NamesIRCClient):
         if nick != config.BOTNAME:
             self._reclaimNick()
 
+    @inlineCallbacks
     def noticed(self, user, channel, message):
         loggirc("SERVER NOTICE [%s]: %s" % (user, message), channel)
         if 'is not a registered nickname' in message and 'NickServ' in user:
             self._reclaimNick()
         elif 'has been regained' in message and 'NickServ' in user:
             for chan in self.factory.channels:
-                self.left(chan, silent=True)
-                self.joined(chan)
+                yield self.left(chan, silent=True)
+                yield self.joined(chan)
 
 
   # ------------------------
   # Users connexions logger
 
+    @inlineCallbacks
     def userJoined(self, user, channel):
-        self.log("[%s joined]" % user, user, channel)
+        yield self.log("[%s joined]" % user, user, channel)
 
+    @inlineCallbacks
     def userLeft(self, user, channel, reason=None):
         msg = "[%s left" % user
         if reason:
             msg += " (%s)]" % reason
         msg += "]"
-        self.log(msg, user, channel)
+        yield self.log(msg, user, channel)
 
     @inlineCallbacks
     def _get_user_channels(self, nick):
         res = []
         for c in self.factory.channels:
-            last_log = yield self.db['logs'].find({'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], limit=1, filter=sortdesc('timestamp'))
+            last_log = yield Mongo('logs', 'find', {'channel': c, 'user': nick.lower(), 'message': re.compile(r'^\[[^\[]*'+nick+'[\s\]]', re.I)}, fields=['message'], limit=1, filter=sortdesc('timestamp'))
             if last_log and not last_log[0]['message'].encode('utf-8').endswith(' left]'):
                 res.append(c)
         returnD(res)
@@ -243,7 +246,7 @@ class IRCBot(NamesIRCClient):
     def userRenamed(self, oldnick, newnick):
         users = yield self._get_user_channels(oldnick)
         for c in users:
-            self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
+            yield self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
 
     def getMasterChan(self, channel):
         if channel == self.nickname:
@@ -795,13 +798,14 @@ class IRCBot(NamesIRCClient):
    ## Others available to anyone
    ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'
 
+    @inlineCallbacks
     def _restart_feeds(self, channel):
         lowchan = channel.lower()
         feeds = [('stream', 'stream', 20), ('twitter_search', 'tweets', 90)]
         for feed, database, delay in feeds:
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
                 oauth2_token = self.feeders[lowchan][feed].twitter_token or None
-                self.feeders[lowchan][feed].end()
+                yield self.feeders[lowchan][feed].end()
                 self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if oauth2_token else 2), twitter_token=oauth2_token)
                 self.feeders[lowchan][feed].start()
 

@@ -11,11 +11,11 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
-from gazouilleur.lib.mongo import *
+from gazouilleur.lib.mongo import find_stats, save_lasttweet_id, sortdesc
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
-class Microblog():
+class Microblog(object):
 
     def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False):
         self.site = site.lower()
