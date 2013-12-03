@@ -1,8 +1,9 @@
-bin/start.sh
+bin/gazouilleur
 cache
+*.log
+log
 config.py
 *.pyc
-*.log
 *.pid
 *.json
 gazouilleur/identica_auth_config.py

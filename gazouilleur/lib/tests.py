@@ -8,12 +8,12 @@ try:
     from colifrapy.tools.colorize import colorize
     colorize('a', style='bold')
 except (ImportError, TypeError) as e:
-    sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.")
+    sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.")
     exit(1)
 try:
-    import pymongo, lxml, twisted, twitter, feedparser, pypump
+    import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
-    sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
+    sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
 
 #Load decorator
@@ -60,9 +60,9 @@ except KeyError as e:
     exit(1)
 
 try:
-    from gazouilleur.lib import feeds, filelogger, httpget, log, microblog, stats, utils
+    from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, mongo, stats, utils
 except Exception as e:
-    logerr("Oups, looks like something is wrong somewhere in the code, shoudln't be committed...")
+    logerr("Oups, looks like something is wrong somewhere in the code, shouldn't be committed...")
     _, _, exc_traceback = sys.exc_info()
     logerr("%s\n%s" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
     exit(1)
@@ -73,7 +73,7 @@ if hasattr(config, 'URL_STATS'):
         import pystache, pylab, matplotlib
         import gazouilleur.lib.plots
     except (NameError, ImportError) as e:
-        logerr("Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
+        logerr("Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `./bin/update_requirements.sh` to update the dependencies.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
         exit(1)
 
 # Check MongoDB
@@ -81,7 +81,7 @@ try:
     db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
     assert(db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD']))
 except pymongo.errors.AutoReconnect as e:
-    logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo /etc/init.d/mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s\n" % (e, config.BOTNAME))
+    logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo service mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s; sudo service mongodb start`\n" % (e, config.BOTNAME))
     exit(1)
 except AssertionError:
     logerr("Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically.\n" % config.MONGODB['DATABASE'])
@@ -100,14 +100,14 @@ for chan, conf in config.CHANNELS.iteritems():
     if "IDENTICA" not in conf:
         continue
     conn = Microblog("identica", conf)
-    if not conn.ping():
-        try:
-            from urllib2 import urlopen
-            urlopen("https://identi.ca")
+    try:
+        from urllib2 import urlopen
+        urlopen("https://identi.ca", timeout=15)
+        if not conn.ping():
             logerr("Cannot connect to Identi.ca with the auth configuration provided in `gazouilleur/identica_auth_config.py` for channel %s and user @%s.\nERROR: Please rerun `python bin/auth_identica.py` to generate your OAuth Identi.ca keys.\n" % (chan, conf["IDENTICA"]["USER"].lower()))
             exit(1)
-        except:
-            sys.stderr.write(colorize("WARNING: Identi.ca seems down, bypassing related tests.\n", 'red', style='bold'))
+    except:
+        sys.stderr.write(colorize("WARNING: Identi.ca seems down, bypassing related tests.\n", 'red', style='bold'))
 
 # Check Twitter config
 for chan, conf in config.CHANNELS.iteritems():
@@ -119,7 +119,7 @@ for chan, conf in config.CHANNELS.iteritems():
         exit(1)
 
 # Check IRC server
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, ssl
 from twisted.words.protocols.irc import IRCClient
 
 class IRCBotTest(IRCClient):
@@ -132,4 +132,7 @@ class IRCBotTester(protocol.ClientFactory):
         logerr("Cannot connect to IRC server %s on port %d: %s.\nERROR: Please check your configuration in `gazouilleur/config.py`.\n" % (config.HOST, config.PORT, reason.getErrorMessage()))
         reactor.stop()
 
-d = reactor.connectTCP(config.HOST, config.PORT, IRCBotTester())
+if utils.is_ssl(config):
+    d = reactor.connectSSL(config.HOST, config.PORT, IRCBotTester(), ssl.ClientContextFactory())
+else:
+    d = reactor.connectTCP(config.HOST, config.PORT, IRCBotTester())

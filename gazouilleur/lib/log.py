@@ -4,28 +4,37 @@
 import sys
 from colifrapy.tools.colorize import colorize
 from twisted.python import log
+from gazouilleur import config
 
+COLOR_LOGS = (str(getattr(config, "COLOR_LOGS", "true")).lower() == "true")
 def colr(text, color, bold=True):
-    return colorize(text, color, style='bold' if bold else '')
+    if COLOR_LOGS:
+        return colorize(text, color, style='bold' if bold else '')
+    return text
 
-def _logg(text, color=None, channel=None, action=None, error=False):
+def _logg(text, color=None, error=False):
     if color:
         text = colr(text, color)
     elif error:
         text = colr("ERROR %s" % text, 'red')
-    tmp = ""
-    if channel:
-        tmp += colr(channel, 'blue')
-    if channel and action:
-        tmp += "/"
-    if action:
-        tmp += colr(action, 'green')
-    if tmp:
-        text = "[%s] %s" % (tmp, text)
     return text
 
-def logg(text, color=None, channel=None, action=None, error=False):
-    return log.msg(_logg(text, color, channel, action, error))
+def _context(channel=None, action=None, debug=True):
+    tmp = ""
+    if debug:
+        tmp += colr("DEBUG", 'magenta')
+        if channel or action:
+            tmp += ":"
+    if action:
+        tmp += colr(action, 'green')
+    if channel and action:
+        tmp += "/"
+    if channel:
+        tmp += colr(channel, 'blue')
+    return tmp
+
+def logg(text, color=None, channel=None, action=None, error=False, debug=False):
+    return log.msg(_logg(text, color, error), system=_context(channel, action, debug))
 
 def loggirc(text, chan=None):
     if chan:
@@ -44,3 +53,5 @@ def loggvar(text, chan=None, action=None):
 def logerr(text):
     return sys.stderr.write(_logg("%s\n" % text, error=True))
 
+def debug(text, chan=None, action=None):
+    return logg(text, color="green", action=action, channel=chan, debug=True)

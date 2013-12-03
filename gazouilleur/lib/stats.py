@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import os, time
-import pymongo
 from json import dump as write_json
+from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
+from gazouilleur.lib.mongo import find_stats, sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
-class Stats():
+class Stats(object):
 
-    def __init__(self, db, user):
-        self.db = db
+    def __init__(self, user):
         self.now = timestamp_hour(datetime.today())
         self.user = user
         try:
@@ -20,12 +20,12 @@ class Stats():
         except:
             self.url = None
 
+    @inlineCallbacks
     def print_last(self):
         since = self.now - timedelta(days=30)
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        stats = self.db['stats'].find({'user': self.user, 'timestamp': {'$gte': since}}, sort=[('timestamp', pymongo.DESCENDING)])
-        if not stats.count():
-            return "%s %s %s" % (self.user, self.now, since)
+        stats = yield find_stats({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
+        if not len(stats):
+            returnValue("%s %s %s" % (self.user, self.now, since))
         stat = stats[0]
         rts = 0
         fols = 0
@@ -60,19 +60,22 @@ class Stats():
                 olds['tweets']['stats%sH' % i] = twts
                 twts = 0
         res = []
-        res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
-        res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
-        res.append("RTs: " + " ; ".join(["%d last %s" % (olds['rts']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['rts'] and olds['rts']['stats%sH' % i]]))
-        if self.url:
+        if stat['tweets']:
+            res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
+        if stat['followers']:
+            res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
+        textrts = ["%d last %s" % (olds['rts']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['rts'] and olds['rts']['stats%sH' % i]]
+        if textrts:
+            res.append("RTs: " + " ; ".join(textrts))
+        if self.url and res:
             res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
-        return [(True, "[Stats] %s" % m) for m in res]
+        returnValue([(True, "[Stats] %s" % m) for m in res])
 
+    @inlineCallbacks
     def dump_data(self):
         if not self.url:
-            return
-
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        stats = list(self.db['stats'].find({'user': self.user}, sort=[('timestamp', pymongo.ASCENDING)]))
+            returnValue(False)
+        stats = yield find_stats({'user': self.user}, filter=sortasc('timestamp'))
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]
@@ -120,6 +123,7 @@ class Stats():
             loggerr("Could not write images in web/img for %s : %s" % (self.user, e), action="stats")
 
         self.render_template(os.path.join("web", "templates"), "static_stats.html")
+        returnValue(True)
 
     def render_template(self, path, filename):
         data = {'user': self.user, 'url': self.url}

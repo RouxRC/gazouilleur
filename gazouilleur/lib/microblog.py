@@ -1,16 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import urllib
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='twitter', message="object.* takes no parameters")
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump
 from gazouilleur import config
+from gazouilleur.lib.mongo import find_stats, save_lasttweet_id, sortdesc
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
-class Microblog():
+class Microblog(object):
 
     def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False):
         self.site = site.lower()
@@ -28,8 +33,8 @@ class Microblog():
             self.conf.update(identica_auth[self.conf['USER'].lower()])
             self.conn = PyPump(self.user, key=self.conf['key'], secret=self.conf['secret'], token=self.conf['token'], token_secret=self.conf['token_secret'])
         elif self.site == "twitter":
-            if 'USER' in self.conf:
-                self.user = self.conf['USER']
+            self.user = self.conf['USER']
+            self.post = 'FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true"
             self.domain = "api.twitter.com"
             if get_token:
                 self.api_version = None
@@ -78,22 +83,11 @@ class Microblog():
             return "[%s] Huge success!" % self.site
         except Exception as e:
             exc_str = str(e).lower()
-            pos = exc_str.find('status 4') + 7
-            if pos != 6:
-                code = int(exc_str[pos:pos+3])
-                if code == 404:
-                    err = "[%s] ERROR: Not Found: %s." % (self.site, code)
-                elif code == 501:
-                    err = "[%s] WARNING: Not responding: %s." % (self.site, code)
-                else:
-                    err = "[%s] WARNING: Forbidden: %s. Check your commands (already done? forbidden?) or take a breather and wait a bit, you may have overpassed Twitter's API 15min limits." % (self.site, code)
-                return err
-            exception = "[%s] %s" % (self.site, sending_error(e))
+            code, exception = get_error_message(exc_str)
+            if code in [183, 187, 403, 404, 429, 503]:
+                return "[%s] %s" % (self.site, exception)
             if config.DEBUG and exception != previous_exception:
-                try:
-                    loggerr("%s: http://%s/%s.%s %s" % (exception, self.domain, e.uri, e.format, args), action=self.site)
-                except:
-                    print exception, e, args
+                loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
 
     def ping(self):
@@ -102,7 +96,10 @@ class Microblog():
             if self.site == "identica":
                 return "%s@%s" % (self.conn.Person(self.user).username, self.domain) == self.user
             creds = self.conn.account.verify_credentials(include_entities='false', skip_status='true')
-            dms = ("FORBID_POST" not in self.conf or str(self.conf["FORBID_POST"]).lower() != "true") or isinstance(check_twitter_results(self.get_dms()), list)
+            dms = True
+            if self.post:
+                trydms = self.get_dms()
+                dms = isinstance(trydms, list) or (isinstance(trydms, str) and "ERROR 429" in trydms)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
             return creds is not None and dms
@@ -110,6 +107,10 @@ class Microblog():
             if config.DEBUG:
                 loggerr("Ping failed: %s" % e, action=self.site)
             return False
+
+    def get_twitter_url_size(self):
+        res = self._send_query(self.conn.help.configuration, return_result=True)
+        return res.get('short_url_length_https', res.get('short_url_length') + 1)
 
     def microblog(self, text="", tweet_id=None, channel=None):
         if text.startswith("%scount" % config.COMMAND_CHARACTER):
@@ -121,14 +122,13 @@ class Microblog():
                 note.send()
                 return "[identica] Huge success!"
             except Exception as e:
-                if "[Errno 111] Connection refused" in str(e):
+                err_msg = re_clean_identica_error.sub('', str(e))
+                if "[Errno 111] Connection refused" in err_msg or "ECONNREFUSED" in err_msg:
                     err_msg = "https://identi.ca seems down"
-                else:
-                    err_msg = sending_error(e)
                 exception = "[identica] %s" % err_msg
                 if config.DEBUG:
-                    loggerr("%s %s" % (exception, e), action=self.site)
-                return exception 
+                    loggerr(e, action=self.site)
+                return exception
         text = text.replace('~', '&#126;')
         args = {'status': text}
         if tweet_id:
@@ -145,13 +145,13 @@ class Microblog():
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 
     def get_mytweets(self, **kwargs):
-        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 'true'}, return_result=True)
+        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1}, return_result=True)
 
     def get_mentions(self, **kwargs):
-        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_entities': 'false'}, return_result=True)
+        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1}, return_result=True)
 
     def get_retweets(self, retweets_processed={}, bearer_token=None, **kwargs):
-        tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_entities': 'false', 'include_user_entities': 'false'}, return_result=True)
+        tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_user_entities': 'false'}, return_result=True)
         done = 0
         retweets = []
         check_twitter_results(tweets)
@@ -164,7 +164,7 @@ class Microblog():
         for tweet in tweets:
             if tweet['id_str'] not in retweets_processed or tweet['retweet_count'] > retweets_processed[tweet['id_str']]:
                 new_rts = helper.get_retweets_by_id(tweet['id'])
-                if "Forbidden: " in new_rts:
+                if "ERROR 429" in new_rts:
                     break
                 retweets += new_rts
                 done += 1
@@ -183,21 +183,25 @@ class Microblog():
     def get_dms(self, **kwargs):
         return self._send_query(self.conn.direct_messages, return_result=True)
 
-    def get_stats(self, db=None, **kwargs):
+    @inlineCallbacks
+    def get_stats(self, **kwargs):
         timestamp = timestamp_hour(datetime.today())
-        db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        last = db['stats'].find_one({'user': self.user.lower()}, sort=[('timestamp', pymongo.DESCENDING)])
-        if last and timestamp == last['timestamp']:
+        try:
+            last = yield find_stats({'user': self.user.lower()}, limit=1, filter=sortdesc('timestamp'))
+            last = last[0]
+        except:
+            last = {}
+        if last and last['timestamp'] == timestamp:
             res = None
         elif self.api_version == 1:
             res = self._send_query(self.conn.account.totals, return_result=True)
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         check_twitter_results(res)
-        return res, last, timestamp
+        returnValue((res, last, timestamp))
 
-    def search(self, query, count=50, max_id=None):
-        args = {'q': query, 'count': count, 'include_entities': 'false', 'result_type': 'recent'}
+    def search(self, query, count=15, max_id=None):
+        args = {'q': query, 'count': count, 'result_type': 'recent'}
         if max_id:
             args['max_id'] = max_id
         return self._send_query(self.conn.search.tweets, args, return_result=True)
@@ -205,7 +209,7 @@ class Microblog():
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
             return None
-        args = {'filter_level': 'none'}
+        args = {'filter_level': 'none', 'stall_warnings': 'true'}
         if track:
             args['track'] = ",".join(track)
         if follow:
@@ -214,7 +218,14 @@ class Microblog():
             loggvar(args, action="stream")
         return self.conn.statuses.filter(**args)
 
-    def search_users(self, list_users, cache_users={}):
+    def search_users(self, query, count=3):
+        query = urllib.quote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
+        users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
+        if "ERROR 429" in users or "ERROR 404" in users:
+            return []
+        return [u['screen_name'] for u in users]
+
+    def lookup_users(self, list_users, cache_users={}):
         good = {}
         todo = []
         for name in list_users:
@@ -223,11 +234,14 @@ class Microblog():
                 good[name] = cache_users[name]
             else:
                 todo.append(name)
-        users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
-        if "Forbidden" in users or "404" in users:
+        if not todo:
             return good, cache_users
+        users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
+        if "ERROR 429" in users or "ERROR 404" in users or not isinstance(users, list):
+            return good, cache_users
+        list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
-            name = u['screen_name'].lower()
+            name = u['screen_name'].decode('utf-8').lower()
             if name in list_users:
                 good[name] = u['id_str']
         cache_users.update(good)
@@ -243,10 +257,14 @@ class Microblog():
             user = m.lower().lstrip('@')
             if user not in cache_users:
                 check.append(user)
-        good, cache_users = self.search_users(check, cache_users)
+        good, cache_users = self.lookup_users(check, cache_users)
         for user in check:
             if user not in good.keys():
-                return False, cache_users, "Sorry but @%s doesn't seem like a real account. Please correct your tweet of force by adding --force" % user
+                extra = ""
+                proposals = self.search_users(user)
+                if proposals:
+                    extra = " (maybe you meant @%s ?)" % " or @".join([p.encode('utf-8') for p in proposals])
+                return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
 
 def check_twitter_results(data):
@@ -271,4 +289,49 @@ def grab_extra_meta(source, result):
         elif 'user' in source and meta in source['user']:
             result[key] = source['user'][meta]
     return result
-    
+
+re_clean_identica_error = re.compile(r" \(POST {.*$")
+
+re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
+def get_error_message(error):
+    if "[errno 111] connection refused" in error or " operation timed out" in error or "reset by peer" in error:
+        return format_error_message(111)
+    res = re_twitter_error.search(error)
+    code = int(res.group(1)) if res else 0
+    if str(code).startswith('5'):
+        return format_error_message(503)
+    message = ""
+    try:
+        jsonerr = load_json(res.group(2))["errors"]
+        if isinstance(jsonerr, list):
+            jsonerr = jsonerr[0]
+        elif isinstance(jsonerr, unicode):
+            jsonerr = {"message": jsonerr}
+        message = jsonerr["message"][0].upper() + jsonerr["message"][1:] if jsonerr["message"] else ""
+        if "code" in jsonerr and jsonerr["code"] in [183,187]:
+            code = jsonerr["code"]
+        elif code == 403 and "statuses/retweet" in error:
+            code = 187
+    except Exception as e:
+        if config.DEBUG:
+            loggerr("%s: %s" % (code, error))
+    if code == 404 and "direct_messages/new" in error:
+        code = 403
+        message = "No twitter account found with this name"
+    return format_error_message(code, message)
+
+twitter_error_codes = {
+    111: "Network difficulties, connection refused or timed-out",
+    187: "Already done",
+    404: "Cannot find that tweet",
+    429: "Rate limit exhausted, should be good within the next 15 minutes",
+    503: "Twitter is unavailable at the moment"
+}
+def format_error_message(code, error=""):
+    codestr = " %s" % code if code else ""
+    if code in twitter_error_codes:
+        error = twitter_error_codes[code]
+    if not error:
+        error = "UNDEFINED"
+    return code, "ERROR%s: %s." % (codestr, error.rstrip('.'))
+

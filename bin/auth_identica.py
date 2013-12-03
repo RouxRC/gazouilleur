@@ -5,7 +5,7 @@ import sys, datetime
 try:
     from pypump import PyPump
 except ImportError:
-    sys.stderr.write("ERROR: Could not load module PyPump.\nERROR: Please check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
+    sys.stderr.write("ERROR: Could not load module PyPump.\nERROR: Please run this command from gazouilleur's virtualenv:\n  source /usr/local/bin/virtualenvwrapper.sh\n  workon gazouilleur\n  python bin/auth_identica.py\n  deactivate\nERROR: Otherwise check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
     exit(1)
 try:
     from gazouilleur import config

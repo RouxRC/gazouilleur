@@ -1,18 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
+# RSS feeder part adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
 import os, time
-import pymongo
 from random import shuffle, random
+from operator import itemgetter
 from hashlib import md5
 from datetime import datetime, timedelta
 from urllib import unquote
 from feedparser import parse as parse_feed
-from twisted.internet import reactor, protocol, defer
-from twisted.internet.task import LoopingCall
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser', message="To avoid breaking existing software while fixing issue 310")
+filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
+from twisted.internet import reactor, protocol
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue as returnD
+from twisted.internet.task import deferLater, LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
-from twisted.python.threadpool import ThreadPool 
+from twisted.python.threadpool import ThreadPool
 from twisted.python import failure
 from httpget import conditionalGetPage
 from lxml.etree import HTML as html_tree, tostring as html2str
@@ -22,20 +26,24 @@ except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
 from gazouilleur.lib.log import logg
+from gazouilleur.lib.mongo import Mongo, MongoConn, sortdesc
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
 
 re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
 
-class FeederProtocol():
+class FeederProtocol(object):
+
     def __init__(self, factory):
         self.fact = factory
-        self.db = self.fact.db
         self.threadpool = ThreadPool(1,25)
         reactor.callFromThread(self.threadpool.start)
         # Allow Ctrl-C to get you out cleanly:
         reactor.addSystemEventTrigger('after', 'shutdown', self.threadpool.stop)
+        self.pile = []
+        self.depiler = None
+        self.depiler_running = False
 
     def log(self, msg, action="", error=False, hint=False):
         self.fact.log(msg, action, error=error, hint=hint)
@@ -45,13 +53,16 @@ class FeederProtocol():
         try:
             error_message = traceback.getErrorMessage()
         except:
-            error_message = getattr(traceback, 'message', trace_str)
-        if not (msg.startswith("downloading") and ("503 Service Temporarily" in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str)):
+            try:
+                error_message = getattr(traceback, 'message')
+            except:
+                error_message = trace_str
+        if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
-        if not msg.startswith("downloading"):
+        if trace_str and not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
-                print traceback
-            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s : %s" % (msg, details, error_message))), self.fact.channel, admins=True)
+                self.log(trace_str, self.fact.database, error=True)
+            self.fact.ircclient._show_error(failure.Failure(Exception("%s %s: %s" % (msg, details, error_message))), self.fact.channel, admins=True)
         if ('403 Forbidden' in trace_str or '111: Connection refused' in trace_str) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
 
@@ -120,6 +131,8 @@ class FeederProtocol():
         return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
+        if not page:
+            return
         try:
             feed = parse_feed(StringIO(page+''))
         except TypeError:
@@ -127,10 +140,10 @@ class FeederProtocol():
         self.fact.cache[url] = time.time()
         return feed
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def process_elements(self, feed, url):
-        if not feed.entries:
-            defer.returnValue(None)
+        if not feed or not feed.entries:
+            returnD(False)
         sourcename = url
         if feed.feed and 'title' in feed.feed:
             sourcename = feed.feed['title']
@@ -144,29 +157,33 @@ class FeederProtocol():
                 date = datetime.fromtimestamp(time.mktime(date))
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS+6):
                     break
-            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls, pool=self.threadpool)
+            link, self.fact.cache_urls = yield clean_redir_urls(i.get('link', ''), self.fact.cache_urls)
             if not link.startswith('http'):
                 link = "%s/%s" % (url[:url.find('/',8)], link.lstrip('/'))
             if link in links:
                 continue
             links.append(link)
             title = unescape_html(i.get('title', '').replace('\n', ' '))
-            _id = md5(("%s:%s:%s" % (self.fact.channel, link, title)).encode('utf-8')).hexdigest()
+            _id = md5(("%s:%s:%s" % (self.fact.channel, link, title.lower())).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
-        existing = [n['_id'] for n in self.db['news'].find({'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], sort=[('_id', pymongo.DESCENDING)])]
+        existings = yield Mongo('news', 'find', {'channel': self.fact.channel, '_id': {'$in': ids}}, fields=['_id'], filter=sortdesc('_id'))
+        existing = [n['_id'] for n in existings]
         new = [n for n in news if n['_id'] not in existing]
         if new:
             new.reverse()
             new = new[:5]
             try:
-                self.db['news'].insert(new, continue_on_error=True, safe=True)
-            except pymongo.errors.OperationFailure as e:
+                yield Mongo('news', 'insert', new, safe=True)
+            except:
                 self._handle_error(e, "recording news batch", url)
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
-        defer.returnValue(None)
+        returnD(True)
 
-    @defer.inlineCallbacks
+    def deferredSleep(self, sleep=5):
+        return deferLater(reactor, sleep, lambda : None)
+
+    @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
         # handle tweets from icerocket or topsy fake rss
         nexturl = ""
@@ -180,7 +197,7 @@ class FeederProtocol():
                 nexturl = feed["nexturl"]
                 elements = feed["tweets"]
             else:
-                defer.returnValue(None)
+                returnD(False)
         if query:
             source = "%s https://api.twitter.com/api/1.1/search/tweets.json?q=%s" % (source, query)
         ids = []
@@ -199,7 +216,7 @@ class FeederProtocol():
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
-            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls, pool=self.threadpool)
+            tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
             tweet = tweet.replace('&#126;', '~')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
@@ -210,44 +227,55 @@ class FeederProtocol():
                 tw = {'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user.lower(), 'screenname': user, 'message': tweet, 'uniq_rt_hash': uniq_rt_hash(tweet), 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': source}
                 tw = grab_extra_meta(i, tw)
                 tweets.append(tw)
-        existing = [t['_id'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        # Delay displaying to avoid duplicates from the stream
+        if source != "mystream":
+            yield self.deferredSleep()
+        existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
+        existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
-        if news:
-            good = 0
-            news.reverse()
-            if fresh and not source.startswith("my") and len(news) > len(elements) / 2:
-                if query and nexturl and pagecount < self.fact.back_pages_limit:
-                    yield self.start_twitter_search([query], max_id=nexturl, pagecount=pagecount+1)
-                elif not query and nexturl and "p=%d" % (self.fact.back_pages_limit+1) not in nexturl and "page=%s" % (2*self.fact.back_pages_limit) not in nexturl:
-                    reactor.callFromThread(reactor.callLater, 41, self.start, nexturl)
-                elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
-                    reactor.callFromThread(reactor.callLater, 41, self.start, next_page(source))
-            if not self.fact.displayRT:
-                hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
-                existing = [t['uniq_rt_hash'] for t in self.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], sort=[('id', pymongo.DESCENDING)])]
-                for t in news:
-                    if t['uniq_rt_hash'] not in existing:
-                        existing.append(t['uniq_rt_hash'])
-                        self.displayTweet(t)
-                        good += 1
-            else:
-                [self.displayTweet(t) for t in news]
-            if config.DEBUG:
-                nb_rts_str = ""
-                nb_rts = len(news) - good
-                if nb_rts:
-                    nb_rts_str = " (%s RTs filtered)" % nb_rts
-                self.log("Displaying %s tweets%s" % (good, nb_rts_str), self.fact.database, hint=True)
-            self.db['tweets'].insert(news, continue_on_error=True, safe=True)
-        defer.returnValue(None)
-
-    def displayTweet(self, t):
-        msg = "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))
-        return deferToThreadPool(reactor, self.threadpool, self.fact.ircclient._send_message, msg, self.fact.channel)
+        if not news:
+            returnD(False)
+        good = []
+        news.sort(key=itemgetter('id'))
+        if fresh and not source.startswith("my") and len(news) > len(elements) / 2:
+            if query and nexturl and pagecount < 3*self.fact.back_pages_limit:
+                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 15, self.start_twitter_search, [query], max_id=nexturl, pagecount=pagecount+1)
+            elif not query and nexturl and "p=%d" % (self.fact.back_pages_limit+1) not in nexturl and "page=%s" % (2*self.fact.back_pages_limit) not in nexturl:
+                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, nexturl)
+            elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
+                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
+        if self.fact.displayRT:
+            good = news
+        else:
+            hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
+            existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
+            existing = [t['uniq_rt_hash'] for t in existings]
+            tw_user = ""
+            if self.fact.twitter_user:
+                tw_user = self.fact.twitter_user.lower()
+            for t in news:
+                if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % tw_user in t['message'].lower()):
+                    existing.append(t['uniq_rt_hash'])
+                    good.append(t)
+        if config.DEBUG:
+            nb_rts_str = ""
+            nb_rts = len(news) - len(good)
+            if nb_rts:
+                nb_rts_str = " (%s RTs filtered)" % nb_rts
+            self.log("Displaying %s tweets%s" % (len(good), nb_rts_str), self.fact.database, hint=True)
+        if not self.fact.status.startswith("clos"):
+            for t in good:
+                msg = "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))
+                self.fact.ircclient._send_message(msg, self.fact.channel)
+        db = MongoConn()
+        for t in news:
+            yield db.save('tweets', t, safe=True)
+        yield db.close()
+        del db
+        returnD(True)
 
     def start(self, url=None):
-        d = defer.succeed('')
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+        d = succeed('')
         if not self.in_cache(url):
             if config.DEBUG:
                 self.log("Query %s" % url, self.fact.database)
@@ -280,21 +308,34 @@ class FeederProtocol():
 
     def process_mytweets(self, listtweets, *args):
         return self.process_twitter_feed(listtweets, "tweets")
- 
+
     re_max_id = re.compile(r'^.*max_id=(\d+)(&.*)?$', re.I)
+    @inlineCallbacks
     def process_twitter_feed(self, listtweets, feedtype, query=None, pagecount=0):
         if not listtweets:
-            return None
+            returnD(False)
         if query:
             if not isinstance(listtweets, dict):
-                return None
+                returnD(False)
             nexturl = ""
-            if 'next_results' in listtweets['search_metadata']:
+            if 'max_id_str' in listtweets['search_metadata']:
+                nexturl = listtweets['search_metadata']['max_id_str']
+            elif 'next_results' in listtweets['search_metadata']:
                 nexturl = self.re_max_id.sub(r'\1', listtweets['search_metadata']['next_results'])
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
+        elif not isinstance(listtweets, list):
+                returnD(False)
         feed = []
         for tweet in listtweets:
+            if 'entities' in tweet and 'urls' in tweet['entities']:
+                for entity in tweet['entities']['urls']:
+                  try:
+                    if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
+                        cleaned, self.fact.cache_urls = clean_url(entity['expanded_url'].encode('utf-8'), entity['url'].encode('utf-8'), self.fact.cache_urls)
+                        _, self.fact.cache_urls = yield clean_redir_urls(cleaned.decode('utf-8'), self.fact.cache_urls)
+                  except Exception as e:
+                     self.log(e, error=True)
             if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
                 text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
             else:
@@ -304,13 +345,15 @@ class FeederProtocol():
             feed.append(tw)
         if query:
             res['tweets'] = feed
-            return self.process_tweets(res, 'search', query=query, pagecount=pagecount)
-        return self.process_tweets(feed, 'my%s' % feedtype)
+            processed = yield self.process_tweets(res, 'search', query=query, pagecount=pagecount)
+        else:
+            processed = yield self.process_tweets(feed, 'my%s' % feedtype)
+        returnD(processed)
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def process_dms(self, listdms, user):
         if not listdms:
-            defer.returnValue(None)
+            returnD(False)
         ids = []
         dms = []
         for i in listdms:
@@ -325,57 +368,59 @@ class FeederProtocol():
             if tid:
                 ids.append(tid)
                 sender = i.get('sender_screen_name', '')
-                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls, pool=self.threadpool)
+                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
                 dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
-        existing = [t['_id'] for t in self.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], sort=[('id', pymongo.DESCENDING)])]
+        existings = yield Mongo('dms', 'find', {'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
+        existing = [t['_id'] for t in existings]
         news = [t for t in dms if t['_id'] not in existing]
         if news:
             news.reverse()
-            self.db['dms'].insert(news, continue_on_error=True, safe=True)
+            yield Mongo('dms', 'insert', news, safe=True)
             self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
-        defer.returnValue(None)
+        returnD(True)
 
+    @inlineCallbacks
     def process_stats(self, res, user):
         if not res:
-            return None
+            returnD(False)
         stats, last, timestamp = res
         if not stats:
-            return None
+            returnD(False)
         if not last:
-            last = {'tweets': 0, 'followers': 0} 
+            last = {'tweets': 0, 'followers': 0}
             since = timestamp - timedelta(hours=1)
         else:
             since = last['timestamp']
         if 'lists' not in last:
             last['lists'] = 0
         re_match_rts = re.compile(u'(([MLR]T|%s|♺)\s*)+@?%s' % (QUOTE_CHARS, user), re.I)
-        rts = self.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, snapshot=True, fields=['_id'])
-        nb_rts = rts.count() if rts.count() else 0
+        rts = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, fields=['_id'])
+        nb_rts = len(rts)
         if config.TWITTER_API_VERSION == 1:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('updates', last['tweets']), 'followers': stats.get('followers', last['followers']), 'rts_last_hour': nb_rts}
         else:
             stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
-        self.db['stats'].insert(stat)
+        yield Mongo('stats', 'insert', stat)
         weekday = timestamp.weekday()
-        laststats = Stats(self.db, user)
-        if (timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18:
-            self.fact.ircclient._send_message(laststats.print_last(), self.fact.channel)
-        last_tweet = self.db['tweets'].find_one({'channel': self.fact.channel, 'user': user}, fields=['date'], sort=[('timestamp', pymongo.DESCENDING)])
-        if last_tweet and timestamp - last_tweet['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
-            reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet['date']).days, self.fact.channel)
+        laststats = Stats(user)
+        if chan_displays_stats(self.fact.channel) and ((timestamp.hour == 13 and weekday < 5) or timestamp.hour == 18):
+            stats = yield laststats.print_last()
+            self.fact.ircclient._send_message(stats, self.fact.channel)
+        last_tweet = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'user': user}, fields=['date'], limit=1, filter=sortdesc('timestamp'))
+        if chan_displays_stats(self.fact.channel) and last_tweet and timestamp - last_tweet[0]['date'] > timedelta(days=3) and (timestamp.hour == 11 or timestamp.hour == 17) and weekday < 5:
+            reactor.callFromThread(reactor.callLater, 3, self.fact.ircclient._send_message, "[FYI] No tweet was sent since %s days." % (timestamp - last_tweet[0]['date']).days, self.fact.channel)
         reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
-        return None
+        returnD(True)
 
     def start_twitter(self, database, conf, user):
-        d = defer.succeed(Microblog('twitter', conf, bearer_token=self.fact.twitter_token))
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+        d = succeed(Microblog('twitter', conf, bearer_token=self.fact.twitter_token))
         if config.DEBUG:
             self.log("Query @%s's %s" % (user, database), database)
         def passs(*args, **kwargs):
             raise Exception("No process existing for %s" % database)
         source = getattr(Microblog, 'get_%s' % database, passs)
         processor = getattr(self, 'process_%s' % database, passs)
-        d.addCallback(source, db=self.db, retweets_processed=self.fact.retweets_processed, bearer_token=self.fact.twitter_token)
+        d.addCallback(source, retweets_processed=self.fact.retweets_processed, bearer_token=self.fact.twitter_token)
         d.addErrback(self._handle_error, "downloading %s for" % database, user)
         d.addCallback(check_twitter_results)
         d.addErrback(self._handle_error, "examining %s for" % database, user)
@@ -384,16 +429,14 @@ class FeederProtocol():
         return d
 
     def start_twitter_search(self, query_list, randorder=None, max_id=None, pagecount=0):
-        d = defer.succeed(True)
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
+        d = succeed(True)
+        self.fact.status = "running"
         if config.DEBUG and not max_id:
             self.log("Start search feeder for Twitter %s" % query_list, "search", hint=True)
-        for i in range(len(query_list)):
-            if query_list:
-                query = query_list[i]
+        for i, query in enumerate(query_list):
             text = "results of Twitter search for %s" % unquote(query)
             if max_id:
-                text += " before id %s" % max_id
+                text = "%s before id %s" % (text, str(max_id))
             d.addCallback(self.search_twitter, query, max_id=max_id, page=i, randorder=randorder)
             d.addErrback(self._handle_error, "downloading", text)
             d.addCallback(check_twitter_results)
@@ -402,131 +445,164 @@ class FeederProtocol():
             d.addErrback(self._handle_error, "working on", text)
         return d
 
+    @inlineCallbacks
     def search_twitter(self, data, query, max_id=None, page=0, randorder=None):
         if page and randorder:
             try:
-                query = getFeeds(self.fact.channel, "tweets", self.db, randorder=randorder)[page]
-            except:
-                return None
+                query = yield getFeeds(self.fact.channel, "tweets", randorder=randorder)
+                query = query[page]
+            except Exception as e:
+                returnD(False)
         if config.DEBUG:
             text = unquote(query)
             if max_id:
-                text += " before id %s" % max_id
+                text = "%s before id %s" % (text, max_id.encode('utf-8'))
             self.log("Query Twitter search for %s" % text, "search")
         conn = Microblog('twitter', chanconf(self.fact.channel), bearer_token=self.fact.twitter_token)
-        return conn.search(query, max_id=max_id)
+        res = conn.search(query, max_id=max_id)
+        returnD(res)
 
     re_twitter_account = re.compile('^@[A-Za-z0-9_]{1,15}$')
+    @inlineCallbacks
     def start_stream(self, conf):
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        queries = list(self.db["feeds"].find({'database': "tweets", 'channel': self.fact.channel}, fields=['query']))
+        if self.fact.status == "running":
+            returnD(False)
+        queries = yield Mongo('feeds', 'find', {'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
         track = []
-        follow = []
         skip = []
         k = 0
-        f = 0
         for query in queries:
-            q = str(query['query'].encode('utf-8'))
+            q = str(query['query'].encode('utf-8')).lower()
+            # queries starting with @ should return only tweets from corresponding user, stream doesn not know how to handle this so skip
             if self.re_twitter_account.match(q):
-                q = q.lstrip('@')
-                follow.append(q)
-                f += 1
+                continue
             elif " OR " in q or " -" in q or '"' in q or len(q) > 60 or len(q) < 6:
                 skip.append(q)
                 continue
             track.append(q)
             k += 1
-            if k > 395 or f > 4995:
+            if k > 395:
                 break
-        user = conf["TWITTER"]["USER"]
-        if user not in follow:
-            follow.append(user)
+        user = self.fact.twitter_user.lower()
         if user not in track:
             track.append(user)
         if len(skip):
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
-        users, self.fact.ircclient.twitter_users = conn.search_users(follow, self.fact.ircclient.twitter_users)
-        return deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
+        # tries to find users corresponding with queries to follow with stream
+        users, self.fact.ircclient.twitter['users'] = conn.lookup_users(track, self.fact.ircclient.twitter['users'])
+        self.fact.status = "running"
+        deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
+        self.depiler = LoopingCall(self.flush_tweets)
+        self.depiler.start(1)
+        returnD(True)
 
     def follow_stream(self, conf, follow, track):
         conn = Microblog("twitter", conf, streaming=True)
-        ct = 0
-        tweets = []
-        flush = time.time() + 14
-        self.fact.status = "running"
         try:
             for tweet in conn.search_stream(follow, track):
                 if self.fact.status.startswith("clos"):
-                    self._flush_tweets(tweets)
-                    self.log("Feeder closed.", "stream", hint=True)
                     break
-                elif not tweet or not tweet.get('text'):
-                    if tweet and (config.DEBUG or not tweet.get('delete')):
-                        self.log(tweet, "stream")
-                    continue
-                elif tweet.get("disconnect"):
-                    self._flush_tweets(tweets)
-                    self.log("Disconnected %s" % tweet, "stream", error=True)
-                    break
-                tweets.append(tweet)
-                ct += 1
-                if ct > 9 or time.time() > flush:
-                    self._flush_tweets(tweets)
-                    ct = 0
-                    tweets = []
-                    flush = time.time() + 14
+                if tweet:
+                    if tweet.get("disconnect"):
+                        self.log("Disconnected %s" % tweet, "stream", error=True)
+                        break
+                    if tweet.get('text'):
+                        self.pile.insert(0, tweet)
+                    else:
+                        try:
+                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}})
+                            if config.DEBUG:
+                                self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], "stream", hint=True)
+                        except Exception as e:
+                            if config.DEBUG:
+                                self.log(tweet, "stream", hint=True)
         except Exception as e:
-            self._handle_error(e, "following", "stream")
-        return
+            if not str(e).strip():
+                self.log("Stream crashed with %s: %s", (type(e), e), error=True)
+            else:
+                self._handle_error(e, "following", "stream")
+        self.depiler.stop()
+        self.flush_tweets()
+        self.log("Feeder closed.", "stream", hint=True)
 
-    def _flush_tweets(self, tweets):
-        tweets.reverse()
+    @inlineCallbacks
+    def flush_tweets(self):
+        if self.depiler_running or not self.pile:
+            returnD(None)
+        self.depiler_running = True
+        todo = []
+        while self.pile and len(todo) < 35:
+            todo.append(self.pile.pop())
+        if len(self.pile) > 1000:
+            self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. Dumping the data to the trash now... You should still use %sfuckoff and %sunfollow to clean the guilty query." % (self.fact.channel, len(self.pile), config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))), self.fact.channel, admins=True)
+            del self.pile[:]
+        elif len(self.pile) > 300:
+            self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. You should use %sfuckoff and %sunfollow the guilty query or at least restart." % (self.fact.channel, len(self.pile), config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))), self.fact.channel, admins=True)
         if config.DEBUG:
-            self.log("Flush %s tweets." % len(tweets), "stream", hint=True)
-        reactor.callLater(0, self.process_twitter_feed, tweets, "stream")
+            self.log("Flush %s tweets%s." % (len(todo), " (%s left to do)" % len(self.pile) if len(self.pile) else ""), "stream", hint=True)
+        yield self.process_twitter_feed(todo, "stream")
+        self.depiler_running = False
+        returnD(True)
 
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, displayRT=False, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
+    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
+        self.cache = {}
+        self.cache_urls = ircclient.cache_urls
         self.channel = channel
         self.database = database
-        
+
         self.delay = delay
         self.timeout = timeout
         self.feeds = feeds
-        self.displayRT = displayRT
+        conf = chanconf(channel)
+        self.displayRT = chan_displays_rt(channel, conf)
+        self.displayMyRT = chan_displays_my_rt(channel, conf)
+        self.twitter_user = get_chan_twitter_user(channel, conf)
         self.retweets_processed = {}
         self.tweets_search_page = tweetsSearchPage
         self.back_pages_limit = back_pages_limit
         self.twitter_token = twitter_token
-        self.db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
         self.protocol = FeederProtocol(self)
         self.cache_dir = os.path.join('cache', channel)
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
-        self.cache = {}
-        self.cache_urls = {}
         self.runner = None
         self.status = "init"
+        if not config.DEBUG:
+            self.errorlogs = {}
 
     def log(self, msg, action="", error=False, hint=False):
         color = None
         if hint:
-            color= 'yellow'
+            color = 'yellow'
+        if error and not config.DEBUG:
+            hmd5 = md5(str(msg)).hexdigest()
+            if hmd5 not in self.errorlogs or self.errorlogs[hmd5]['ts'] < time.time() - 3600*24:
+                self.errorlogs[hmd5] = {'n': 1, 'ts': time.time()}
+            else:
+                self.errorlogs[hmd5]['n'] += 1
+                if self.errorlogs[hmd5]['n'] > 3:
+                    return
+                elif self.errorlogs[hmd5]['n'] == 3:
+                    msg += " [#3, skipping these errors now for the next 24h...]"
+                else:
+                    msg += " [#%d]" % self.errorlogs[hmd5]['n']
+                self.errorlogs[hmd5]['ts'] = time.time()
         return logg(msg, channel=self.channel, action=action, error=error, color=color)
 
     def start(self):
         if config.DEBUG:
-            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), hint=True)
+            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), self.database, hint=True)
         args = {}
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             run_command = self.protocol.start_twitter
-            args = {'database': self.database, 'conf': conf, 'user': conf['TWITTER']['USER'].lower()}
+            args = {'database': self.database, 'conf': conf, 'user': self.twitter_user.lower()}
         elif self.database == "tweets" and not self.tweets_search_page:
             run_command = self.run_twitter_search
         elif self.database == "stream":
@@ -542,24 +618,26 @@ class FeederFactory(protocol.ClientFactory):
             self.status = "closing"
             self.protocol.threadpool.stop()
             self.runner.stop()
+            if config.DEBUG and self.database != "stream":
+                self.log("Feeder closed.", self.database, hint=True)
+            self.runner = None
             self.status = "closed"
-            
 
+    @inlineCallbacks
     def run_twitter_search(self):
-        self.db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-        nqueries = self.db["feeds"].find({'database': self.database, 'channel': self.channel}).count()
-        randorder = range(nqueries)
+        queries = yield Mongo('feeds', 'find', {'database': self.database, 'channel': self.channel})
+        randorder = range(len(queries))
         shuffle(randorder)
-        urls = getFeeds(self.channel, self.database, self.db, randorder=randorder)
-        return self.protocol.start_twitter_search(urls, randorder=randorder)
+        urls = yield getFeeds(self.channel, self.database, randorder=randorder)
+        self.protocol.start_twitter_search(urls, randorder=randorder)
 
+    @inlineCallbacks
     def run_rss_feeds(self):
         urls = self.feeds
         if not urls:
-            urls = getFeeds(self.channel, self.database, self.db, add_url=self.tweets_search_page)
+            urls = yield getFeeds(self.channel, self.database, add_url=self.tweets_search_page)
         ct = 0
         for url in urls:
             ct += 3 + int(random()*500)/100
             reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
-        return defer.succeed(True)
 

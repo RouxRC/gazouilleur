@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import re, urllib, hashlib
-from urllib2 import urlopen
 from datetime import timedelta
-import pymongo, htmlentitydefs
-from twisted.internet import defer, reactor
-from twisted.internet.threads import deferToThreadPool
+import htmlentitydefs
+from twisted.internet import defer
+from twisted.internet.error import DNSLookupError
+from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
+from gazouilleur.lib.mongo import Mongo, sortasc
 from gazouilleur.lib.log import loggerr
 
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
@@ -17,13 +18,12 @@ cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
 re_shortdate = re.compile(r'^....-(..)-(..)( ..:..).*$')
 shortdate = lambda x: re_shortdate.sub(r'\2/\1\3', str(x))
 
-re_parenth = re.compile(r'([\(\)])')
 re_leftacc = re.compile(r'(\{)([^\}]*)$')
 re_righacc = re.compile(r'^([^\{]*)(\})')
 re_leftbrk = re.compile(r'(\[)([^\]]*)$')
 re_righbrk = re.compile(r'^([^\[]*)(\])')
 def clean_regexp(text):
-    return re_leftacc.sub(r'\\\1\2', re_leftbrk.sub(r'\\\1\2', re_righacc.sub(r'\1\\\2', re_righbrk.sub(r'\1\\\2', re_parenth.sub(r'\\\1', text)))))
+    return re_leftacc.sub(r'\\\1\2', re_leftbrk.sub(r'\\\1\2', re_righacc.sub(r'\1\\\2', re_righbrk.sub(r'\1\\\2', text))))
 
 re_clean_doc = re.compile(r'\.?\s*/[^/]+$')
 clean_doc = lambda x: re_clean_doc.sub('.', x).strip()
@@ -33,16 +33,6 @@ clean_html = lambda x: re_clean_html.sub('', x)
 
 re_clean_identica = re.compile(r'(and posts a ♻ status)? on Identi\.ca( and)?( as a)?', re.I)
 clean_identica = lambda x: re_clean_identica.sub('', x)
-
-re_sending_error = re.compile(r'^.* status (\d+) .*details: ({"error":"([^"]*)")?.*$', re.I|re.S)
-def sending_error(error):
-    error = str(error)
-    res = re_sending_error.search(error)
-    if res:
-        if res.group(3):
-            return re_sending_error.sub(r'ERROR \1: \3', error)
-        return re_sending_error.sub(r'ERROR \1', error)
-    return "ERROR undefined"
 
 re_handle_quotes = re.compile(r'("[^"]*")')
 re_handle_simple_quotes = re.compile(r"('[^']*')")
@@ -73,21 +63,22 @@ URL_REGEX = re.compile('((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)
 
 ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
 
-def _shorten_url(text):
+def _shorten_url(text, twitter_url_length):
+    tco_extra = "x" * (twitter_url_length - 13)
     for res in URL_REGEX.findall(text):
         if ACCENTS_URL.match(res[2]) or "@" in res[2] and not res[2].startswith('http'):
             continue
-        text = text.replace(res[0], '%shttp%s___t_co_xxxxxxxxxx%s' % (res[1], res[3], res[4]))
+        text = text.replace(res[0], '%shttp%s___t_co_%s%s' % (res[1], res[3], tco_extra, res[4]))
     return text
 
-re_clean_twitter_command = re.compile(r'^\s*((%s(identica|(twitt|answ)er(only|last)?)|\d{14}\d*)\s*)+' % config.COMMAND_CHARACTER, re.I)
-def countchars(text):
-    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.strip()).strip())).decode('utf-8'))
+re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt|answ)er(only|last)?)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER), re.I)
+def countchars(text, twitter_url_length):
+    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip()).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', ''))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
-def clean_url(url):
+def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
         if i[1] == "?":
@@ -95,13 +86,11 @@ def clean_url(url):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
-    return url  
-
-def get_url(url, timeout=12):
-    return urlopen(url, timeout=timeout).geturl()
+    cache_urls[url0] = url
+    return url, cache_urls
 
 @defer.inlineCallbacks
-def _clean_redir_urls(text, urls={}, last=False, pool=None):
+def _clean_redir_urls(text, cache_urls, last=False):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
@@ -111,41 +100,43 @@ def _clean_redir_urls(text, urls={}, last=False, pool=None):
             url0 = "http://%s" % url00
         if url0.startswith('http://t.co/') and url0[-1] in [".", ',', ':', '"', "'"]:
             url0 = url0[:-1]
-        if url0 in urls:
-            url1 = urls[url0]
+        if url0 in cache_urls:
+            url1 = cache_urls[url0]
             if url1 == url0:
                 continue
         else:
             try:
-                url1 = yield deferToThreadPool(reactor, pool, get_url, url0, timeout=8)
-                url1 = clean_url(url1)
-                urls[url0] = url1
-                urls[url1] = url1
+                agent = ResolverAgent(url0)
+                yield agent.resolve()
+                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+            except DNSLookupError:
+                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
-                    loggerr("trying to resolve %s : %s" % (url0, e))
+                    loggerr("%s trying to resolve %s : %s" % (type(e), url0, e), action="utils")
                 if "403" in str(e) or "Error 30" in str(e):
-                    urls[url0] = url00
+                    cache_urls[url0] = url00
                 url1 = url00
-        if not last and url1 != url00:
+        if not last and url1 != url00 and not re_shorteners.search(url1):
             url1 = url1.replace('http', '##HTTP##')
         try:
             url1 = url1.decode('utf-8')
             text = text.replace(res[0], '%s%s%s' % (res[1], url1, res[4]))
         except:
             if config.DEBUG:
-                logerr("encoding %s" % url1)
+                loggerr("encoding %s" % url1, action="utils")
     if last:
         text = text.replace('##HTTP##', 'http')
-    defer.returnValue((text, urls))
+    defer.returnValue((text, cache_urls))
 
+re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 @defer.inlineCallbacks
-def clean_redir_urls(text, urls, pool=None):
-    text, urls = yield _clean_redir_urls(text, urls, pool=pool)
-    if "t.co/" in text:
-        text, urls = yield _clean_redir_urls(text, urls, pool=pool)
-    text, urls = yield _clean_redir_urls(text, urls, True, pool=pool)
-    defer.returnValue((text, urls))
+def clean_redir_urls(text, cache_urls):
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls)
+    if re_shorteners.search(text):
+        text, cache_urls = yield _clean_redir_urls(text, cache_urls)
+    text, cache_urls = yield _clean_redir_urls(text, cache_urls, True)
+    defer.returnValue((text, cache_urls))
 
 def get_hash(url):
     hash = hashlib.md5(url)
@@ -192,27 +183,28 @@ def formatQuery(query, add_url=None):
             query = getTopsyFeedUrl(query)
     return query
 
-def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=None):
+@defer.inlineCallbacks
+def getFeeds(channel, database, url_format=True, add_url=None, randorder=None):
     urls = []
-    db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    queries = list(db["feeds"].find({'database': database, 'channel': channel}, fields=['name', 'query'], sort=[('timestamp', pymongo.ASCENDING)]))
+    queries = yield Mongo('feeds', 'find', {'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
     if database == "tweets":
-        # create combined queries on Icerocket/Topsy from search words retrieved in db
+        # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
         try:
             queries = [queries[i] for i in randorder]
         except:
             pass
         for feed in queries:
+            # queries starting with @ should return only tweets from corresponding user
             arg = str(feed['query'].encode('utf-8')).replace('@', 'from:')
             rawrg = arg
             space = " OR "
             if url_format:
                 if not arg.startswith('from:') and not arg.startswith('#'):
-                   arg = "(%s)" % arg
+                   arg = "(%s)" % urllib.quote(arg, '')
                 if add_url:
                     space = "+OR+"
-                arg = "%s%s" % (urllib.quote(arg, ''), space)
+                arg = "%s%s" % (arg, space)
             else:
                 arg = " «%s»  | " % arg
             if " OR " in rawrg or " -" in rawrg:
@@ -229,7 +221,7 @@ def getFeeds(channel, database, db, url_format=True, add_url=None, randorder=Non
             urls = assembleResults([feed['name'] for feed in queries])
         else:
             urls = [str(feed['query']) for feed in queries]
-    return urls
+    defer.returnValue(urls)
 
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
 def next_page(url):
@@ -240,12 +232,6 @@ def next_page(url):
         url = re_arg_page.sub('', url)
     p += 1
     return "%s&p=%s" % (url, p)
-
-def save_lasttweet_id(channel, tweet_id):
-    db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])
-    db[config.MONGODB['DATABASE']].authenticate(config.MONGODB['USER'], config.MONGODB['PSWD'])
-    db[config.MONGODB['DATABASE']]['lasttweets'].update({'channel': channel}, {'channel': channel, 'tweet_id': tweet_id}, upsert=True)
-    db.close()
 
 def safeint(n):
     try:
@@ -271,7 +257,7 @@ def get_master_chan(default=config.BOTNAME):
 
 def chan_is_verbose(chan, conf=None):
     conf = chanconf(chan, conf)
-    return "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
+    return not conf or "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
 
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
@@ -287,7 +273,17 @@ def chan_has_identica(chan, conf=None):
 
 def chan_has_twitter(chan, conf=None):
     conf = chanconf(chan, conf)
-    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() == "false")
+    return conf and 'TWITTER' in conf and 'KEY' in conf['TWITTER'] and 'SECRET' in conf['TWITTER'] and 'OAUTH_TOKEN' in conf['TWITTER'] and 'OAUTH_SECRET' in conf['TWITTER'] and ('FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true")
+
+def get_chan_twitter_user(chan, conf=None):
+    conf = chanconf(chan, conf)
+    if conf and 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+        return conf['TWITTER']['USER']
+    return None
+
+def chan_displays_stats(chan, conf=None):
+    conf = chanconf(chan, conf)
+    return chan_has_twitter(chan, conf) and ('DISPLAY_STATS' not in conf['TWITTER'] or str(conf['TWITTER']['DISPLAY_STATS']).lower() != 'false')
 
 def chan_displays_rt(chan, conf=None):
     conf = chanconf(chan, conf)
@@ -309,14 +305,20 @@ def is_user_global(nick):
 
 def is_user_auth(nick, channel, conf=None):
     conf = chanconf(channel, conf)
-    return conf and (is_user_global(nick) or is_user_admin(nick) or ('USERS' in conf and nick in conf['USERS']))
+    return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
 
-def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
-    if command_doc is None:
-        return is_user_admin(nick)
+def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     if channel == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
+    if conf and 'EXCLUDE_COMMANDS' in conf and command:
+        for regexp in conf['EXCLUDE_COMMANDS']:
+            if re.match(re.compile(r"^%s$" % regexp, re.I), command):
+                return False
+    if command_doc is None:
+        return is_user_admin(nick)
+    if command_doc.endswith('/ADMIN'):
+        return is_user_admin(nick)
     auth = is_user_auth(nick, channel, conf)
     identica = chan_has_identica(channel, conf)
     twitter = chan_has_twitter(channel, conf)
@@ -335,3 +337,5 @@ def has_user_rights_in_doc(nick, channel, command_doc, conf=None):
 
 timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
 
+def is_ssl(conf):
+    return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"
