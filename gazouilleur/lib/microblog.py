@@ -281,7 +281,7 @@ def check_twitter_results(data):
 def grab_extra_meta(source, result):
     for meta in ["in_reply_to_status_id_str", "in_reply_to_screen_name", "lang", "geo", "coordinates", "source"]:
         if meta in source:
-            result[meta] = source [meta]
+            result[meta] = source[meta]
     for meta in ['name', 'friends_count', 'followers_count', 'statuses_count', 'listed_count']:
         key = "user_%s" % meta.replace('_count', '')
         if key in source:
