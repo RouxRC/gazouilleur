@@ -83,7 +83,7 @@ class IRCBot(NamesIRCClient):
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 yield Mongo('logs', 'insert', {'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()):
+        if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()) and lowchan in self.logger:
             self.logger[lowchan].log(message, filtered)
         if user:
             returnD((nick, user))
@@ -107,7 +107,8 @@ class IRCBot(NamesIRCClient):
             self.left(channel)
         lowname = config.BOTNAME.lower()
         loggirc2('Connection lost because: %s.' % reason)
-        self.logger[lowname].close()
+        if lowname in self.logger:
+            self.logger[lowname].close()
         NamesIRCClient.connectionLost(self, reason)
 
     @inlineCallbacks
