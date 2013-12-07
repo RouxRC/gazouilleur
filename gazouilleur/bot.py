@@ -910,7 +910,7 @@ class IRCBot(NamesIRCClient):
 
     str_re_tweets = ' — http://twitter\.com/'
     def command_lasttweet(self, tweet, channel=None, nick=None):
-        """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)."""
+        """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)./TWITTER"""
         chan = self.getMasterChan(channel)
         twuser = get_chan_twitter_user(chan)
         return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
