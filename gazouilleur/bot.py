@@ -272,6 +272,9 @@ class IRCBot(NamesIRCClient):
     def _can_user_do(self, nick, channel, command, conf=None):
         return has_user_rights_in_doc(nick, channel, self._get_command_name(command), self._get_command_doc(command))
 
+    def _get_target(self, channel, nick):
+        return nick if channel == self.nickname else channel
+
     re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, config.COMMAND_CHARACTER), re.I)
     @inlineCallbacks
     def privmsg(self, user, channel, message, tasks=None):
@@ -305,7 +308,7 @@ class IRCBot(NamesIRCClient):
                 d = maybeDeferred(self.command_help, command, channel, nick, discreet=True)
             else:
                 returnD(None)
-        target = nick if channel == self.nickname else channel
+        target = self._get_target(channel, nick)
         if d is None:
             if self._can_user_do(nick, channel, func):
                 d = maybeDeferred(func, rest, channel, nick)
@@ -1048,7 +1051,7 @@ class IRCBot(NamesIRCClient):
             task, channel = self._get_chan_from_command(task, channel)
         except Exception as e:
             returnD(str(e))
-        target = nick if channel == self.nickname else channel
+        target = self._get_target(channel, nick)
         rank = len(self.tasks)
         task = cleanblanks(task)
         task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
