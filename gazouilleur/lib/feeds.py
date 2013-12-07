@@ -512,10 +512,10 @@ class FeederProtocol(object):
                         self.pile.insert(0, tweet)
                     else:
                         try:
-                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}})
+                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}}, multi=True)
                             if config.DEBUG:
                                 self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], "stream", hint=True)
-                        except Exception as e:
+                        except:
                             if config.DEBUG:
                                 self.log(tweet, "stream", hint=True)
         except Exception as e:
