@@ -310,7 +310,7 @@ def is_user_auth(nick, channel, conf=None):
     return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
 
 def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
-    if channel == config.BOTNAME.lower():
+    if channel.lower() == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
     if conf and 'EXCLUDE_COMMANDS' in conf and command:
