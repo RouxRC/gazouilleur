@@ -4,8 +4,9 @@
 import re, urllib, hashlib
 from datetime import timedelta
 import htmlentitydefs
-from twisted.internet import defer
+from twisted.internet import defer, reactor
 from twisted.internet.error import DNSLookupError
+from twisted.internet.task import deferLater
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
 from gazouilleur.lib.mongo import Mongo, sortasc
@@ -224,6 +225,9 @@ def getFeeds(channel, database, url_format=True, add_url=None, randorder=None):
         else:
             urls = [str(feed['query']) for feed in queries]
     defer.returnValue(urls)
+
+def deferredSleep(sleep=5):
+    return deferLater(reactor, sleep, lambda : None)
 
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
 def next_page(url):

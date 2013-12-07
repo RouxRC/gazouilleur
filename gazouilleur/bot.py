@@ -28,6 +28,9 @@ class IRCBot(NamesIRCClient):
 
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
     lineRate = 0.75
+    saving_task = False
+    saved_tasks = 0
+    saving_tasks = 0
     tasks = []
     nicks = {}
     silent = {}
@@ -1051,10 +1054,19 @@ class IRCBot(NamesIRCClient):
         except Exception as e:
             returnD(str(e))
         target = self._get_target(channel, nick)
-        rank = len(self.tasks)
         task = cleanblanks(task)
         task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
         task = task.encode('utf-8')
+        if self.saving_task:
+            self.saving_tasks += 1
+        else:
+            self.saving_tasks = 0
+            self.saved_tasks = 0
+        task_id = self.saving_tasks + 1
+        while task_id != self.saved_tasks + 1:
+            yield deferredSleep(0.5)
+        self.saving_task = True
+        rank = len(self.tasks)
         if task.startswith(config.COMMAND_CHARACTER):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
@@ -1074,12 +1086,14 @@ class IRCBot(NamesIRCClient):
         yield Mongo('tasks', 'insert', task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
+        self.saving_task = False
+        self.saved_tasks += 1
         returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
 
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
         now = time.time()
-        tasks = yield Mongo('tasks', 'find', {'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
+        tasks = yield Mongo('tasks', 'find', {'scheduled_ts': {'$gte': now - 30}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
         for task in filter(lambda x: "canceled" not in x, tasks):
             for x in filter(lambda x: isinstance(task[x], unicode), task):
                 task[x] = task[x].encode('utf-8')

@@ -14,7 +14,7 @@ filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser'
 filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue as returnD
-from twisted.internet.task import deferLater, LoopingCall
+from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python import failure
@@ -180,9 +180,6 @@ class FeederProtocol(object):
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         returnD(True)
 
-    def deferredSleep(self, sleep=5):
-        return deferLater(reactor, sleep, lambda : None)
-
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
         # handle tweets from icerocket or topsy fake rss
@@ -229,7 +226,7 @@ class FeederProtocol(object):
                 tweets.append(tw)
         # Delay displaying to avoid duplicates from the stream
         if source != "mystream":
-            yield self.deferredSleep()
+            yield deferredSleep()
         existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
