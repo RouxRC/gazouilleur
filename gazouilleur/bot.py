@@ -1202,7 +1202,8 @@ class IRCBot(NamesIRCClient):
 
     def command_restart(self, rest, channel=None, nick=None):
         """restart : Tries to reboot me./ADMIN"""
-        self._send_message("Trying to reboot...", channel, nick)
+        target = self._get_target(channel, nick)
+        self._send_message("Trying to reboot...", target, nick)
         try:
             import subprocess
             reactor.callLater(1, self.quit, "admin reboot from chan by %s" % nick)
