@@ -131,14 +131,15 @@ class IRCBot(NamesIRCClient):
         conf = chanconf(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, 35)
-        if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+        twuser = get_chan_twitter_user(channel, conf)
+        if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
             try:
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
-                loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
+                loggvar("Got OAuth2 token for %s on Twitter." % twuser, channel, "twitter")
             except Exception as e:
                 oauth2_token = None
-                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
+                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, e), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
@@ -150,11 +151,11 @@ class IRCBot(NamesIRCClient):
                 self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 15 if oauth2_token else 30, twitter_token=oauth2_token)
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='topsy')
             # Follow DMs sent to Twitter USER
                 self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
@@ -332,8 +333,8 @@ class IRCBot(NamesIRCClient):
                 msg = self.re_extract_chan.sub('', line)
                 msg_utf = msg.decode('utf-8')
                 msg_low = msg_utf.lower()
-                twuser = get_chan_twitter_user(chan)
-                if twuser and twuser.lower() in msg_low:
+                twuser = get_chan_twitter_user(chan).lower()
+                if twuser and twuser in msg_low:
                     pass
                 elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
                     skip = True
@@ -787,11 +788,9 @@ class IRCBot(NamesIRCClient):
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        conf = chanconf(channel)
-        if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
-            stats = Stats(conf["TWITTER"]["USER"].lower())
-            return stats.print_last()
-        return "No Twitter account set for this channel."
+        twuser = get_chan_twitter_user(channel).lower()
+        stats = Stats(twuser)
+        return stats.print_last()
 
 
    # Twitter & RSS Feeds monitoring commands

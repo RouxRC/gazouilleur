@@ -250,11 +250,9 @@ class FeederProtocol(object):
             hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
             existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
             existing = [t['uniq_rt_hash'] for t in existings]
-            tw_user = ""
-            if self.fact.twitter_user:
-                tw_user = self.fact.twitter_user.lower()
+
             for t in news:
-                if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % tw_user in t['message'].lower()):
+                if self.fact.twuser == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % self.fact.twuser in t['message'].lower()):
                     existing.append(t['uniq_rt_hash'])
                     good.append(t)
         if config.DEBUG:
@@ -483,9 +481,8 @@ class FeederProtocol(object):
             k += 1
             if k > 395:
                 break
-        user = self.fact.twitter_user.lower()
-        if user not in track:
-            track.append(user)
+        if self.fact.twuser not in track:
+            track.append(self.fact.twuser)
         if len(skip):
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
@@ -562,7 +559,7 @@ class FeederFactory(protocol.ClientFactory):
         conf = chanconf(channel)
         self.displayRT = chan_displays_rt(channel, conf)
         self.displayMyRT = chan_displays_my_rt(channel, conf)
-        self.twitter_user = get_chan_twitter_user(channel, conf)
+        self.twuser = get_chan_twitter_user(channel, conf).lower()
         self.retweets_processed = {}
         self.tweets_search_page = tweetsSearchPage
         self.back_pages_limit = back_pages_limit
@@ -602,7 +599,7 @@ class FeederFactory(protocol.ClientFactory):
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             run_command = self.protocol.start_twitter
-            args = {'database': self.database, 'conf': conf, 'user': self.twitter_user.lower()}
+            args = {'database': self.database, 'conf': conf, 'user': self.twuser}
         elif self.database == "tweets" and not self.tweets_search_page:
             run_command = self.run_twitter_search
         elif self.database == "stream":
