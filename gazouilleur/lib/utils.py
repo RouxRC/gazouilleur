@@ -130,8 +130,10 @@ def _clean_redir_urls(text, cache_urls, last=False):
     defer.returnValue((text, cache_urls))
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
+re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+(\s|$)')
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
+    text = re_clean_bad_quotes.sub(r'\1"\2', text.encode('utf-8')).decode('utf-8')
     text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
