@@ -202,7 +202,7 @@ Run the following commands:
  workon gazouilleur
  pip install -r requirements.txt
  bash bin/configure.sh
- v.deactivate
+ deactivate
  bin/gazouilleur start
  ```
 
