@@ -142,12 +142,12 @@ class IRCBot(NamesIRCClient):
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 30, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
+                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 15 if oauth2_token else 30, twitter_token=oauth2_token)
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
             #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
