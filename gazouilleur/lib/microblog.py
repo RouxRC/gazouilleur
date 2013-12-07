@@ -335,3 +335,6 @@ def format_error_message(code, error=""):
         error = "UNDEFINED"
     return code, "ERROR%s: %s." % (codestr, error.rstrip('.'))
 
+_re_clean_oauth_error = re.compile(r'\s*details:\s*<!DOCTYPE html>.*$', re.I)
+def clean_oauth_error(error):
+    return _re_clean_oauth_error.sub('', str(error).replace('\n', ''))

@@ -18,7 +18,7 @@ from gazouilleur.lib.log import *
 from gazouilleur.lib.mongo import Mongo, sortasc, sortdesc, ensure_indexes
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
-from gazouilleur.lib.microblog import Microblog
+from gazouilleur.lib.microblog import Microblog, clean_oauth_error
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 
@@ -143,7 +143,8 @@ class IRCBot(NamesIRCClient):
                 loggvar("Got OAuth2 token for %s on Twitter." % twuser, channel, "twitter")
             except Exception as e:
                 oauth2_token = None
-                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, e), channel, "twitter")
+                err = clean_oauth_error.sub('', e)
+                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
