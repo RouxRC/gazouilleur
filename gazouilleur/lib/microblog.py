@@ -67,7 +67,7 @@ class Microblog(object):
 
     def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
         if tryout > 2:
-            return previous_exception
+            return previous_exception.encode('utf-8')
         try:
             if not return_result:
                 args['trim_user'] = 'true'
@@ -76,7 +76,7 @@ class Microblog(object):
             res = function(**args)
             if return_result:
                 return res
-            elif config.DEBUG:
+            if config.DEBUG:
                 loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
@@ -274,7 +274,7 @@ def check_twitter_results(data):
             text = text[0]
         except:
             pass
-    if text and isinstance(text, str) and ("WARNING" in text or "RROR" in text):
+    if text and isinstance(text, str) and ("WARNING" in text or text.startswith("[twitter] ERROR ")):
         raise(Exception(text))
     return data
 
@@ -312,7 +312,7 @@ def get_error_message(error):
             code = jsonerr["code"]
         elif code == 403 and "statuses/retweet" in error:
             code = 187
-    except Exception as e:
+    except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
     if code == 404 and "direct_messages/new" in error:
