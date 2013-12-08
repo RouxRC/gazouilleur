@@ -826,7 +826,7 @@ class IRCBot(NamesIRCClient):
         if not user:
             returnD("Please provide a valid tweet_id or twitter_user.")
         name = user['screen_name'].encode('utf-8')
-        verified = " (certified)"if 'verified' in user and user['verified'] else ""
+        verified = " (certified)" if 'verified' in user and user['verified'] else ""
         url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
         description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
         returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (name, user['name'].encode('utf-8'), description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
