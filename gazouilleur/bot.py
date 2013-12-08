@@ -328,7 +328,7 @@ class IRCBot(NamesIRCClient):
 
     # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
-    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
             line = self._queue[chan].pop(0)
@@ -635,7 +635,14 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+
+    str_re_tweets = ' — https?://twitter\.com/'
+    def command_lasttweet(self, options, channel=None, nick=None):
+        """lasttweet [<N>] [<options>]: Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)./TWITTER"""
+        chan = self.getMasterChan(channel)
+        twuser = get_chan_twitter_user(chan)
+        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, options), channel, nick)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -802,7 +809,7 @@ class IRCBot(NamesIRCClient):
    # ---------------------------------------
    ## (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
    ## Others available to anyone
-   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'
+   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'
 
     @inlineCallbacks
     def _restart_feeds(self, channel):
@@ -912,21 +919,14 @@ class IRCBot(NamesIRCClient):
             returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
         returnD("No news feed named «%s» for this channel" % name)
 
-    str_re_tweets = ' — http://twitter\.com/'
-    def command_lasttweet(self, tweet, channel=None, nick=None):
-        """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)./TWITTER"""
-        chan = self.getMasterChan(channel)
-        twuser = get_chan_twitter_user(chan)
-        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
-
-    def command_lasttweets(self, tweet, channel=None, nick=None):
-        """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, tweet), channel, nick)
+    def command_lasttweets(self, options, channel=None, nick=None):
+        """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" can apply)."""
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, options), channel, nick)
 
     str_re_news = '^[News — '
-    def command_lastnews(self, tweet, channel=None, nick=None):
-        """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, tweet), channel, nick)
+    def command_lastnews(self, options, channel=None, nick=None):
+        """lastnews [<N>] [<options>] : Prints the last or <N> last news displayed on the chan (options from "last" can apply)."""
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, options), channel, nick)
 
 
    # Ping commands

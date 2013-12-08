@@ -127,7 +127,7 @@ class FeederProtocol(object):
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'].replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')))).replace('%s: ' % tweet['user'], '')
             if tweet['id_str'] not in ids:
                 ids.append(tweet['id_str'])
-                feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
+                feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "https://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
         return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
@@ -335,7 +335,7 @@ class FeederProtocol(object):
                 text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
             else:
                 text = tweet['text']
-            tw = {'created_at': tweet['created_at'], 'title': unescape_html(text), 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])}
+            tw = {'created_at': tweet['created_at'], 'title': unescape_html(text), 'link': "https://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])}
             tw = grab_extra_meta(tweet, tw)
             feed.append(tw)
         if query:
