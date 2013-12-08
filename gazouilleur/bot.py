@@ -143,7 +143,7 @@ class IRCBot(NamesIRCClient):
                 loggvar("Got OAuth2 token for %s on Twitter." % twuser, channel, "twitter")
             except Exception as e:
                 oauth2_token = None
-                err = clean_oauth_error.sub('', e)
+                err = clean_oauth_error(e)
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
