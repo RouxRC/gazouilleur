@@ -648,24 +648,24 @@ class IRCBot(NamesIRCClient):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, siteprotocol, conf):
             return "No %s account is set for this channel." % siteprotocol
+        if command in ['microblog', 'retweet']:
+            kwargs['channel'] = channel
+        conn = Microblog(siteprotocol, conf)
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
             try:
-                ct = countchars(kwargs['text'], self.twitter["url_length"])
+                kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
-                ct = 100
-            if ct < 30 and not nolimit:
-                return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
-            elif ct > 140 and siteprotocol == "twitter" and not nolimit:
-                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, ct)
-        if command in ['microblog', 'retweet']:
-            kwargs['channel'] = channel
-        conn = Microblog(siteprotocol, conf)
-        if siteprotocol == "twitter" and 'text' in kwargs and not force and command != "directmsg":
-            bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
-            if not bl:
-                return "[%s] %s" % (siteprotocol, msg)
+                kwargs['length'] = 100
+            if kwargs['length'] < 30 and not nolimit:
+                return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
+            if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
+                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, kwargs['length'])
+            if siteprotocol == "twitter" and command != "directmsg" and not force:
+                bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
+                if not bl:
+                    return "[%s] %s" % (siteprotocol, msg)
         command = getattr(conn, command, None)
         return command(**kwargs)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import urllib
+from urllib import quote as urlquote
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
@@ -112,7 +112,7 @@ class Microblog(object):
         res = self._send_query(self.conn.help.configuration, return_result=True)
         return res.get('short_url_length_https', res.get('short_url_length') + 1)
 
-    def microblog(self, text="", tweet_id=None, channel=None):
+    def microblog(self, text="", tweet_id=None, channel=None, length=0):
         if text.startswith("%scount" % config.COMMAND_CHARACTER):
             text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
         if self.site == "identica":
@@ -129,8 +129,7 @@ class Microblog(object):
                 if config.DEBUG:
                     loggerr(e, action=self.site)
                 return exception
-        text = text.replace('~', '&#126;')
-        args = {'status': text}
+        args = {'status': clean_tilde(text, length)}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
         return self._send_query(self.conn.statuses.update, args, channel=channel)
@@ -176,8 +175,8 @@ class Microblog(object):
     def get_retweets_by_id(self, tweet_id, **kwargs):
         return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
 
-    def directmsg(self, user, text):
-        text = text.replace('~', '&#126;')
+    def directmsg(self, user, text, length=0):
+        text = clean_tilde(text, length)
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
@@ -219,7 +218,7 @@ class Microblog(object):
         return self.conn.statuses.filter(**args)
 
     def search_users(self, query, count=3):
-        query = urllib.quote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
+        query = urlquote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
         users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
         if "ERROR 429" in users or "ERROR 404" in users:
             return []
@@ -266,6 +265,14 @@ class Microblog(object):
                     extra = " (maybe you meant @%s ?)" % " or @".join([p.encode('utf-8') for p in proposals])
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
+
+def clean_tilde(text, length):
+    if '~' in text:
+        if length < 141 - 5 * text.count('~'):
+            tilde = urlquote('~')
+        else:
+            tilde = '≈'
+    return text.replace('~', tilde)
 
 def check_twitter_results(data):
     text = data
