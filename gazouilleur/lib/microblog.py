@@ -241,8 +241,7 @@ class Microblog(object):
         list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
             if return_result:
-                good = u
-                break
+                return u, cache_users
             name = u['screen_name'].decode('utf-8').lower()
             if name in list_users:
                 good[name] = u['id_str']
