@@ -818,7 +818,7 @@ class IRCBot(NamesIRCClient):
             else:
                 text = tweet['text']
             text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
-            date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+            date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
             source = clean_html(tweet['source']).encode('utf-8')
             retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
             returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s - %s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
