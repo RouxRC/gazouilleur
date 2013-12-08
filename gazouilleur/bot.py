@@ -829,7 +829,7 @@ class IRCBot(NamesIRCClient):
         verified = " (certified)"if 'verified' in user and user['verified'] else ""
         url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
         description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
-        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (user['name'].encode('utf-8'), name, description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
+        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (name, user['name'].encode('utf-8'), description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
 
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
