@@ -708,12 +708,12 @@ class IRCBot(NamesIRCClient):
             conf = chanconf(channel)
             conn = Microblog('twitter', conf)
             tweet = conn.show_status(tweet_id)
-            if tweet and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
+            if isinstance(tweet, dict) and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
                 if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
                     return "Don't forget to quote @%s when answering his tweets ;)" % tweet['user']['screen_name']
             else:
-                return "[twitter] Cannot find tweet %s on Twitter." % tweet_id
+                return tweet
         dl = []
         dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
         if chan_has_identica(channel):
@@ -733,7 +733,7 @@ class IRCBot(NamesIRCClient):
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
         conn = Microblog('twitter', conf)
         res = conn.show_status(tweet_id)
-        if res and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
+        if isinstance(res, dict) and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
             if countchars(tweet, self.twitter["url_length"]) > 140:
                 tweet = "%s…" % tweet[:139]
