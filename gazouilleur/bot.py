@@ -780,6 +780,7 @@ class IRCBot(NamesIRCClient):
             return "Please input a user name and a message."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
 
+    @inlineCallbacks
     def command_finduser(self, rest, channel=None, nick=None):
         """finduser <query> [<N=3>] : Searches <query>through Twitter User and returns <N> results (defaults 3, max 20)./TWITTER"""
         channel = self.getMasterChan(channel)
@@ -790,12 +791,13 @@ class IRCBot(NamesIRCClient):
         else:
             count = 3
         if query == "":
-            return "Please input a text query."
+            returnD("Please input a text query.")
         conn = Microblog('twitter', conf)
         names = conn.search_users(query, count)
         if not names:
-            return "No result found for %s" % query
-        return "Are you looking for @%s ?" % " or @".join(names)
+            returnD("No result found for %s" % query)
+        infofirst = yield self.command_show(names[0], channel, nick)
+        returnD([(True, ("Are you looking for @%s ?" % " or @".join(names)).encode('utf-8')), (True, infofirst)])
 
     @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
