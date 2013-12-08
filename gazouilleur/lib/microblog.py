@@ -267,11 +267,12 @@ class Microblog(object):
         return True, cache_users, "All users quoted passed"
 
 def clean_tilde(text, length):
-    if '~' in text:
-        if length < 141 - 5 * text.count('~'):
-            tilde = urlquote('~')
-        else:
-            tilde = '≈'
+    if not '~' in text:
+        return text
+    if length < 141 - 5 * text.count('~'):
+        tilde = urlquote('~')
+    else:
+        tilde = '≈'
     return text.replace('~', tilde)
 
 def check_twitter_results(data):
