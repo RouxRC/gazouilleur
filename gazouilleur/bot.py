@@ -15,7 +15,7 @@ from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
 from gazouilleur.lib.log import *
-from gazouilleur.lib.mongo import Mongo, sortasc, sortdesc, ensure_indexes
+from gazouilleur.lib.mongo import Mongo, MongoConn, sortasc, sortdesc, ensure_indexes
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog, clean_oauth_error
@@ -952,6 +952,30 @@ class IRCBot(NamesIRCClient):
         if res:
             returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
         returnD("No news feed named «%s» for this channel" % name)
+
+    @inlineCallbacks
+    def command_tweetswith(self, query, *args):
+        """tweetswith <match> : Prints the total number of tweets seen matching <match> and the first one seen."""
+        res = "No match found in my history of tweets seen."
+        re_arg = re.compile(r"%s" % clean_regexp(query), re.I)
+        db = MongoConn('tweets')
+        total = yield db.aggregate('tweets', [{'$match': {'message': re_arg}}, {'$group': {'_id': '$id'}}, {'$group': {'_id': 1, 'count': {'$sum' : 1}}}])
+        n_tot = total[0]['count'] if total else 0
+        if n_tot:
+            re_rts = re.compile(r"(([MLR]T|%s|♺)\s*)+@" % QUOTE_CHARS.encode('utf-8'), re.I)
+            rts = yield db.aggregate('tweets', [{'$match': {'message': re_arg}}, {'$match': {'message': re_rts}}, {'$group': {'_id': '$id'}}, {'$group': {'_id': 1, 'count': {'$sum' : 1}}}])
+            plural = "s" if rts and rts[0]['count'] > 1 else ""
+            n_rts = " (including %d RT%s)" % (rts[0]['count'], plural) if rts else ""
+            first = yield db.find('tweets', {'message': re_arg}, filter=sortasc('timestamp'), limit=1)
+            first = first[0]
+            name = first['screenname'].encode('utf-8')
+            date = first['timestamp'].strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+            plural = "s" if n_tot > 1 else ""
+            res = [(True, "%d tweet%s seen matching « %s »%s since the first one seen on %s:" % (n_tot, plural, query, n_rts, date)), (True, "%s: %s — https://twitter.com/%s/statuses/%d" % (name, first['message'].encode('utf-8'), name, first['id']))]
+        yield db.close()
+        del db
+        returnD(res)
+
 
     def command_lasttweets(self, options, channel=None, nick=None):
         """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" can apply)."""
