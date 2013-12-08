@@ -824,9 +824,10 @@ class IRCBot(NamesIRCClient):
         if not user:
             returnD("Please provide a valid tweet_id or twitter_user.")
         name = user['screen_name'].encode('utf-8')
+        verified = " (certified)"if 'verified' in user and user['verified'] else ""
         url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
         description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
-        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s" % (user['name'].encode('utf-8'), name, description.encode('utf-8'), user['statuses_count'], user['followers_count'], name))
+        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (user['name'].encode('utf-8'), name, description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
 
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
@@ -971,7 +972,7 @@ class IRCBot(NamesIRCClient):
         """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
         channel = self.getMasterChan(channel)
         names = yield self._names(channel)
-        noping = yield Mongo('noping_users', 'find',{'channel': channel}, fields=['lower'])
+        noping = yield Mongo('noping_users', 'find', {'channel': channel}, fields=['lower'])
         skip = [user['lower'].encode('utf-8') for user in noping] + [nick.lower(), self.nickname.lower()]
         left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
         users = [name.strip('@') for name, _ in left if name.startswith('@')]
