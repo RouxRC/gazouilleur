@@ -66,8 +66,13 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)'`
+ * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)'`
  * **List :**
+
+  + `lasttweet [<N>] [<options>]`
+
+     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+     > > restricted to /TWITTER
 
   + `identica <text> [--nolimit]`
 
@@ -119,6 +124,11 @@
      > Searches &lt;query&gt;through Twitter User and returns &lt;N&gt; results (defaults 3, max 20).
      > > restricted to /TWITTER
 
+  + `show <tweet_id|@twitter_user>`
+
+     > Displays message and info on tweet with id &lt;tweet_id&gt; or on user &lt;@twitter_user&gt;.
+     > > restricted to /TWITTER
+
   + `stats`
 
      > Prints stats on the Twitter account set for the channel.
@@ -127,7 +137,7 @@
 # Twitter &amp; RSS Feeds monitoring commands
  * (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
  * Others available to anyone
- * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'`
+ * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'`
  * **List :**
 
   + `follow <name url|text|@user>`
@@ -158,17 +168,17 @@
 
      > Displays the url of a RSS feed saved as &lt;name&gt; for current channel.
 
-  + `lasttweet [<N>]`
+  + `tweetswith <match>`
 
-     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+     > Prints the total number of tweets seen matching &lt;match&gt; and the first one seen.
 
-  + `lasttweets <word> [<N>]`
+  + `lasttweets [<N>] [<options>]`
 
-     > Prints the last or &lt;N&gt; last tweets matching &lt;word&gt; (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last tweets displayed on the chan (options from "last" can apply).
 
-  + `lastnews <word> [<N>]`
+  + `lastnews [<N>] [<options>]`
 
-     > Prints the last or &lt;N&gt; last news matching &lt;word&gt; (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last news displayed on the chan (options from "last" can apply).
 
 # Ping commands
  * Available only to GLOBAL_USERS and chan's USERS except for NoPing to anyone
