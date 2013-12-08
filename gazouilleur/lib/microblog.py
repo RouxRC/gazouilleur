@@ -224,7 +224,7 @@ class Microblog(object):
             return []
         return [u['screen_name'] for u in users]
 
-    def lookup_users(self, list_users, cache_users={}):
+    def lookup_users(self, list_users, cache_users={}, return_result=False):
         good = {}
         todo = []
         for name in list_users:
@@ -240,6 +240,9 @@ class Microblog(object):
             return good, cache_users
         list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
+            if return_result:
+                good = u
+                break
             name = u['screen_name'].decode('utf-8').lower()
             if name in list_users:
                 good[name] = u['id_str']

@@ -797,6 +797,37 @@ class IRCBot(NamesIRCClient):
             return "No result found for %s" % query
         return "Are you looking for @%s ?" % " or @".join(names)
 
+    @inlineCallbacks
+    def command_show(self, rest, channel=None, nick=None):
+        """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>./TWITTER"""
+        channel = self.getMasterChan(channel)
+        conf = chanconf(channel)
+        conn = Microblog('twitter', conf)
+        res = ""
+        tweet_id = safeint(rest)
+        if tweet_id:
+            tweet = conn.show_status(tweet_id)
+            if not isinstance(tweet, dict):
+                returnD(tweet)
+            user = tweet['user']
+            name = user['screen_name'].encode('utf-8')
+            if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
+                text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
+            else:
+                text = tweet['text']
+            text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
+            date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+            source = clean_html(tweet['source']).encode('utf-8')
+            retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
+            returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s - %s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+        user, _ = conn.lookup_users([rest], return_result=True)
+        if not user:
+            returnD("Please provide a valid tweet_id or twitter_user.")
+        name = user['screen_name'].encode('utf-8')
+        url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
+        description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
+        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s" % (user['name'].encode('utf-8'), name, description.encode('utf-8'), user['statuses_count'], user['followers_count'], name))
+
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
         channel = self.getMasterChan(channel)
