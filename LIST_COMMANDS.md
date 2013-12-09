@@ -56,7 +56,7 @@
 
   + `count <text>`
 
-     > Prints the character length of &lt;text&gt; (spaces will be trimmed, urls will be shortened to 20 chars).
+     > Prints the character length of &lt;text&gt; (spaces will be trimmed, urls will be shortened to Twitter's t.co length).
 
   + `lastcount`
 

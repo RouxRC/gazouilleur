@@ -618,7 +618,7 @@ class IRCBot(NamesIRCClient):
    ## Exclude regexp : '.*count'
 
     def command_count(self, rest, *args):
-        """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
+        """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
         return "%d characters (max 140)" % countchars(rest, self.twitter["url_length"])
 
     def command_lastcount(self, rest, channel=None, nick=None):
