@@ -651,6 +651,7 @@ class IRCBot(NamesIRCClient):
             return regexp.sub(' ', text).strip(), True
         return text, False
 
+    re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, siteprotocol, conf):
@@ -665,6 +666,8 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
+            if self.re_special_dms.match(kwargs['text']):
+                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
