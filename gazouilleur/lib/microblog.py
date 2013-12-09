@@ -85,7 +85,7 @@ class Microblog(object):
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
             if code in [183, 187, 403, 404, 429, 503]:
-                return "[%s] %s" % (self.site, exception)
+                return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
@@ -325,7 +325,7 @@ def get_error_message(error):
     except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error:
+    if code == 404 and "direct_messages/new" in error or "statuses/update" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
