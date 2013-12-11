@@ -1132,13 +1132,13 @@ class IRCBot(NamesIRCClient):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
             if func is None:
-                returnD("I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command))
+                returnD(self._stop_saving_task("I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command)))
             if not self._can_user_do(nick, channel, func):
-                returnD("I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command))
+                returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command)))
             if self.re_clean_twitter_task.match(task):
                 count = countchars(task, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
-                    returnD("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
+                    returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
@@ -1147,9 +1147,12 @@ class IRCBot(NamesIRCClient):
         yield Mongo('tasks', 'insert', task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
+        returnD(self._stop_saving_task("Task #%s scheduled at %s : %s" % (rank, then, task)))
+
+    def _stop_saving_task(self, text):
         self.saving_task = False
         self.saved_tasks += 1
-        returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
+        return text
 
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
