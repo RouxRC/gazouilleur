@@ -195,17 +195,10 @@ You can configure the MongoDB server by editing `/etc/mongodb.conf`.
 
 ## How to update to the latests code modifications?
 
-Run the following commands:
+Run the following script:
 
  ```bash
- bin/gazouilleur stop  # OR #  bash bin/stop.sh
- git pull
- source /usr/local/bin/virtualenvwrapper.sh
- workon gazouilleur
- pip install -r requirements.txt
- bash bin/configure.sh
- deactivate
- bin/gazouilleur start
+ bin/update.sh
  ```
 
 Then check your configuration file against `gazouilleur/config.py.example` to add any new possible option.
