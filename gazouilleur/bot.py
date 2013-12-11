@@ -745,7 +745,7 @@ class IRCBot(NamesIRCClient):
     def command_rt(self, tweet_id, channel=None, nick=None):
         """rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
         channel = self.getMasterChan(channel)
-        tweet_id = safeint(tweet_id)
+        tweet_id = safeint(tweet_id, twitter=True)
         if not tweet_id:
             return "Please input a correct tweet_id."
         dl = []
@@ -758,7 +758,7 @@ class IRCBot(NamesIRCClient):
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
         channel = self.getMasterChan(channel)
-        tweet_id = safeint(tweet_id)
+        tweet_id = safeint(tweet_id, twitter=True)
         if not tweet_id:
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
@@ -807,7 +807,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         conn = Microblog('twitter', conf)
-        tweet_id = safeint(rest)
+        tweet_id = safeint(rest, twitter=True)
         if tweet_id:
             tweet = conn.show_status(tweet_id)
             if not isinstance(tweet, dict):

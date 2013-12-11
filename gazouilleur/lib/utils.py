@@ -239,8 +239,13 @@ def next_page(url):
     p += 1
     return "%s&p=%s" % (url, p)
 
-def safeint(n):
+re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
+def safeint(n, twitter=False):
     try:
+        if twitter:
+            res = re_tweet_url.search(n)
+            if res:
+                n = res.group(2)
         return int(n.strip())
     except:
         return 0
