@@ -79,6 +79,7 @@ def countchars(text, twitter_url_length):
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
+re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -87,6 +88,7 @@ def clean_url(url, url0, cache_urls):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
+    url = re_clean_google_news.sub(r'\1', url)
     cache_urls[url0] = url
     return url, cache_urls
 
