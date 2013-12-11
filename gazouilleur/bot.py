@@ -493,7 +493,6 @@ class IRCBot(NamesIRCClient):
         st = 0
         current = ""
         clean_my_nick = False
-        news = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
@@ -808,7 +807,6 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         conn = Microblog('twitter', conf)
-        res = ""
         tweet_id = safeint(rest)
         if tweet_id:
             tweet = conn.show_status(tweet_id)
