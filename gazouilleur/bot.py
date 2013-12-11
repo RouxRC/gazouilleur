@@ -4,11 +4,11 @@
 import gazouilleur.lib.tests
 from gazouilleur import config
 
-import sys, os.path, types, re
+import sys, os.path, types, re, exceptions
 import random, time
 from datetime import datetime
 import lxml.html
-from twisted.internet import reactor, protocol, threads, ssl
+from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
 from twisted.web.client import getPage
 from twisted.application import internet, service
@@ -1198,8 +1198,15 @@ class IRCBot(NamesIRCClient):
             yield Mongo('tasks', 'update', {"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
-        except:
-            returnD("The task #%s does not exist yet or anymore." % task_id)
+        except exceptions.IndexError:
+            returnD("The task #%s does not exist yet." % task_id)
+        except twerror.AlreadyCancelled:
+            returnD("The task #%s was already canceled." % task_id)
+        except twerror.AlreadyCalled:
+            returnD("The task #%s already ran." % task_id)
+        except Exception as e:
+            loggerr("%s %s" % (type(e), e), channel, "tasks")
+            returnD("Could not retrieve any task with id #%s." % task_id)
 
 
    # Other commands...
