@@ -4,8 +4,9 @@
 import re, urllib, hashlib
 from datetime import timedelta
 import htmlentitydefs
-from twisted.internet import defer
+from twisted.internet import defer, reactor
 from twisted.internet.error import DNSLookupError
+from twisted.internet.task import deferLater
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
 from gazouilleur.lib.mongo import Mongo, sortasc
@@ -73,7 +74,7 @@ def _shorten_url(text, twitter_url_length):
 
 re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt|answ)er(only|last)?)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER), re.I)
 def countchars(text, twitter_url_length):
-    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip()).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', ''))
+    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip()).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
@@ -130,8 +131,10 @@ def _clean_redir_urls(text, cache_urls, last=False):
     defer.returnValue((text, cache_urls))
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
+re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+(\s|$)')
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
+    text = re_clean_bad_quotes.sub(r'\1"\2', text.encode('utf-8')).decode('utf-8')
     text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
@@ -223,6 +226,9 @@ def getFeeds(channel, database, url_format=True, add_url=None, randorder=None):
             urls = [str(feed['query']) for feed in queries]
     defer.returnValue(urls)
 
+def deferredSleep(sleep=5):
+    return deferLater(reactor, sleep, lambda : None)
+
 re_arg_page = re.compile(r'&p=(\d+)', re.I)
 def next_page(url):
     p = 1
@@ -279,7 +285,7 @@ def get_chan_twitter_user(chan, conf=None):
     conf = chanconf(chan, conf)
     if conf and 'TWITTER' in conf and 'USER' in conf['TWITTER']:
         return conf['TWITTER']['USER']
-    return None
+    return ""
 
 def chan_displays_stats(chan, conf=None):
     conf = chanconf(chan, conf)
@@ -308,7 +314,7 @@ def is_user_auth(nick, channel, conf=None):
     return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
 
 def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
-    if channel == config.BOTNAME.lower():
+    if channel.lower() == config.BOTNAME.lower():
         channel = get_master_chan()
     conf = chanconf(channel, conf)
     if conf and 'EXCLUDE_COMMANDS' in conf and command:

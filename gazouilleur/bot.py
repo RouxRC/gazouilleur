@@ -15,10 +15,10 @@ from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
 from gazouilleur.lib.log import *
-from gazouilleur.lib.mongo import Mongo, sortasc, sortdesc, ensure_indexes
+from gazouilleur.lib.mongo import Mongo, MongoConn, sortasc, sortdesc, ensure_indexes
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
-from gazouilleur.lib.microblog import Microblog
+from gazouilleur.lib.microblog import Microblog, clean_oauth_error
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 
@@ -28,6 +28,9 @@ class IRCBot(NamesIRCClient):
 
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
     lineRate = 0.75
+    saving_task = False
+    saved_tasks = 0
+    saving_tasks = 0
     tasks = []
     nicks = {}
     silent = {}
@@ -80,7 +83,7 @@ class IRCBot(NamesIRCClient):
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
                 yield Mongo('logs', 'insert', {'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
-        if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()):
+        if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()) and lowchan in self.logger:
             self.logger[lowchan].log(message, filtered)
         if user:
             returnD((nick, user))
@@ -104,7 +107,8 @@ class IRCBot(NamesIRCClient):
             self.left(channel)
         lowname = config.BOTNAME.lower()
         loggirc2('Connection lost because: %s.' % reason)
-        self.logger[lowname].close()
+        if lowname in self.logger:
+            self.logger[lowname].close()
         NamesIRCClient.connectionLost(self, reason)
 
     @inlineCallbacks
@@ -131,30 +135,32 @@ class IRCBot(NamesIRCClient):
         conf = chanconf(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, 35)
-        if 'TWITTER' in conf and 'USER' in conf['TWITTER']:
+        twuser = get_chan_twitter_user(channel, conf)
+        if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
             try:
                 oauth2_token = Microblog("twitter", conf, get_token=True).get_oauth2_token()
-                loggvar("Got OAuth2 token for %s on Twitter." % conf['TWITTER']['USER'], channel, "twitter")
+                loggvar("Got OAuth2 token for %s on Twitter." % twuser, channel, "twitter")
             except Exception as e:
                 oauth2_token = None
-                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (conf['TWITTER']['USER'], e), channel, "twitter")
+                err = clean_oauth_error(e)
+                loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 20, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 30, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 10 if oauth2_token else 20, twitter_token=oauth2_token)
+                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 15 if oauth2_token else 30, twitter_token=oauth2_token)
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='icerocket')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']), rss=True)])
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (conf['TWITTER']['USER'], conf['TWITTER']['USER']))], tweetsSearchPage='topsy')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='topsy')
             # Follow DMs sent to Twitter USER
                 self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
@@ -272,6 +278,9 @@ class IRCBot(NamesIRCClient):
     def _can_user_do(self, nick, channel, command, conf=None):
         return has_user_rights_in_doc(nick, channel, self._get_command_name(command), self._get_command_doc(command))
 
+    def _get_target(self, channel, nick):
+        return nick if channel == self.nickname else channel
+
     re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, config.COMMAND_CHARACTER), re.I)
     @inlineCallbacks
     def privmsg(self, user, channel, message, tasks=None):
@@ -305,7 +314,7 @@ class IRCBot(NamesIRCClient):
                 d = maybeDeferred(self.command_help, command, channel, nick, discreet=True)
             else:
                 returnD(None)
-        target = nick if channel == self.nickname else channel
+        target = self._get_target(channel, nick)
         if d is None:
             if self._can_user_do(nick, channel, func):
                 d = maybeDeferred(func, rest, channel, nick)
@@ -319,7 +328,7 @@ class IRCBot(NamesIRCClient):
 
     # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
-    re_tweets = re.compile(r' — http://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
             line = self._queue[chan].pop(0)
@@ -329,8 +338,8 @@ class IRCBot(NamesIRCClient):
                 msg = self.re_extract_chan.sub('', line)
                 msg_utf = msg.decode('utf-8')
                 msg_low = msg_utf.lower()
-                twuser = get_chan_twitter_user(chan)
-                if twuser and twuser.lower() in msg_low:
+                twuser = get_chan_twitter_user(chan).lower()
+                if twuser and twuser in msg_low:
                     pass
                 elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
                     skip = True
@@ -609,7 +618,7 @@ class IRCBot(NamesIRCClient):
    ## Exclude regexp : '.*count'
 
     def command_count(self, rest, *args):
-        """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to 20 chars)."""
+        """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
         return "%d characters (max 140)" % countchars(rest, self.twitter["url_length"])
 
     def command_lastcount(self, rest, channel=None, nick=None):
@@ -626,7 +635,14 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+
+    str_re_tweets = ' — https?://twitter\.com/'
+    def command_lasttweet(self, options, channel=None, nick=None):
+        """lasttweet [<N>] [<options>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)./TWITTER"""
+        chan = self.getMasterChan(channel)
+        twuser = get_chan_twitter_user(chan)
+        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, options), channel, nick)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -635,28 +651,31 @@ class IRCBot(NamesIRCClient):
             return regexp.sub(' ', text).strip(), True
         return text, False
 
+    re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         conf = chanconf(channel)
         if not chan_has_protocol(channel, siteprotocol, conf):
             return "No %s account is set for this channel." % siteprotocol
+        if command in ['microblog', 'retweet']:
+            kwargs['channel'] = channel
+        conn = Microblog(siteprotocol, conf)
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
             try:
-                ct = countchars(kwargs['text'], self.twitter["url_length"])
+                kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
-                ct = 100
-            if ct < 30 and not nolimit:
-                return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % ct
-            elif ct > 140 and siteprotocol == "twitter" and not nolimit:
-                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, ct)
-        if command in ['microblog', 'retweet']:
-            kwargs['channel'] = channel
-        conn = Microblog(siteprotocol, conf)
-        if siteprotocol == "twitter" and 'text' in kwargs and not force and command != "directmsg":
-            bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
-            if not bl:
-                return "[%s] %s" % (siteprotocol, msg)
+                kwargs['length'] = 100
+            if self.re_special_dms.match(kwargs['text']):
+                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
+            if kwargs['length'] < 30 and not nolimit:
+                return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
+            if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
+                return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, kwargs['length'])
+            if siteprotocol == "twitter" and command != "directmsg" and not force:
+                bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
+                if not bl:
+                    return "[%s] %s" % (siteprotocol, msg)
         command = getattr(conn, command, None)
         return command(**kwargs)
 
@@ -692,12 +711,12 @@ class IRCBot(NamesIRCClient):
             conf = chanconf(channel)
             conn = Microblog('twitter', conf)
             tweet = conn.show_status(tweet_id)
-            if tweet and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
+            if isinstance(tweet, dict) and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
                 if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
                     return "Don't forget to quote @%s when answering his tweets ;)" % tweet['user']['screen_name']
             else:
-                return "[twitter] Cannot find tweet %s on Twitter." % tweet_id
+                return tweet
         dl = []
         dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
         if chan_has_identica(channel):
@@ -717,7 +736,7 @@ class IRCBot(NamesIRCClient):
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
         conn = Microblog('twitter', conf)
         res = conn.show_status(tweet_id)
-        if res and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
+        if isinstance(res, dict) and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
             if countchars(tweet, self.twitter["url_length"]) > 140:
                 tweet = "%s…" % tweet[:139]
@@ -764,6 +783,7 @@ class IRCBot(NamesIRCClient):
             return "Please input a user name and a message."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
 
+    @inlineCallbacks
     def command_finduser(self, rest, channel=None, nick=None):
         """finduser <query> [<N=3>] : Searches <query>through Twitter User and returns <N> results (defaults 3, max 20)./TWITTER"""
         channel = self.getMasterChan(channel)
@@ -774,28 +794,59 @@ class IRCBot(NamesIRCClient):
         else:
             count = 3
         if query == "":
-            return "Please input a text query."
+            returnD("Please input a text query.")
         conn = Microblog('twitter', conf)
         names = conn.search_users(query, count)
         if not names:
-            return "No result found for %s" % query
-        return "Are you looking for @%s ?" % " or @".join(names)
+            returnD("No result found for %s" % query)
+        infofirst = yield self.command_show(names[0], channel, nick)
+        returnD([(True, ("Are you looking for @%s ?" % " or @".join(names)).encode('utf-8')), (True, infofirst)])
+
+    @inlineCallbacks
+    def command_show(self, rest, channel=None, nick=None):
+        """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>./TWITTER"""
+        channel = self.getMasterChan(channel)
+        conf = chanconf(channel)
+        conn = Microblog('twitter', conf)
+        res = ""
+        tweet_id = safeint(rest)
+        if tweet_id:
+            tweet = conn.show_status(tweet_id)
+            if not isinstance(tweet, dict):
+                returnD(tweet)
+            user = tweet['user']
+            name = user['screen_name'].encode('utf-8')
+            if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
+                text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
+            else:
+                text = tweet['text']
+            text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
+            date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+            source = clean_html(tweet['source']).encode('utf-8')
+            retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
+            returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s - %s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+        user, _ = conn.lookup_users([rest], return_result=True)
+        if not user:
+            returnD("Please provide a valid tweet_id or twitter_user.")
+        name = user['screen_name'].encode('utf-8')
+        verified = " (certified)" if 'verified' in user and user['verified'] else ""
+        url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
+        description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
+        returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (name, user['name'].encode('utf-8'), description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
 
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
         channel = self.getMasterChan(channel)
-        conf = chanconf(channel)
-        if conf and "TWITTER" in conf and "USER" in conf["TWITTER"]:
-            stats = Stats(conf["TWITTER"]["USER"].lower())
-            return stats.print_last()
-        return "No Twitter account set for this channel."
+        twuser = get_chan_twitter_user(channel).lower()
+        stats = Stats(twuser)
+        return stats.print_last()
 
 
    # Twitter & RSS Feeds monitoring commands
    # ---------------------------------------
    ## (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
    ## Others available to anyone
-   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'
+   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'
 
     @inlineCallbacks
     def _restart_feeds(self, channel):
@@ -905,21 +956,38 @@ class IRCBot(NamesIRCClient):
             returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
         returnD("No news feed named «%s» for this channel" % name)
 
-    str_re_tweets = ' — http://twitter\.com/'
-    def command_lasttweet(self, tweet, channel=None, nick=None):
-        """lasttweet [<N>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)."""
-        chan = self.getMasterChan(channel)
-        twuser = get_chan_twitter_user(chan)
-        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, tweet), channel, nick)
+    @inlineCallbacks
+    def command_tweetswith(self, query, *args):
+        """tweetswith <match> : Prints the total number of tweets seen matching <match> and the first one seen."""
+        res = "No match found in my history of tweets seen."
+        re_arg = re.compile(r"%s" % clean_regexp(query), re.I)
+        db = MongoConn('tweets')
+        total = yield db.aggregate('tweets', [{'$match': {'message': re_arg}}, {'$group': {'_id': '$id'}}, {'$group': {'_id': 1, 'count': {'$sum' : 1}}}])
+        n_tot = total[0]['count'] if total else 0
+        if n_tot:
+            re_rts = re.compile(r"(([MLR]T|%s|♺)\s*)+@" % QUOTE_CHARS.encode('utf-8'), re.I)
+            rts = yield db.aggregate('tweets', [{'$match': {'message': re_arg}}, {'$match': {'message': re_rts}}, {'$group': {'_id': '$id'}}, {'$group': {'_id': 1, 'count': {'$sum' : 1}}}])
+            plural = "s" if rts and rts[0]['count'] > 1 else ""
+            n_rts = " (including %d RT%s)" % (rts[0]['count'], plural) if rts else ""
+            first = yield db.find('tweets', {'message': re_arg}, filter=sortasc('timestamp'), limit=1)
+            first = first[0]
+            name = first['screenname'].encode('utf-8')
+            date = first['timestamp'].strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+            plural = "s" if n_tot > 1 else ""
+            res = [(True, "%d tweet%s seen matching « %s »%s since the first one seen on %s:" % (n_tot, plural, query, n_rts, date)), (True, "%s: %s — https://twitter.com/%s/statuses/%d" % (name, first['message'].encode('utf-8'), name, first['id']))]
+        yield db.close()
+        del db
+        returnD(res)
 
-    def command_lasttweets(self, tweet, channel=None, nick=None):
-        """lasttweets <word> [<N>] : Prints the last or <N> last tweets matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, tweet), channel, nick)
+
+    def command_lasttweets(self, options, channel=None, nick=None):
+        """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" can apply)."""
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, options), channel, nick)
 
     str_re_news = '^[News — '
-    def command_lastnews(self, tweet, channel=None, nick=None):
-        """lastnews <word> [<N>] : Prints the last or <N> last news matching <word> (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, tweet), channel, nick)
+    def command_lastnews(self, options, channel=None, nick=None):
+        """lastnews [<N>] [<options>] : Prints the last or <N> last news displayed on the chan (options from "last" can apply)."""
+        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, options), channel, nick)
 
 
    # Ping commands
@@ -933,7 +1001,7 @@ class IRCBot(NamesIRCClient):
         """ping [<text>] : Pings all ops, admins, last 18h speakers and at most 5 more random users on the chan saying <text> except for users set with noping./AUTH"""
         channel = self.getMasterChan(channel)
         names = yield self._names(channel)
-        noping = yield Mongo('noping_users', 'find',{'channel': channel}, fields=['lower'])
+        noping = yield Mongo('noping_users', 'find', {'channel': channel}, fields=['lower'])
         skip = [user['lower'].encode('utf-8') for user in noping] + [nick.lower(), self.nickname.lower()]
         left = [(name, name.strip('@').lower().rstrip('_1')) for name in names if name.strip('@').lower().rstrip('_1') not in skip]
         users = [name.strip('@') for name, _ in left if name.startswith('@')]
@@ -1048,11 +1116,20 @@ class IRCBot(NamesIRCClient):
             task, channel = self._get_chan_from_command(task, channel)
         except Exception as e:
             returnD(str(e))
-        target = nick if channel == self.nickname else channel
-        rank = len(self.tasks)
+        target = self._get_target(channel, nick)
         task = cleanblanks(task)
         task = self.re_catch_command.sub(config.COMMAND_CHARACTER, task)
         task = task.encode('utf-8')
+        if self.saving_task:
+            self.saving_tasks += 1
+        else:
+            self.saving_tasks = 0
+            self.saved_tasks = 0
+        task_id = self.saving_tasks + 1
+        while task_id != self.saved_tasks + 1:
+            yield deferredSleep(0.5)
+        self.saving_task = True
+        rank = len(self.tasks)
         if task.startswith(config.COMMAND_CHARACTER):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
@@ -1072,12 +1149,14 @@ class IRCBot(NamesIRCClient):
         yield Mongo('tasks', 'insert', task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
+        self.saving_task = False
+        self.saved_tasks += 1
         returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
 
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
         now = time.time()
-        tasks = yield Mongo('tasks', 'find', {'scheduled_ts': {'$gte': now - 60}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
+        tasks = yield Mongo('tasks', 'find', {'scheduled_ts': {'$gte': now - 30}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
         for task in filter(lambda x: "canceled" not in x, tasks):
             for x in filter(lambda x: isinstance(task[x], unicode), task):
                 task[x] = task[x].encode('utf-8')
@@ -1199,7 +1278,8 @@ class IRCBot(NamesIRCClient):
 
     def command_restart(self, rest, channel=None, nick=None):
         """restart : Tries to reboot me./ADMIN"""
-        self._send_message("Trying to reboot...", channel, nick)
+        target = self._get_target(channel, nick)
+        self._send_message("Trying to reboot...", target, nick)
         try:
             import subprocess
             reactor.callLater(1, self.quit, "admin reboot from chan by %s" % nick)

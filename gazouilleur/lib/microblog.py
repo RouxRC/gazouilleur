@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import urllib
+from urllib import quote as urlquote
 from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
@@ -67,7 +67,7 @@ class Microblog(object):
 
     def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
         if tryout > 2:
-            return previous_exception
+            return previous_exception.encode('utf-8')
         try:
             if not return_result:
                 args['trim_user'] = 'true'
@@ -76,7 +76,7 @@ class Microblog(object):
             res = function(**args)
             if return_result:
                 return res
-            elif config.DEBUG:
+            if config.DEBUG:
                 loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
@@ -85,7 +85,7 @@ class Microblog(object):
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
             if code in [183, 187, 403, 404, 429, 503]:
-                return "[%s] %s" % (self.site, exception)
+                return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
             return self._send_query(function, args, tryout+1, exception, return_result)
@@ -112,7 +112,7 @@ class Microblog(object):
         res = self._send_query(self.conn.help.configuration, return_result=True)
         return res.get('short_url_length_https', res.get('short_url_length') + 1)
 
-    def microblog(self, text="", tweet_id=None, channel=None):
+    def microblog(self, text="", tweet_id=None, channel=None, length=0):
         if text.startswith("%scount" % config.COMMAND_CHARACTER):
             text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
         if self.site == "identica":
@@ -129,8 +129,7 @@ class Microblog(object):
                 if config.DEBUG:
                     loggerr(e, action=self.site)
                 return exception
-        text = text.replace('~', '&#126;')
-        args = {'status': text}
+        args = {'status': clean_tilde(text, length)}
         if tweet_id:
             args['in_reply_to_status_id'] = tweet_id
         return self._send_query(self.conn.statuses.update, args, channel=channel)
@@ -176,8 +175,8 @@ class Microblog(object):
     def get_retweets_by_id(self, tweet_id, **kwargs):
         return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
 
-    def directmsg(self, user, text):
-        text = text.replace('~', '&#126;')
+    def directmsg(self, user, text, length=0):
+        text = clean_tilde(text, length)
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
@@ -219,13 +218,13 @@ class Microblog(object):
         return self.conn.statuses.filter(**args)
 
     def search_users(self, query, count=3):
-        query = urllib.quote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
+        query = urlquote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
         users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
         if "ERROR 429" in users or "ERROR 404" in users:
             return []
         return [u['screen_name'] for u in users]
 
-    def lookup_users(self, list_users, cache_users={}):
+    def lookup_users(self, list_users, cache_users={}, return_result=False):
         good = {}
         todo = []
         for name in list_users:
@@ -241,6 +240,8 @@ class Microblog(object):
             return good, cache_users
         list_users = [l.decode('utf-8') for l in list_users]
         for u in users:
+            if return_result:
+                return u, cache_users
             name = u['screen_name'].decode('utf-8').lower()
             if name in list_users:
                 good[name] = u['id_str']
@@ -267,6 +268,15 @@ class Microblog(object):
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
 
+def clean_tilde(text, length):
+    if not '~' in text:
+        return text
+    if length < 141 - 5 * text.count('~'):
+        tilde = urlquote('~')
+    else:
+        tilde = '≈'
+    return text.replace('~', tilde)
+
 def check_twitter_results(data):
     text = data
     if not isinstance(text, str):
@@ -274,14 +284,14 @@ def check_twitter_results(data):
             text = text[0]
         except:
             pass
-    if text and isinstance(text, str) and ("WARNING" in text or "RROR" in text):
+    if text and isinstance(text, str) and ("WARNING" in text or text.startswith("[twitter] ERROR ")):
         raise(Exception(text))
     return data
 
 def grab_extra_meta(source, result):
     for meta in ["in_reply_to_status_id_str", "in_reply_to_screen_name", "lang", "geo", "coordinates", "source"]:
         if meta in source:
-            result[meta] = source [meta]
+            result[meta] = source[meta]
     for meta in ['name', 'friends_count', 'followers_count', 'statuses_count', 'listed_count']:
         key = "user_%s" % meta.replace('_count', '')
         if key in source:
@@ -312,10 +322,10 @@ def get_error_message(error):
             code = jsonerr["code"]
         elif code == 403 and "statuses/retweet" in error:
             code = 187
-    except Exception as e:
+    except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error:
+    if code == 404 and "direct_messages/new" in error or "statuses/update" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
@@ -335,3 +345,6 @@ def format_error_message(code, error=""):
         error = "UNDEFINED"
     return code, "ERROR%s: %s." % (codestr, error.rstrip('.'))
 
+_re_clean_oauth_error = re.compile(r'\s*details:\s*<!DOCTYPE html>.*$', re.I)
+def clean_oauth_error(error):
+    return _re_clean_oauth_error.sub('', str(error).replace('\n', ''))

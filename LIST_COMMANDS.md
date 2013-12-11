@@ -27,15 +27,15 @@
 
   + `last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter]`
 
-     > Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by &lt;word&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
+     > Prints the last or &lt;N&gt; (max 5) last message(s) from current or main channel if &lt;chan&gt; is not given, optionally starting back &lt;nb&gt; results earlier and filtered by user &lt;nick&gt; and by &lt;word&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
 
   + `lastfrom <nick> [<N>]`
 
-     > Alias for "last --from", prints the last or <N> (max 5) last message(s) from user &lt;nick&gt; (options from "last" except --from can apply).
+     > Alias for "last --from", prints the last or &lt;N&gt; (max 5) last message(s) from user &lt;nick&gt; (options from "last" except --from can apply).
 
   + `lastwith <word> [<N>]`
 
-     > Alias for "last --with", prints the last or <N> (max 5) last message(s) matching &lt;word&gt; (options from "last" can apply).
+     > Alias for "last --with", prints the last or &lt;N&gt; (max 5) last message(s) matching &lt;word&gt; (options from "last" can apply).
 
   + `lastmore [<N>]`
 
@@ -56,7 +56,7 @@
 
   + `count <text>`
 
-     > Prints the character length of &lt;text&gt; (spaces will be trimmed, urls will be shortened to 20 chars).
+     > Prints the character length of &lt;text&gt; (spaces will be trimmed, urls will be shortened to Twitter's t.co length).
 
   + `lastcount`
 
@@ -66,8 +66,13 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|rm.*tweet|dm|finduser|stats)'`
+ * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)'`
  * **List :**
+
+  + `lasttweet [<N>] [<options>]`
+
+     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+     > > restricted to /TWITTER
 
   + `identica <text> [--nolimit]`
 
@@ -86,7 +91,7 @@
 
   + `answer <tweet_id> <@author text> [--nolimit] [--force]`
 
-     > Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
      > > restricted to /TWITTER
 
   + `answerlast <text> [--nolimit] [--force]`
@@ -111,12 +116,17 @@
 
   + `dm <user> <text> [--nolimit]`
 
-     > Posts <text> as a direct message to &lt;user&gt; on Twitter (--nolimit overrides the minimum 30 characters rule).
+     > Posts &lt;text&gt; as a direct message to &lt;user&gt; on Twitter (--nolimit overrides the minimum 30 characters rule).
      > > restricted to /TWITTER
 
   + `finduser <query> [<N=3>]`
 
-     > Searches <query>through Twitter User and returns &lt;N&gt; results (defaults 3, max 20).
+     > Searches &lt;query&gt;through Twitter User and returns &lt;N&gt; results (defaults 3, max 20).
+     > > restricted to /TWITTER
+
+  + `show <tweet_id|@twitter_user>`
+
+     > Displays message and info on tweet with id &lt;tweet_id&gt; or on user &lt;@twitter_user&gt;.
      > > restricted to /TWITTER
 
   + `stats`
@@ -127,27 +137,27 @@
 # Twitter &amp; RSS Feeds monitoring commands
  * (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
  * Others available to anyone
- * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweets|news))'`
+ * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'`
  * **List :**
 
   + `follow <name url|text|@user>`
 
-     > Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from &lt;@user&gt;.
+     > Asks me to follow and display elements from a RSS named &lt;name&gt; at &lt;url&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `unfollow <name|text|@user>`
 
-     > Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from &lt;@user&gt;.
+     > Asks me to stop following and displaying elements from a RSS named &lt;name&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `filter <word|@user>`
 
-     > Filters the display of tweets or news containing <word> or sent by user &lt;@user&gt;.
+     > Filters the display of tweets or news containing &lt;word&gt; or sent by user &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `unfilter <word|@user>`
 
-     > Removes a tweets display filter for <word> or &lt;@user&gt;.
+     > Removes a tweets display filter for &lt;word&gt; or &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `list [--chan <channel>] <tweets|news|filters>`
@@ -158,17 +168,17 @@
 
      > Displays the url of a RSS feed saved as &lt;name&gt; for current channel.
 
-  + `lasttweet [<N>]`
+  + `tweetswith <match>`
 
-     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+     > Prints the total number of tweets seen matching &lt;match&gt; and the first one seen.
 
-  + `lasttweets <word> [<N>]`
+  + `lasttweets [<N>] [<options>]`
 
-     > Prints the last or <N> last tweets matching &lt;word&gt; (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last tweets displayed on the chan (options from "last" can apply).
 
-  + `lastnews <word> [<N>]`
+  + `lastnews [<N>] [<options>]`
 
-     > Prints the last or <N> last news matching &lt;word&gt; (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last news displayed on the chan (options from "last" can apply).
 
 # Ping commands
  * Available only to GLOBAL_USERS and chan's USERS except for NoPing to anyone
@@ -192,7 +202,7 @@
 
   + `noping <user1> [<user2> [<userN>...]] [--stop] [--list]`
 
-     > Deactivates pings from ping command for &lt;users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users.
+     > Deactivates pings from ping command for &lt;users 1 to N&gt; listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users.
 
 # Tasks commands
  * RunLater available to anyone
@@ -202,7 +212,7 @@
 
   + `runlater <minutes> [--chan <channel>] <command [arguments]>`
 
-     > Schedules <command> in <minutes> for current channel or optional &lt;channel&gt;.
+     > Schedules &lt;command&gt; in &lt;minutes&gt; for current channel or optional &lt;channel&gt;.
 
   + `tasks [--chan <channel>]`
 
@@ -211,7 +221,7 @@
 
   + `cancel [--chan <channel>] <task_id>`
 
-     > Cancels the scheduled task <task_id> for current channel or optional &lt;channel&gt;.
+     > Cancels the scheduled task &lt;task_id&gt; for current channel or optional &lt;channel&gt;.
      > > restricted to /AUTH
 
 # Other commands...

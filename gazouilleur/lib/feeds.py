@@ -14,7 +14,7 @@ filterwarnings(action='ignore', category=DeprecationWarning, module='feedparser'
 filterwarnings(action='ignore', category=DeprecationWarning, message="BaseException.message has been deprecated")
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue as returnD
-from twisted.internet.task import deferLater, LoopingCall
+from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThreadPool, deferToThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python import failure
@@ -127,7 +127,7 @@ class FeederProtocol(object):
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'].replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')))).replace('%s: ' % tweet['user'], '')
             if tweet['id_str'] not in ids:
                 ids.append(tweet['id_str'])
-                feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
+                feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "https://twitter.com/%s/statuses/%s" % (tweet['user'], tweet['id_str'])})
         return {"nexturl": nexturl, "tweets": feed}
 
     def get_data_from_page(self, page, url):
@@ -180,9 +180,6 @@ class FeederProtocol(object):
             self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         returnD(True)
 
-    def deferredSleep(self, sleep=5):
-        return deferLater(reactor, sleep, lambda : None)
-
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
         # handle tweets from icerocket or topsy fake rss
@@ -217,7 +214,7 @@ class FeederProtocol(object):
                 fresh = False
                 break
             tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
-            tweet = tweet.replace('&#126;', '~')
+            tweet = tweet.replace('&#126;', '~').replace('%7E', '~')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
             if res:
@@ -229,7 +226,7 @@ class FeederProtocol(object):
                 tweets.append(tw)
         # Delay displaying to avoid duplicates from the stream
         if source != "mystream":
-            yield self.deferredSleep()
+            yield deferredSleep()
         existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
@@ -250,11 +247,9 @@ class FeederProtocol(object):
             hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
             existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
             existing = [t['uniq_rt_hash'] for t in existings]
-            tw_user = ""
-            if self.fact.twitter_user:
-                tw_user = self.fact.twitter_user.lower()
+
             for t in news:
-                if tw_user == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % tw_user in t['message'].lower()):
+                if self.fact.twuser == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % self.fact.twuser in t['message'].lower()):
                     existing.append(t['uniq_rt_hash'])
                     good.append(t)
         if config.DEBUG:
@@ -340,7 +335,7 @@ class FeederProtocol(object):
                 text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
             else:
                 text = tweet['text']
-            tw = {'created_at': tweet['created_at'], 'title': unescape_html(text), 'link': "http://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])}
+            tw = {'created_at': tweet['created_at'], 'title': unescape_html(text), 'link': "https://twitter.com/%s/statuses/%s" % (tweet['user']['screen_name'], tweet['id_str'])}
             tw = grab_extra_meta(tweet, tw)
             feed.append(tw)
         if query:
@@ -483,9 +478,8 @@ class FeederProtocol(object):
             k += 1
             if k > 395:
                 break
-        user = self.fact.twitter_user.lower()
-        if user not in track:
-            track.append(user)
+        if self.fact.twuser not in track:
+            track.append(self.fact.twuser)
         if len(skip):
             self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
         self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
@@ -512,10 +506,10 @@ class FeederProtocol(object):
                         self.pile.insert(0, tweet)
                     else:
                         try:
-                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}})
+                            Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}}, multi=True)
                             if config.DEBUG:
                                 self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], "stream", hint=True)
-                        except Exception as e:
+                        except:
                             if config.DEBUG:
                                 self.log(tweet, "stream", hint=True)
         except Exception as e:
@@ -562,7 +556,7 @@ class FeederFactory(protocol.ClientFactory):
         conf = chanconf(channel)
         self.displayRT = chan_displays_rt(channel, conf)
         self.displayMyRT = chan_displays_my_rt(channel, conf)
-        self.twitter_user = get_chan_twitter_user(channel, conf)
+        self.twuser = get_chan_twitter_user(channel, conf).lower()
         self.retweets_processed = {}
         self.tweets_search_page = tweetsSearchPage
         self.back_pages_limit = back_pages_limit
@@ -602,7 +596,7 @@ class FeederFactory(protocol.ClientFactory):
         conf = chanconf(self.channel)
         if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             run_command = self.protocol.start_twitter
-            args = {'database': self.database, 'conf': conf, 'user': self.twitter_user.lower()}
+            args = {'database': self.database, 'conf': conf, 'user': self.twuser}
         elif self.database == "tweets" and not self.tweets_search_page:
             run_command = self.run_twitter_search
         elif self.database == "stream":

@@ -113,6 +113,8 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
 
 **Note:** MongoDB being limited to 2Go databases on 32bit systems, it is recommanded to install Gazouilleur on a 64bit machine for extreme use of the Twitter keyword tracking functionnality.
 
+**Note2:** MongoDB Version 2.2 at least is required to get the aggregate functions to work properly. Everything will work with older versions except for the "!tweetswith" command.
+
 Edit your apt `sources.list` file to include the following line:
 
 ```bash
@@ -202,7 +204,7 @@ Run the following commands:
  workon gazouilleur
  pip install -r requirements.txt
  bash bin/configure.sh
- v.deactivate
+ deactivate
  bin/gazouilleur start
  ```
 
