@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import re, urllib, hashlib
+import re, urllib, hashlib, exceptions
 from datetime import timedelta
 import htmlentitydefs
 from twisted.internet import defer, reactor
@@ -79,6 +79,7 @@ def countchars(text, twitter_url_length):
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
+re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -87,6 +88,7 @@ def clean_url(url, url0, cache_urls):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
+    url = re_clean_google_news.sub(r'\1', url)
     cache_urls[url0] = url
     return url, cache_urls
 
@@ -131,11 +133,14 @@ def _clean_redir_urls(text, cache_urls, last=False):
     defer.returnValue((text, cache_urls))
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
-re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+(\s|$)')
+re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+"*(\s|$)')
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
-    text = re_clean_bad_quotes.sub(r'\1"\2', text.encode('utf-8')).decode('utf-8')
-    text, cache_urls = yield _clean_redir_urls(text, cache_urls)
+    try:
+        text = re_clean_bad_quotes.sub(r'\1"\2', text.encode('utf-8')).decode('utf-8')
+    except (exceptions.UnicodeDecodeError, exceptions.UnicodeEncodeError):
+        loggerr("Encoding error while working on" % text, action='cleaning url')
+        pass
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     text, cache_urls = yield _clean_redir_urls(text, cache_urls, True)
@@ -239,8 +244,13 @@ def next_page(url):
     p += 1
     return "%s&p=%s" % (url, p)
 
-def safeint(n):
+re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
+def safeint(n, twitter=False):
     try:
+        if twitter:
+            res = re_tweet_url.search(n)
+            if res:
+                n = res.group(2)
         return int(n.strip())
     except:
         return 0

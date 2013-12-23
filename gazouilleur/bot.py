@@ -4,11 +4,11 @@
 import gazouilleur.lib.tests
 from gazouilleur import config
 
-import sys, os.path, types, re
+import sys, os.path, types, re, exceptions
 import random, time
 from datetime import datetime
 import lxml.html
-from twisted.internet import reactor, protocol, threads, ssl
+from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
 from twisted.web.client import getPage
 from twisted.application import internet, service
@@ -493,7 +493,6 @@ class IRCBot(NamesIRCClient):
         st = 0
         current = ""
         clean_my_nick = False
-        news = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
@@ -746,7 +745,7 @@ class IRCBot(NamesIRCClient):
     def command_rt(self, tweet_id, channel=None, nick=None):
         """rt <tweet_id> : Retweets <tweet_id> on Twitter and posts a ♻ status on Identi.ca./TWITTER"""
         channel = self.getMasterChan(channel)
-        tweet_id = safeint(tweet_id)
+        tweet_id = safeint(tweet_id, twitter=True)
         if not tweet_id:
             return "Please input a correct tweet_id."
         dl = []
@@ -759,7 +758,7 @@ class IRCBot(NamesIRCClient):
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
         channel = self.getMasterChan(channel)
-        tweet_id = safeint(tweet_id)
+        tweet_id = safeint(tweet_id, twitter=True)
         if not tweet_id:
             return "Please input a correct tweet_id."
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'delete', channel, nick, tweet_id=tweet_id)
@@ -808,8 +807,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         conn = Microblog('twitter', conf)
-        res = ""
-        tweet_id = safeint(rest)
+        tweet_id = safeint(rest, twitter=True)
         if tweet_id:
             tweet = conn.show_status(tweet_id)
             if not isinstance(tweet, dict):
@@ -1134,13 +1132,13 @@ class IRCBot(NamesIRCClient):
             command, _, rest = task.lstrip(config.COMMAND_CHARACTER).partition(' ')
             func = self._find_command_function(command)
             if func is None:
-                returnD("I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command))
+                returnD(self._stop_saving_task("I can already tell you that %s%s is not a valid command." % (config.COMMAND_CHARACTER, command)))
             if not self._can_user_do(nick, channel, func):
-                returnD("I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command))
+                returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (config.COMMAND_CHARACTER, command)))
             if self.re_clean_twitter_task.match(task):
                 count = countchars(task, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
-                    returnD("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count))
+                    returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
@@ -1149,9 +1147,12 @@ class IRCBot(NamesIRCClient):
         yield Mongo('tasks', 'insert', task_obj)
         task_obj['id'] = taskid
         self.tasks.append(task_obj)
+        returnD(self._stop_saving_task("Task #%s scheduled at %s : %s" % (rank, then, task)))
+
+    def _stop_saving_task(self, text):
         self.saving_task = False
         self.saved_tasks += 1
-        returnD("Task #%s scheduled at %s : %s" % (rank, then, task))
+        return text
 
     @inlineCallbacks
     def _refresh_tasks_from_db(self):
@@ -1200,8 +1201,15 @@ class IRCBot(NamesIRCClient):
             yield Mongo('tasks', 'update', {"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
-        except:
-            returnD("The task #%s does not exist yet or anymore." % task_id)
+        except exceptions.IndexError:
+            returnD("The task #%s does not exist yet." % task_id)
+        except twerror.AlreadyCancelled:
+            returnD("The task #%s was already canceled." % task_id)
+        except twerror.AlreadyCalled:
+            returnD("The task #%s already ran." % task_id)
+        except Exception as e:
+            loggerr("%s %s" % (type(e), e), channel, "tasks")
+            returnD("Could not retrieve any task with id #%s." % task_id)
 
 
    # Other commands...

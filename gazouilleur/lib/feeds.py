@@ -31,8 +31,6 @@ from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
 
-re_tweet_url = re.compile(r'twitter.com/([^/]+)/statuse?s?/(\d+)(\D.*)?$', re.I)
-
 class FeederProtocol(object):
 
     def __init__(self, factory):
@@ -80,7 +78,7 @@ class FeederProtocol(object):
         return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
 
     re_tweet_infos_icerocket = re.compile(r'&amp;in_reply_to_status_id=(\d+)&amp;in_reply_to=([^"]*)">')
-    def _get_tweet_infos(self, text, regexp, reverse=False):
+    def _get_tweet_infos(self, text, regexp=re_tweet_url, reverse=False):
         match = regexp.search(text)
         if match and reverse:
             return match.group(2), match.group(1)
@@ -118,11 +116,11 @@ class FeederProtocol(object):
                     elif 'class=' not in line:
                         tweet['text'] += line
                 '''
-                tweet['user'], tweet['id_str'] = self._get_tweet_infos(div.xpath('h4/div/a')[0].attrib['href'], re_tweet_url)
+                tweet['user'], tweet['id_str'] = self._get_tweet_infos(div.xpath('h4/div/a')[0].attrib['href'])
                 tweet['text'] = html2str(div.xpath('div[@class="message"]')[0])
             elif 'topsy' in url:
                 linkstring = html2str(div.xpath('div[@class="actions"]/a')[0]).replace('\n', ' ')
-                tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring, re_tweet_url)
+                tweet['user'], tweet['id_str'] = self._get_tweet_infos(linkstring)
                 tweet['text'] = html2str(div.xpath('div[@class="body"]/span')[0])
             tweet['text'] = cleanblanks(unescape_html(clean_html(tweet['text'].replace('\n', ' ').replace('&#183;', ' ').replace('>t.co/', '>https://t.co/')))).replace('%s: ' % tweet['user'], '')
             if tweet['id_str'] not in ids:
