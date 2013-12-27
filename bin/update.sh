@@ -4,7 +4,7 @@ git stash
 git pull > /tmp/gazouilleur-pull.log 2>&1
 git stash pop
 if grep "requirements.txt" /tmp/gazouilleur-pull.log; then
-  bin/install_requirements.sh
+  bin/update_requirements.sh
 fi
 bin/configure.sh
 if grep "gazouilleur/config.py.example"; then
