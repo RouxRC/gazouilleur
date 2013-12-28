@@ -212,7 +212,6 @@ class FeederProtocol(object):
                 fresh = False
                 break
             tweet, self.fact.cache_urls = yield clean_redir_urls(i.get('title', '').replace('\n', ' '), self.fact.cache_urls)
-            tweet = tweet.replace('&#126;', '~').replace('%7E', '~')
             link = i.get('link', '')
             res = re_tweet_url.search(link)
             if res:

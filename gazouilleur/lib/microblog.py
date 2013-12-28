@@ -129,9 +129,10 @@ class Microblog(object):
                 if config.DEBUG:
                     loggerr(e, action=self.site)
                 return exception
-        args = {'status': clean_tilde(text, length)}
+        args = {'status': text}
         if tweet_id:
-            args['in_reply_to_status_id'] = tweet_id
+            args['in_reply_to_status_id'] = str(tweet_id)
+
         return self._send_query(self.conn.statuses.update, args, channel=channel)
 
     def delete(self, tweet_id):
@@ -176,7 +177,6 @@ class Microblog(object):
         return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
 
     def directmsg(self, user, text, length=0):
-        text = clean_tilde(text, length)
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
@@ -267,15 +267,6 @@ class Microblog(object):
                     extra = " (maybe you meant @%s ?)" % " or @".join([p.encode('utf-8') for p in proposals])
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
-
-def clean_tilde(text, length):
-    if not '~' in text:
-        return text
-    if length < 141 - 5 * text.count('~'):
-        tilde = urlquote('~')
-    else:
-        tilde = '≈'
-    return text.replace('~', tilde)
 
 def check_twitter_results(data):
     text = data
