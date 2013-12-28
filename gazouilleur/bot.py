@@ -652,6 +652,7 @@ class IRCBot(NamesIRCClient):
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
+        channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if not chan_has_protocol(channel, siteprotocol, conf):
             return "No %s account is set for this channel." % siteprotocol
@@ -680,12 +681,12 @@ class IRCBot(NamesIRCClient):
 
     def command_identica(self, text, channel=None, nick=None):
         """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./IDENTICA"""
-        channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     def command_twitteronly(self, text, channel=None, nick=None):
         """twitteronly <text> [--nolimit] [--force] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
-        channel = self.getMasterChan(channel)
+        if self.re_answer.match(text.strip()):
+            return("Mmmm... Didn't you mean %s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt"))
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
 
     re_answer = re.compile('^\d{14}')
