@@ -325,7 +325,7 @@ def get_error_message(error):
     except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error or "statuses/update" in error:
+    if code == 404 and "direct_messages/new" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
