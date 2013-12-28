@@ -84,7 +84,7 @@ class Microblog(object):
         except Exception as e:
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
-            if code in [183, 187, 403, 404, 429, 503]:
+            if code in [183, 187, 400, 403, 404, 429, 500, 503]:
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
@@ -308,7 +308,7 @@ def get_error_message(error):
         return format_error_message(111)
     res = re_twitter_error.search(error)
     code = int(res.group(1)) if res else 0
-    if str(code).startswith('5'):
+    if code != 500 and str(code).startswith('5'):
         return format_error_message(503)
     message = ""
     try:
@@ -335,6 +335,7 @@ twitter_error_codes = {
     187: "Already done",
     404: "Cannot find that tweet",
     429: "Rate limit exhausted, should be good within the next 15 minutes",
+    500: "Twitter internal error",
     503: "Twitter is unavailable at the moment"
 }
 def format_error_message(code, error=""):
