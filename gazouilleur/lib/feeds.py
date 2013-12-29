@@ -320,8 +320,12 @@ class FeederProtocol(object):
                 returnD(False)
         feed = []
         for tweet in listtweets:
-            if 'entities' in tweet and 'urls' in tweet['entities']:
-                for entity in tweet['entities']['urls']:
+            if 'entities' in tweet:
+                entities = []
+                for entitype in ['media', 'urls']:
+                    if entitype in tweet['entities']:
+                        entities += tweet['entities'][entitype]
+                for entity in entities:
                   try:
                     if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
                         cleaned, self.fact.cache_urls = clean_url(entity['expanded_url'].encode('utf-8'), entity['url'].encode('utf-8'), self.fact.cache_urls)
