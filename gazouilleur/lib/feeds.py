@@ -327,7 +327,7 @@ class FeederProtocol(object):
                         entities += tweet['entities'][entitype]
                 for entity in entities:
                   try:
-                    if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls:
+                    if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls and len(entity['expanded_url']) < 250:
                         cleaned, self.fact.cache_urls = clean_url(entity['expanded_url'].encode('utf-8'), entity['url'].encode('utf-8'), self.fact.cache_urls)
                         _, self.fact.cache_urls = yield clean_redir_urls(cleaned.decode('utf-8'), self.fact.cache_urls)
                   except Exception as e:
