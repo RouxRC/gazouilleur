@@ -738,8 +738,6 @@ class IRCBot(NamesIRCClient):
         res = conn.show_status(tweet_id)
         if isinstance(res, dict) and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
-            if countchars(tweet, self.twitter["url_length"]) > 140:
-                tweet = "%s…" % tweet[:139]
             return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
         return res.replace("twitter", "identica")
 
