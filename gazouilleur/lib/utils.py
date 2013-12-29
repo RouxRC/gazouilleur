@@ -60,7 +60,7 @@ PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHAR
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
 PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
-URL_REGEX = re.compile('((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+URL_REGEX = re.compile('(?=((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s)))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
 ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
 
@@ -113,7 +113,11 @@ def _clean_redir_urls(text, cache_urls, last=False):
                 yield agent.resolve()
                 url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
             except DNSLookupError:
-                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+                if url00.startswith('http'):
+                    url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+                else:
+                    url1 = url00
+                    cache_urls[url0] = url00
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
                     loggerr("%s trying to resolve %s : %s" % (type(e), url0, e), action="utils")
