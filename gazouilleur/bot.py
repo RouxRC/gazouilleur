@@ -669,7 +669,7 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
-            if 'img' in kwargs:
+            if 'img' in kwargs and kwargs['img']:
                 kwargs['length'] += self.twitter["url_length"] + 1
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
@@ -712,7 +712,9 @@ class IRCBot(NamesIRCClient):
         if not match:
             returnD("No url found in your message.")
         url = match.group(2)
-        text = "%s %s" % (match.group(1), match.group(3))
+        text = match.group(1).strip()
+        if match.group(3):
+            text += " %s" % match.group(3).strip()
         data = None
         try:
             data = yield client.getPage(url)
@@ -730,9 +732,11 @@ class IRCBot(NamesIRCClient):
             run = self.command_answer
         res = yield run(text, channel, nick, img=data)
         del(data)
+        if isinstance(res, list):
+            _, res = res[0]
         if type(res) is str and ("creation failed" in res or "Broken pipe" in res):
-            returnD("[twitter] Can't send %s image from %s, maybe it's too big?%s" % (imgtype, url, " or this is a (forbidden by Twitter...) animated gif?" if imgtype == 'gif' else ""))
-        returnD(res.replace("success.", "success sending tweet with %s image attached." % imgtype))
+            returnD("[twitter] Can't send %s image from %s, maybe it's too big?%s" % (imgtype, url, " or maybe an animated gif (forbidden by Twitter...)?" if imgtype == 'gif' else ""))
+        returnD(res.replace("success!", "success sending tweet with %s image attached!" % imgtype))
 
     @inlineCallbacks
     def command_twitpic(self, rest, channel=None, nick=None, replyto=None):
