@@ -10,7 +10,7 @@ from datetime import datetime
 import lxml.html
 from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
-from twisted.web.client import getPage
+from twisted.web import client
 from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
@@ -21,6 +21,7 @@ from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog, clean_oauth_error
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
+client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
@@ -662,12 +663,12 @@ class IRCBot(NamesIRCClient):
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
+            if self.re_special_dms.match(kwargs['text']):
+                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
             try:
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
-            if self.re_special_dms.match(kwargs['text']):
-                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
@@ -1258,7 +1259,7 @@ class IRCBot(NamesIRCClient):
 
     def command_title(self, url, *args):
         """title <url> : Prints the title of the webpage at <url>."""
-        d = getPage(url)
+        d = client.getPage(url)
         d.addCallback(self._parse_pagetitle, url)
         d.addErrback(lambda _: "I cannot access the webpage at %s" % url)
         return d
