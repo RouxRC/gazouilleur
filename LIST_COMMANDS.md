@@ -79,14 +79,14 @@
      > Posts &lt;text&gt; as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule).
      > > restricted to /IDENTICA
 
-  + `twitteronly <text> [--nolimit] [--force]`
+  + `twitteronly <text> [--nolimit] [--force] [img:<url>]`
 
      > Posts &lt;text&gt; as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
      > > restricted to /IDENTICA
 
-  + `twitter <text> [--nolimit] [--force]`
+  + `twitter <text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:&lt;url&gt; as with command twitpic.
      > > restricted to /TWITTER
 
   + `twitpic <text> <img url> [--nolimit] [--force]`
@@ -94,7 +94,7 @@
      > Posts &lt;text&gt; with a tweetpic of the image at &lt;img url&gt; as a status on Twitter (options --nolimit and --force from command twitter apply).
      > > restricted to /TWITTER
 
-  + `answer <tweet_id> <@author text> [--nolimit] [--force]`
+  + `answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>]`
 
      > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
      > > restricted to /TWITTER
