@@ -71,8 +71,8 @@ function stop_gazouilleur {
     killopts=""
   else killopts="-9"
   fi
-  delay=5
-  # First try to kill 3 times during 15 seconds then twice with "-9" during 20 more seconds
+  delay=12
+  # First try to kill 3 times during 35 seconds to fit Twitter's stream exit poll then twice with "-9" during 25 more seconds
   while ps -p $GAZOU_PID > /dev/null && [ $count -lt 5 ]; do
     kill $killopts $GAZOU_PID
     if ps -p $GAZOU_PID > /dev/null; then

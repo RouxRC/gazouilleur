@@ -463,6 +463,7 @@ class FeederProtocol(object):
     def start_stream(self, conf):
         if self.fact.status == "running":
             returnD(False)
+        self.fact.status = "running"
         queries = yield Mongo('feeds', 'find', {'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
         track = []
         skip = []
@@ -487,7 +488,6 @@ class FeederProtocol(object):
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
         # tries to find users corresponding with queries to follow with stream
         users, self.fact.ircclient.twitter['users'] = conn.lookup_users(track, self.fact.ircclient.twitter['users'])
-        self.fact.status = "running"
         deferToThreadPool(reactor, self.threadpool, self.follow_stream, conf, users.values(), track)
         self.depiler = LoopingCall(self.flush_tweets)
         self.depiler.start(1)
@@ -500,8 +500,8 @@ class FeederProtocol(object):
                 if self.fact.status.startswith("clos"):
                     break
                 if tweet:
-                    if tweet.get("disconnect"):
-                        self.log("Disconnected %s" % tweet, "stream", error=True)
+                    if tweet.get("disconnect") or tweet.get("timeout"):
+                        self.log("Disconnected %s" % ("(timeout)" if tweet.get("timeout") else tweet), "stream", error=True)
                         break
                     if tweet.get('text'):
                         self.pile.insert(0, tweet)
@@ -521,6 +521,8 @@ class FeederProtocol(object):
         self.depiler.stop()
         self.flush_tweets()
         self.log("Feeder closed.", "stream", hint=True)
+        if not self.fact.status.startswith("clos"):
+            self.fact.status = "closing"
 
     @inlineCallbacks
     def flush_tweets(self):
@@ -611,8 +613,8 @@ class FeederFactory(protocol.ClientFactory):
     def end(self):
         if self.runner and self.runner.running:
             self.status = "closing"
-            self.protocol.threadpool.stop()
             self.runner.stop()
+            self.protocol.threadpool.stop()
             if config.DEBUG and self.database != "stream":
                 self.log("Feeder closed.", self.database, hint=True)
             self.runner = None

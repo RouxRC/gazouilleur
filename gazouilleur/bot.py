@@ -149,7 +149,7 @@ class IRCBot(NamesIRCClient):
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 30, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 0, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
@@ -897,7 +897,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def _restart_feeds(self, channel):
         lowchan = channel.lower()
-        feeds = [('stream', 'stream', 20), ('twitter_search', 'tweets', 90)]
+        feeds = [('stream', 'stream', 0), ('twitter_search', 'tweets', 90)]
         for feed, database, delay in feeds:
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
                 oauth2_token = self.feeders[lowchan][feed].twitter_token or None
