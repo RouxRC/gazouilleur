@@ -689,20 +689,24 @@ class IRCBot(NamesIRCClient):
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     re_answer = re.compile('^\d{14}')
+    re_img = re.compile(r'^(.*)\s*img:(https?://\S+)\s*(.*)$', re.I)
     def command_twitteronly(self, text, channel=None, nick=None, img=None):
-        """twitteronly <text> [--nolimit] [--force] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
+        """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
         if self.re_answer.match(text.strip()):
             return("Mmmm... Didn't you mean %s%s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt", "pic" if img else ""))
+        im = self.re_img.match(text.strip())
+        if im:
+            return self.command_twitpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
         return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, img=img)
 
     def command_twitter(self, text, channel=None, nick=None):
-        """twitter <text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:<url> as with command twitpic./TWITTER"""
         if self.re_answer.match(text.strip()):
             return("Mmmm... Didn't you mean %s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
-        if chan_has_identica(channel):
+        if chan_has_identica(channel) and not self.re_img.match(text):
             dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return DeferredList(dl, consumeErrors=True)
 
@@ -747,7 +751,10 @@ class IRCBot(NamesIRCClient):
         returnD(res)
 
     def command_answer(self, rest, channel=None, nick=None, check=True, img=None):
-        """answer <tweet_id> <@author text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        im = self.re_img.match(rest.strip())
+        if im:
+            return self.command_answerpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
