@@ -101,7 +101,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
             if "@" in url00 or url00.startswith('#'):
                 continue
             url0 = "http://%s" % url00
-        if url0.startswith('http://t.co/') and url0[-1] in [".", ',', ':', '"', "'"]:
+        if url0.startswith('http://t.co/') and url0[-1] in ".,:\"'":
             url0 = url0[:-1]
         if url0 in cache_urls:
             url1 = cache_urls[url0]
