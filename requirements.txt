@@ -1,6 +1,6 @@
 lxml
 feedparser
-twisted
+twisted>=12.1.0
 pyOpenSSL
 pymongo
 txmongo

@@ -574,7 +574,7 @@ class FeederFactory(protocol.ClientFactory):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         self.runner = None
-        self.timeout = timeout if timeout else 20 * pagetimeout if pagetimeout else min(300, delay + 30)
+        self.timeout = timeout if timeout else 4 * pagetimeout if pagetimeout else min(300, delay + 30)
         self.timedout = 0
         self.status = "init"
         self.supervisor = LoopingCall(self.__check_timeout__)
