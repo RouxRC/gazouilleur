@@ -79,7 +79,6 @@ def countchars(text, twitter_url_length):
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
-re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -88,7 +87,6 @@ def clean_url(url, url0, cache_urls):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
-    url = re_clean_google_news.sub(r'\1', url)
     cache_urls[url0] = url
     return url, cache_urls
 
@@ -138,6 +136,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+"*(\s|$)')
+re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
     try:
@@ -148,6 +147,7 @@ def clean_redir_urls(text, cache_urls):
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     text, cache_urls = yield _clean_redir_urls(text, cache_urls, True)
+    text = re_clean_google_news.sub(r'\1', text)
     defer.returnValue((text, cache_urls))
 
 def get_hash(url):
