@@ -444,6 +444,7 @@ class FeederProtocol(object):
             d.addErrback(self._handle_error, "examining", text)
             d.addCallback(self.process_twitter_feed, "search", query=query, pagecount=pagecount)
             d.addErrback(self._handle_error, "working on", text)
+            d.addCallback(self.fact.update_timeout)
         return d
 
     @inlineCallbacks
@@ -501,7 +502,7 @@ class FeederProtocol(object):
         conn = Microblog("twitter", conf, streaming=True)
         try:
             for tweet in conn.search_stream(follow, track):
-                self.fact.timedout = time.time() + self.fact.timeout
+                self.fact.update_timeout()
                 if self.fact.status == "closed":
                     break
                 if tweet:
@@ -573,7 +574,7 @@ class FeederFactory(protocol.ClientFactory):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         self.runner = None
-        self.timeout = timeout if timeout else 10 * pagetimeout if pagetimeout else min(300, delay + 30)
+        self.timeout = timeout if timeout else 20 * pagetimeout if pagetimeout else min(300, delay + 30)
         self.timedout = 0
         self.status = "init"
         self.supervisor = LoopingCall(self.__check_timeout__)
@@ -622,8 +623,11 @@ class FeederFactory(protocol.ClientFactory):
         if self.status == "running":
             return False
         self.status = "running"
-        self.timedout = time.time() + self.timeout
+        self.update_timeout()
         return True
+
+    def update_timeout(self, data=None, extra=0):
+        self.timedout = time.time() + self.timeout + extra
 
     def __check_timeout__(self):
         if self.status == "running" and time.time() > self.timedout:
@@ -666,7 +670,7 @@ class FeederFactory(protocol.ClientFactory):
         ct = 0
         for url in urls:
             yield deferredSleep(3 + int(random()*500)/100)
-            self.timedout = time.time() + self.timeout + 10
+            self.update_timeout(extra=10)
             yield self.protocol.start(url)
         self.status = "stopped"
 
