@@ -149,7 +149,7 @@ class IRCBot(NamesIRCClient):
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'search', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 0, timeout=120, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 0, timeout=90, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
