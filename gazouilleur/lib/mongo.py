@@ -26,17 +26,17 @@ class MongoConn(object):
         if self.conn:
             try:
                 yield self.conn.disconnect()
-                del self.conn
-                self.conn = None
             except Exception as e:
                 if not silent:
                     self.logerr("Closing connection:", str(e))
                 pass
+            del self.conn
+            self.conn = None
         self.db = None
         self.coll = None
         self.method = None
 
-    def logerr(self, action, message):
+    def logerr(self, action, message=""):
         if self.coll:
             action += " %s" % self.coll
         if self.method:
