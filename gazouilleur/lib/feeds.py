@@ -43,8 +43,8 @@ class FeederProtocol(object):
         self.depiler = None
         self.depiler_running = False
 
-    def log(self, msg, action="", error=False, hint=False):
-        self.fact.log(msg, action, error=error, hint=hint)
+    def log(self, msg, error=False, hint=False):
+        self.fact.log(msg, error=error, hint=hint)
 
     def _handle_error(self, traceback, msg, details):
         trace_str = str(traceback)
@@ -56,10 +56,10 @@ class FeederProtocol(object):
             except:
                 error_message = trace_str
         if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
-            self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), self.fact.database, error=True)
+            self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), error=True)
         if trace_str and not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
-                self.log(trace_str, self.fact.database, error=True)
+                self.log(trace_str, error=True)
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s: %s" % (msg, details, error_message))), self.fact.channel, admins=True)
         if ('403 Forbidden' in trace_str or '111: Connection refused' in trace_str) and self.fact.tweets_search_page:
             self.fact.ircclient.breathe = datetime.today() + timedelta(minutes=20)
@@ -75,7 +75,7 @@ class FeederProtocol(object):
         return False
 
     def get_page(self, nodata, url):
-        return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.timeout)
+        return conditionalGetPage(self.fact.cache_dir, url, timeout=self.fact.pagetimeout)
 
     re_tweet_infos_icerocket = re.compile(r'&amp;in_reply_to_status_id=(\d+)&amp;in_reply_to=([^"]*)">')
     def _get_tweet_infos(self, text, regexp=re_tweet_url, reverse=False):
@@ -222,7 +222,7 @@ class FeederProtocol(object):
                 tw = grab_extra_meta(i, tw)
                 tweets.append(tw)
         # Delay displaying to avoid duplicates from the stream
-        if source != "mystream":
+        if source != "mystream" and not self.fact.tweets_search_page:
             yield deferredSleep()
         existings = yield Mongo('tweets', 'find', {'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
@@ -254,8 +254,8 @@ class FeederProtocol(object):
             nb_rts = len(news) - len(good)
             if nb_rts:
                 nb_rts_str = " (%s RTs filtered)" % nb_rts
-            self.log("Displaying %s tweets%s" % (len(good), nb_rts_str), self.fact.database, hint=True)
-        if not self.fact.status.startswith("clos"):
+            self.log("Displaying %s tweets%s" % (len(good), nb_rts_str), hint=True)
+        if self.fact.status != "closed":
             for t in good:
                 msg = "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))
                 self.fact.ircclient._send_message(msg, self.fact.channel)
@@ -270,7 +270,7 @@ class FeederProtocol(object):
         d = succeed('')
         if not self.in_cache(url):
             if config.DEBUG:
-                self.log("Query %s" % url, self.fact.database)
+                self.log("Query %s" % url)
             d.addCallback(self.get_page, url)
             d.addErrback(self._handle_error, "downloading", url)
             if self.fact.tweets_search_page:
@@ -278,7 +278,7 @@ class FeederProtocol(object):
             else:
                 d.addCallback(self.get_data_from_page, url)
             d.addErrback(self._handle_error, "parsing", url)
-            if self.fact.database == "tweets":
+            if self.fact.name == "tweets":
                 d.addCallback(self.process_tweets, url)
             else:
                 d.addCallback(self.process_elements, url)
@@ -292,7 +292,7 @@ class FeederProtocol(object):
         if retweets:
             self.fact.retweets_processed = retweets_processed
         if config.DEBUG:
-            self.log("INFO: RTs processed: %s" % retweets_processed, "retweets", hint=True)
+            self.log("INFO: RTs processed: %s" % retweets_processed, hint=True)
         return self.process_twitter_feed(retweets, "retweets")
 
     def process_mentions(self, listmentions, *args):
@@ -358,7 +358,7 @@ class FeederProtocol(object):
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
             except:
-                self.log("processing DM %s: %s" % (i, listdms), "dms", error=True)
+                self.log("processing DM %s: %s" % (i, listdms), error=True)
                 continue
             tid = long(i.get('id', ''))
             if tid:
@@ -408,27 +408,32 @@ class FeederProtocol(object):
         reactor.callFromThread(reactor.callLater, 1, laststats.dump_data)
         returnD(True)
 
-    def start_twitter(self, database, conf, user):
+    def start_twitter(self, name, conf, user):
+        if not self.fact.__init_timeout__():
+            returnD(False)
         d = succeed(Microblog('twitter', conf, bearer_token=self.fact.twitter_token))
         if config.DEBUG:
-            self.log("Query @%s's %s" % (user, database), database)
+            self.log("Query @%s's %s" % (user, name))
         def passs(*args, **kwargs):
-            raise Exception("No process existing for %s" % database)
-        source = getattr(Microblog, 'get_%s' % database, passs)
-        processor = getattr(self, 'process_%s' % database, passs)
+            raise Exception("No process existing for %s" % name)
+        source = getattr(Microblog, 'get_%s' % name, passs)
+        processor = getattr(self, 'process_%s' % name, passs)
         d.addCallback(source, retweets_processed=self.fact.retweets_processed, bearer_token=self.fact.twitter_token)
-        d.addErrback(self._handle_error, "downloading %s for" % database, user)
+        d.addErrback(self._handle_error, "downloading %s for" % name, user)
         d.addCallback(check_twitter_results)
-        d.addErrback(self._handle_error, "examining %s for" % database, user)
+        d.addErrback(self._handle_error, "examining %s for" % name, user)
         d.addCallback(processor, user.lower())
-        d.addErrback(self._handle_error, "working on %s for" % database, user)
+        d.addErrback(self._handle_error, "working on %s for" % name, user)
+        d.addCallback(self.end_twitter)
         return d
+
+    def end_twitter(self, data):
+        self.fact.status = "stopped"
 
     def start_twitter_search(self, query_list, randorder=None, max_id=None, pagecount=0):
         d = succeed(True)
-        self.fact.status = "running"
         if config.DEBUG and not max_id:
-            self.log("Start search feeder for Twitter %s" % query_list, "search", hint=True)
+            self.log("Start search feeder for Twitter %s" % query_list, hint=True)
         for i, query in enumerate(query_list):
             text = "results of Twitter search for %s" % unquote(query)
             if max_id:
@@ -453,7 +458,7 @@ class FeederProtocol(object):
             text = unquote(query)
             if max_id:
                 text = "%s before id %s" % (text, max_id.encode('utf-8'))
-            self.log("Query Twitter search for %s" % text, "search")
+            self.log("Query Twitter search for %s" % text)
         conn = Microblog('twitter', chanconf(self.fact.channel), bearer_token=self.fact.twitter_token)
         res = conn.search(query, max_id=max_id)
         returnD(res)
@@ -461,10 +466,9 @@ class FeederProtocol(object):
     re_twitter_account = re.compile('^@[A-Za-z0-9_]{1,15}$')
     @inlineCallbacks
     def start_stream(self, conf):
-        if self.fact.status == "running":
+        if not self.fact.__init_timeout__():
             returnD(False)
-        self.fact.status = "running"
-        queries = yield Mongo('feeds', 'find', {'database': "tweets", 'channel': self.fact.channel}, fields=['query'])
+        queries = yield Mongo('feeds', 'find', {'database': 'tweets', 'channel': self.fact.channel}, fields=['query'])
         track = []
         skip = []
         k = 0
@@ -483,8 +487,8 @@ class FeederProtocol(object):
         if self.fact.twuser not in track:
             track.append(self.fact.twuser)
         if len(skip):
-            self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), "stream", hint=True)
-        self.log("Start search streaming for: « %s »" % " » | « ".join(track), "stream", hint=True)
+            self.log("Skipping unprocessable queries for streaming: « %s »" % " » | « ".join(skip), hint=True)
+        self.log("Start search streaming for: « %s »" % " » | « ".join(track), hint=True)
         conn = Microblog("twitter", conf, bearer_token=self.fact.twitter_token)
         # tries to find users corresponding with queries to follow with stream
         users, self.fact.ircclient.twitter['users'] = conn.lookup_users(track, self.fact.ircclient.twitter['users'])
@@ -497,11 +501,12 @@ class FeederProtocol(object):
         conn = Microblog("twitter", conf, streaming=True)
         try:
             for tweet in conn.search_stream(follow, track):
-                if self.fact.status.startswith("clos"):
+                self.fact.timedout = time.time() + self.fact.timeout
+                if self.fact.status == "closed":
                     break
                 if tweet:
                     if tweet.get("disconnect") or tweet.get("timeout"):
-                        self.log("Disconnected %s" % ("(timeout)" if tweet.get("timeout") else tweet), "stream", error=True)
+                        self.log("Disconnected %s" % ("(timeout)" if tweet.get("timeout") else tweet), error=True)
                         break
                     if tweet.get('text'):
                         self.pile.insert(0, tweet)
@@ -509,10 +514,10 @@ class FeederProtocol(object):
                         try:
                             Mongo('tweets', 'update', spec={'id': tweet['delete']['status']['id']}, document={'$set': {'deleted': True}}, multi=True)
                             if config.DEBUG:
-                                self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], "stream", hint=True)
+                                self.log("Mark a tweet as deleted: %s" % tweet['delete']['status']['id'], hint=True)
                         except:
                             if config.DEBUG:
-                                self.log(tweet, "stream", hint=True)
+                                self.log(tweet, hint=True)
         except Exception as e:
             if not str(e).strip():
                 self.log("Stream crashed with %s: %s", (type(e), e), error=True)
@@ -520,9 +525,9 @@ class FeederProtocol(object):
                 self._handle_error(e, "following", "stream")
         self.depiler.stop()
         self.flush_tweets()
-        self.log("Feeder closed.", "stream", hint=True)
-        if not self.fact.status.startswith("clos"):
-            self.fact.status = "closing"
+        self.log("Feeder closed.", hint=True)
+        if self.fact.status != "closed":
+            self.fact.status = "stopped"
 
     @inlineCallbacks
     def flush_tweets(self):
@@ -538,7 +543,7 @@ class FeederProtocol(object):
         elif len(self.pile) > 300:
             self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. You should use %sfuckoff and %sunfollow the guilty query or at least restart." % (self.fact.channel, len(self.pile), config.COMMAND_CHARACTER, config.COMMAND_CHARACTER))), self.fact.channel, admins=True)
         if config.DEBUG:
-            self.log("Flush %s tweets%s." % (len(todo), " (%s left to do)" % len(self.pile) if len(self.pile) else ""), "stream", hint=True)
+            self.log("Flush %s tweets%s." % (len(todo), " (%s left to do)" % len(self.pile) if len(self.pile) else ""), hint=True)
         yield self.process_twitter_feed(todo, "stream")
         self.depiler_running = False
         returnD(True)
@@ -546,22 +551,21 @@ class FeederProtocol(object):
 
 class FeederFactory(protocol.ClientFactory):
 
-    def __init__(self, ircclient, channel, database, delay=90, timeout=20, feeds=None, tweetsSearchPage=None, twitter_token=None, back_pages_limit=3):
+    def __init__(self, ircclient, channel, name, delay=90, timeout=0, pagetimeout=0, feeds=None, tweets_search_page=None, twitter_token=None, back_pages_limit=3):
         self.ircclient = ircclient
         self.cache = {}
         self.cache_urls = ircclient.cache_urls
         self.channel = channel
-        self.database = database
-
+        self.name = name
         self.delay = delay
-        self.timeout = timeout
+        self.pagetimeout = pagetimeout
         self.feeds = feeds
         conf = chanconf(channel)
         self.displayRT = chan_displays_rt(channel, conf)
         self.displayMyRT = chan_displays_my_rt(channel, conf)
         self.twuser = get_chan_twitter_user(channel, conf).lower()
         self.retweets_processed = {}
-        self.tweets_search_page = tweetsSearchPage
+        self.tweets_search_page = tweets_search_page
         self.back_pages_limit = back_pages_limit
         self.twitter_token = twitter_token
         self.protocol = FeederProtocol(self)
@@ -569,11 +573,15 @@ class FeederFactory(protocol.ClientFactory):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         self.runner = None
+        self.timeout = timeout if timeout else 10 * pagetimeout if pagetimeout else min(300, delay + 30)
+        self.timedout = 0
         self.status = "init"
+        self.supervisor = LoopingCall(self.__check_timeout__)
+        self.supervisor.start(int(self.timeout/4))
         if not config.DEBUG:
             self.errorlogs = {}
 
-    def log(self, msg, action="", error=False, hint=False):
+    def log(self, msg, error=False, hint=False):
         color = None
         if hint:
             color = 'yellow'
@@ -590,19 +598,19 @@ class FeederFactory(protocol.ClientFactory):
                 else:
                     msg += " [#%d]" % self.errorlogs[hmd5]['n']
                 self.errorlogs[hmd5]['ts'] = time.time()
-        return logg(msg, channel=self.channel, action=action, error=error, color=color)
+        return logg(msg, channel=self.channel, action=self.name, error=error, color=color)
 
     def start(self):
-        if config.DEBUG:
-            self.log("Start %s feeder every %ssec %s" % (self.database, self.delay, self.feeds), self.database, hint=True)
+        if config.DEBUG and self.name != "stream":
+            self.log("Start %s feeder every %ssec %s" % (self.name, self.delay, self.feeds), hint=True)
         args = {}
         conf = chanconf(self.channel)
-        if self.database in ["retweets", "dms", "stats", "mentions", "mytweets"]:
+        if self.name in ["retweets", "dms", "stats", "mentions", "mytweets"]:
             run_command = self.protocol.start_twitter
-            args = {'database': self.database, 'conf': conf, 'user': self.twuser}
-        elif self.database == "tweets" and not self.tweets_search_page:
+            args = {'name': self.name, 'conf': conf, 'user': self.twuser}
+        elif self.name == "search":
             run_command = self.run_twitter_search
-        elif self.database == "stream":
+        elif self.name == "stream":
             run_command = self.protocol.start_stream
             args['conf'] = conf
         else:
@@ -610,31 +618,55 @@ class FeederFactory(protocol.ClientFactory):
         self.runner = LoopingCall(run_command, **args)
         self.runner.start(self.delay)
 
+    def __init_timeout__(self):
+        if self.status == "running":
+            return False
+        self.status = "running"
+        self.timedout = time.time() + self.timeout
+        return True
+
+    def __check_timeout__(self):
+        if self.status == "running" and time.time() > self.timedout:
+            self.log("%s feeder timed-out (action took looker than %ds), restarting..." % (self.name, self.timeout), error=True)
+            self.status = "closed"
+            if self.runner.running:
+                self.runner.stop()
+                self.protocol.threadpool.stop()
+            self.start()
+
     def end(self):
+        self.status = "closed"
+        if self.supervisor.running:
+            self.supervisor.stop()
         if self.runner and self.runner.running:
-            self.status = "closing"
             self.runner.stop()
             self.protocol.threadpool.stop()
-            if config.DEBUG and self.database != "stream":
-                self.log("Feeder closed.", self.database, hint=True)
-            self.runner = None
-            self.status = "closed"
+        if config.DEBUG and self.name != "stream":
+            self.log("Feeder closed.", hint=True)
+        self.runner = None
 
     @inlineCallbacks
     def run_twitter_search(self):
-        queries = yield Mongo('feeds', 'find', {'database': self.database, 'channel': self.channel})
+        if not self.__init_timeout__():
+            returnD(False)
+        queries = yield Mongo('feeds', 'find', {'database': 'tweets', 'channel': self.channel})
         randorder = range(len(queries))
         shuffle(randorder)
-        urls = yield getFeeds(self.channel, self.database, randorder=randorder)
-        self.protocol.start_twitter_search(urls, randorder=randorder)
+        urls = yield getFeeds(self.channel, 'tweets', randorder=randorder)
+        yield self.protocol.start_twitter_search(urls, randorder=randorder)
+        self.status = "stopped"
 
     @inlineCallbacks
     def run_rss_feeds(self):
+        if not self.__init_timeout__():
+            returnD(False)
         urls = self.feeds
         if not urls:
-            urls = yield getFeeds(self.channel, self.database, add_url=self.tweets_search_page)
+            urls = yield getFeeds(self.channel, self.name, add_url=self.tweets_search_page)
         ct = 0
         for url in urls:
-            ct += 3 + int(random()*500)/100
-            reactor.callFromThread(reactor.callLater, ct, self.protocol.start, url)
+            yield deferredSleep(3 + int(random()*500)/100)
+            self.timedout = time.time() + self.timeout + 10
+            yield self.protocol.start(url)
+        self.status = "stopped"
 
