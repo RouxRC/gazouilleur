@@ -494,6 +494,7 @@ class IRCBot(NamesIRCClient):
         st = 0
         current = ""
         clean_my_nick = False
+        allchans = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
@@ -526,6 +527,7 @@ class IRCBot(NamesIRCClient):
                 if arg == "--filtered":
                     query['$and'].append({'filtered': True})
             elif arg == "--allchans":
+                allchans = True
                 del query['channel']
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
@@ -534,7 +536,7 @@ class IRCBot(NamesIRCClient):
         self.lastqueries[channel.lower()] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
-        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st)
+        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message', 'channel'], limit=nb, skip=st)
         if len(matches) == 0:
             more = " more" if st > 1 else ""
             returnD("No"+more+" match found in my history log.")
@@ -543,7 +545,7 @@ class IRCBot(NamesIRCClient):
         if clean_my_nick:
             for i, m in enumerate(matches):
                 matches[i] = m.replace("%s — " % self.nickname, '')
-        returnD("\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
+        returnD("\n".join(['[%s%s] %s — %s' % (shortdate(l['timestamp']), " %s" % l['channel'].encode('utf-8') if allchans else "", l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
 
     def command_lastfrom(self, rest, channel=None, nick=None):
         """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
