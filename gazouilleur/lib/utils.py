@@ -142,7 +142,7 @@ def clean_redir_urls(text, cache_urls):
     try:
         text = re_clean_bad_quotes.sub(r'\1"\2', text.encode('utf-8')).decode('utf-8')
     except (exceptions.UnicodeDecodeError, exceptions.UnicodeEncodeError):
-        loggerr("Encoding error while working on" % text, action='cleaning url')
+        loggerr("Encoding error while working on %s" % text, action='cleaning url')
         pass
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
