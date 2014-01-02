@@ -66,7 +66,7 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)'`
+ * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)'`
  * **List :**
 
   + `lasttweet [<N>] [<options>]`
@@ -79,19 +79,29 @@
      > Posts &lt;text&gt; as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule).
      > > restricted to /IDENTICA
 
-  + `twitteronly <text> [--nolimit] [--force]`
+  + `twitteronly <text> [--nolimit] [--force] [img:<url>]`
 
      > Posts &lt;text&gt; as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
      > > restricted to /IDENTICA
 
-  + `twitter <text> [--nolimit] [--force]`
+  + `twitter <text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:&lt;url&gt; as with command twitpic.
      > > restricted to /TWITTER
 
-  + `answer <tweet_id> <@author text> [--nolimit] [--force]`
+  + `twitpic <text> <img url> [--nolimit] [--force]`
+
+     > Posts &lt;text&gt; with a tweetpic of the image at &lt;img url&gt; as a status on Twitter (options --nolimit and --force from command twitter apply).
+     > > restricted to /TWITTER
+
+  + `answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>]`
 
      > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > > restricted to /TWITTER
+
+  + `answerpic <tweet_id> <@author text> <img url> [--nolimit] [--force]`
+
+     > Posts &lt;text&gt; with a tweetpic of the image at &lt;img url&gt; as a response to &lt;tweet_id&gt; on Twitter (same rules and options from command answer apply).
      > > restricted to /TWITTER
 
   + `answerlast <text> [--nolimit] [--force]`

@@ -1,12 +1,13 @@
 lxml
 feedparser
-twisted
+twisted>=12.1.0
 pyOpenSSL
 pymongo
 txmongo
 
-# Twitter: need v>1.10.0 to handle POST with stream
-twitter>=1.10.2
+# Twitter: Waiting for streaming APIs fix in next release <https://github.com/sixohsix/twitter/pull/195>
+git+https://github.com/RouxRC/twitter.git@fix-broken-streams
+#twitter>=1.10.3
 
 # PyPump (for Identi.ca): Waiting for a stable release post 0.3 with api changes <https://github.com/xray7224/PyPump/pull/63>
 pypump==0.3.0

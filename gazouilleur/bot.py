@@ -5,12 +5,12 @@ import gazouilleur.lib.tests
 from gazouilleur import config
 
 import sys, os.path, types, re, exceptions
-import random, time
+import random, time, imghdr
 from datetime import datetime
 import lxml.html
 from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
-from twisted.web.client import getPage
+from twisted.web import client
 from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
@@ -21,6 +21,7 @@ from gazouilleur.lib.filelogger import FileLogger
 from gazouilleur.lib.microblog import Microblog, clean_oauth_error
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
+client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
@@ -46,14 +47,14 @@ class IRCBot(NamesIRCClient):
         self.username = config.BOTNAME
         self.password = config.BOTPASS
         self.breathe = datetime.today()
-        self.set_twitter_url_length()
+        self.get_twitter_conf()
         self.logger =  {}
         self.feeders = {}
 
-    def set_twitter_url_length(self):
+    def get_twitter_conf(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
             try:
-                self.twitter["url_length"] = Microblog("twitter", config.CHANNELS[c]).get_twitter_url_size()
+                self.twitter["url_length"], self.twitter['max_img_size'] = Microblog("twitter", config.CHANNELS[c]).get_twitter_conf()
                 break
             except:
                 pass
@@ -134,7 +135,7 @@ class IRCBot(NamesIRCClient):
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
-        self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, 35)
+        self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
         twuser = get_chan_twitter_user(channel, conf)
         if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
@@ -146,9 +147,9 @@ class IRCBot(NamesIRCClient):
                 err = clean_oauth_error(e)
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
-            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'tweets', 90 if oauth2_token else 180, twitter_token=oauth2_token)
+            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'search', 90 if oauth2_token else 180, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 30, twitter_token=oauth2_token)
+            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 0, timeout=90, twitter_token=oauth2_token)
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
                 self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
@@ -156,11 +157,11 @@ class IRCBot(NamesIRCClient):
                 self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 15 if oauth2_token else 30, twitter_token=oauth2_token)
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='icerocket')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, 20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser, rss=True)])
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, pagetimeout=20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser), rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, 20, [getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser, tweetsSearchPage='topsy')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, [getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='topsy')
             # Follow DMs sent to Twitter USER
                 self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
@@ -169,9 +170,9 @@ class IRCBot(NamesIRCClient):
             self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
-            self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 30, tweetsSearchPage='icerocket')
+            self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, pagetimeout=30, tweets_search_page='icerocket')
         # ... or via Topsy.com
-        #   self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, 25, tweetsSearchPage='icerocket')
+        #   self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, pagetimeout=25, tweets_search_page='icerocket')
         n = self.factory.channels.index(lowchan) + 1
         for i, f in enumerate(self.feeders[lowchan].keys()):
             threads.deferToThread(reactor.callLater, 3*(i+1)*n, self.feeders[lowchan][f].start)
@@ -493,6 +494,7 @@ class IRCBot(NamesIRCClient):
         st = 0
         current = ""
         clean_my_nick = False
+        allchans = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
             if current == "f":
@@ -525,6 +527,7 @@ class IRCBot(NamesIRCClient):
                 if arg == "--filtered":
                     query['$and'].append({'filtered': True})
             elif arg == "--allchans":
+                allchans = True
                 del query['channel']
             elif self.re_matchcommands.match(arg):
                 current = arg.lstrip('-')[0]
@@ -533,7 +536,7 @@ class IRCBot(NamesIRCClient):
         self.lastqueries[channel.lower()] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
-        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message'], limit=nb, skip=st)
+        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message', 'channel'], limit=nb, skip=st)
         if len(matches) == 0:
             more = " more" if st > 1 else ""
             returnD("No"+more+" match found in my history log.")
@@ -542,7 +545,7 @@ class IRCBot(NamesIRCClient):
         if clean_my_nick:
             for i, m in enumerate(matches):
                 matches[i] = m.replace("%s — " % self.nickname, '')
-        returnD("\n".join(['[%s] %s — %s' % (shortdate(l['timestamp']), l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
+        returnD("\n".join(['[%s%s] %s — %s' % (shortdate(l['timestamp']), " %s" % l['channel'].encode('utf-8') if allchans else "", l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
 
     def command_lastfrom(self, rest, channel=None, nick=None):
         """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
@@ -634,7 +637,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twitter.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -652,6 +655,7 @@ class IRCBot(NamesIRCClient):
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
+        channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if not chan_has_protocol(channel, siteprotocol, conf):
             return "No %s account is set for this channel." % siteprotocol
@@ -661,12 +665,14 @@ class IRCBot(NamesIRCClient):
         if 'text' in kwargs:
             kwargs['text'], nolimit = self._match_reg(kwargs['text'], self.re_nolimit)
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
+            if self.re_special_dms.match(kwargs['text']):
+                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
             try:
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
-            if self.re_special_dms.match(kwargs['text']):
-                return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
+            if 'img' in kwargs and kwargs['img']:
+                kwargs['length'] += self.twitter["url_length"] + 1
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
@@ -680,28 +686,75 @@ class IRCBot(NamesIRCClient):
 
     def command_identica(self, text, channel=None, nick=None):
         """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./IDENTICA"""
-        channel = self.getMasterChan(channel)
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
-    def command_twitteronly(self, text, channel=None, nick=None):
-        """twitteronly <text> [--nolimit] [--force] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
-        channel = self.getMasterChan(channel)
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text)
-
     re_answer = re.compile('^\d{14}')
+    re_img = re.compile(r'^(.*)\s*img:(https?://\S+)\s*(.*)$', re.I)
+    def command_twitteronly(self, text, channel=None, nick=None, img=None):
+        """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
+        if self.re_answer.match(text.strip()):
+            return("Mmmm... Didn't you mean %s%s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt", "pic" if img else ""))
+        im = self.re_img.match(text.strip())
+        if im:
+            return self.command_twitpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, img=img)
+
     def command_twitter(self, text, channel=None, nick=None):
-        """twitter <text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:<url> as with command twitpic./TWITTER"""
         if self.re_answer.match(text.strip()):
             return("Mmmm... Didn't you mean %s%s instead?" % (config.COMMAND_CHARACTER, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
-        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text))
-        if chan_has_identica(channel):
+        dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
+        if chan_has_identica(channel) and not self.re_img.match(text):
             dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return DeferredList(dl, consumeErrors=True)
 
-    def command_answer(self, rest, channel=None, nick=None, check=True):
-        """answer <tweet_id> <@author text> [--nolimit] [--force] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+    re_parse_img_url = re.compile(r'^(.*)\s*(https?://\S+)(\s*--(force|nolimit))*\s*$', re.I)
+    @inlineCallbacks
+    def _dl_and_send_img(self, command, channel, nick, answer=False):
+        imgtype = ""
+        match = self.re_parse_img_url.match(command)
+        if not match:
+            returnD("No url found in your message.")
+        url = match.group(2)
+        text = match.group(1).strip()
+        if match.group(3):
+            text += " %s" % match.group(3).strip()
+        data = None
+        try:
+            data = yield client.getPage(url)
+            imgtype = imghdr.what("", data)
+            assert(imgtype in ['png', 'jpeg', 'gif'])
+        except Exception as e:
+            del(data)
+            returnD("Could not find a proper image to send at %s (only jpeg, png & non-animated gif accepted)." % url)
+        ratio = 100. * len(data) / self.twitter['max_img_size']
+        if ratio > 100:
+            del(data)
+            returnD("The %s image at %s is too big (%d%s max allowed size)." % (imgtype, url, int(ratio), '%'))
+        run = self.command_twitteronly
+        if answer:
+            run = self.command_answer
+        res = yield run(text, channel, nick, img=data)
+        del(data)
+        if isinstance(res, list):
+            _, res = res[0]
+        if type(res) is str and ("creation failed" in res or "Broken pipe" in res):
+            returnD("[twitter] Can't send %s image from %s, maybe it's too big?%s" % (imgtype, url, " or maybe an animated gif (forbidden by Twitter...)?" if imgtype == 'gif' else ""))
+        returnD(res.replace("success!", "success sending tweet with %s image attached!" % imgtype))
+
+    @inlineCallbacks
+    def command_twitpic(self, rest, channel=None, nick=None, replyto=None):
+        """twitpic <text> <img url> [--nolimit] [--force] : Posts <text> with a tweetpic of the image at <img url> as a status on Twitter (options --nolimit and --force from command twitter apply)./TWITTER"""
+        res = yield self._dl_and_send_img(rest, channel, nick)
+        returnD(res)
+
+    def command_answer(self, rest, channel=None, nick=None, check=True, img=None):
+        """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        im = self.re_img.match(rest.strip())
+        if im:
+            return self.command_answerpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
@@ -717,10 +770,16 @@ class IRCBot(NamesIRCClient):
             else:
                 return tweet
         dl = []
-        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id))
-        if chan_has_identica(channel):
+        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id, img=img))
+        if chan_has_identica(channel) and not img:
             dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
         return DeferredList(dl, consumeErrors=True)
+
+    @inlineCallbacks
+    def command_answerpic(self, rest, channel=None, nick=None):
+        """answerpic <tweet_id> <@author text> <img url> [--nolimit] [--force] : Posts <text> with a tweetpic of the image at <img url> as a response to <tweet_id> on Twitter (same rules and options from command answer apply)./TWITTER"""
+        res = yield self._dl_and_send_img(rest, channel, nick, answer=True)
+        returnD(res)
 
     @inlineCallbacks
     def command_answerlast(self, rest, channel=None, nick=None):
@@ -737,8 +796,6 @@ class IRCBot(NamesIRCClient):
         res = conn.show_status(tweet_id)
         if isinstance(res, dict) and 'user' in res and 'screen_name' in res['user'] and 'text' in res:
             tweet = "♻ @%s: %s" % (res['user']['screen_name'].encode('utf-8'), res['text'].encode('utf-8'))
-            if countchars(tweet, self.twitter["url_length"]) > 140:
-                tweet = "%s…" % tweet[:139]
             return self._send_via_protocol('identica', 'microblog', channel, nick, text=tweet)
         return res.replace("twitter", "identica")
 
@@ -849,7 +906,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def _restart_feeds(self, channel):
         lowchan = channel.lower()
-        feeds = [('stream', 'stream', 20), ('twitter_search', 'tweets', 90)]
+        feeds = [('stream', 'stream', 0), ('twitter_search', 'tweets', 90)]
         for feed, database, delay in feeds:
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
                 oauth2_token = self.feeders[lowchan][feed].twitter_token or None
@@ -1259,7 +1316,7 @@ class IRCBot(NamesIRCClient):
 
     def command_title(self, url, *args):
         """title <url> : Prints the title of the webpage at <url>."""
-        d = getPage(url)
+        d = client.getPage(url)
         d.addCallback(self._parse_pagetitle, url)
         d.addErrback(lambda _: "I cannot access the webpage at %s" % url)
         return d

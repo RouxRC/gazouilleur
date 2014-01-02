@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys, traceback
+from sys import stderr
+from traceback import format_exc
 
 # Check dependencies
 try:
     from colifrapy.tools.colorize import colorize
     colorize('a', style='bold')
 except (ImportError, TypeError) as e:
-    sys.stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.")
+    stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.")
     exit(1)
 try:
     import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
-    sys.stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
+    stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
 
 #Load decorator
@@ -26,8 +27,7 @@ except ImportError:
     logerr("Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.")
     exit(1)
 except SyntaxError as e:
-    _, _, exc_traceback = sys.exc_info()
-    logerr("Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
+    logerr("Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s" % (e, "\n".join(format_exc().splitlines()[-3:-1])))
     exit(1)
 
 try:
@@ -63,8 +63,7 @@ try:
     from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, mongo, stats, utils
 except Exception as e:
     logerr("Oups, looks like something is wrong somewhere in the code, shouldn't be committed...")
-    _, _, exc_traceback = sys.exc_info()
-    logerr("%s\n%s" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
+    logerr("%s\n%s" % (e, "\n".join(format_exc().splitlines()[-3:-1])))
     exit(1)
 
 # Check plotting dependencies if webstats activated
@@ -107,7 +106,7 @@ for chan, conf in config.CHANNELS.iteritems():
             logerr("Cannot connect to Identi.ca with the auth configuration provided in `gazouilleur/identica_auth_config.py` for channel %s and user @%s.\nERROR: Please rerun `python bin/auth_identica.py` to generate your OAuth Identi.ca keys.\n" % (chan, conf["IDENTICA"]["USER"].lower()))
             exit(1)
     except:
-        sys.stderr.write(colorize("WARNING: Identi.ca seems down, bypassing related tests.\n", 'red', style='bold'))
+        stderr.write(colorize("WARNING: Identi.ca seems down, bypassing related tests.\n", 'red', style='bold'))
 
 # Check Twitter config
 for chan, conf in config.CHANNELS.iteritems():

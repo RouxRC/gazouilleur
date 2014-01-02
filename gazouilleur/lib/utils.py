@@ -60,7 +60,7 @@ PATH_CHARS = ur'(?:\([^\)]*\)|[\.,]?[%s!\*\';:=\+\$/%s#\[\]\-_,~@])' % (UTF_CHAR
 QUERY_CHARS = ur'(?:\([^\)]*\)|[a-z0-9!\*\';:&=\+\$/%#\[\]\-_\.,~])'
 PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
-URL_REGEX = re.compile('((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
+URL_REGEX = re.compile('(?=((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s)))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
 ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
 
@@ -79,7 +79,6 @@ def countchars(text, twitter_url_length):
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
-re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
@@ -88,7 +87,6 @@ def clean_url(url, url0, cache_urls):
         else:
             url = url.replace(i[0], '')
     url = re_clean_url3.sub('', url)
-    url = re_clean_google_news.sub(r'\1', url)
     cache_urls[url0] = url
     return url, cache_urls
 
@@ -101,7 +99,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
             if "@" in url00 or url00.startswith('#'):
                 continue
             url0 = "http://%s" % url00
-        if url0.startswith('http://t.co/') and url0[-1] in [".", ',', ':', '"', "'"]:
+        if url0.startswith('http://t.co/') and url0[-1] in ".,:\"'":
             url0 = url0[:-1]
         if url0 in cache_urls:
             url1 = cache_urls[url0]
@@ -113,7 +111,11 @@ def _clean_redir_urls(text, cache_urls, last=False):
                 yield agent.resolve()
                 url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
             except DNSLookupError:
-                url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+                if url00.startswith('http'):
+                    url1, cache_urls = clean_url(agent.lastURI, url0, cache_urls)
+                else:
+                    url1 = url00
+                    cache_urls[url0] = url00
             except Exception as e:
                 if config.DEBUG and last and url00.startswith('http'):
                     loggerr("%s trying to resolve %s : %s" % (type(e), url0, e), action="utils")
@@ -134,6 +136,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+"*(\s|$)')
+re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
     try:
@@ -144,6 +147,7 @@ def clean_redir_urls(text, cache_urls):
     if re_shorteners.search(text):
         text, cache_urls = yield _clean_redir_urls(text, cache_urls)
     text, cache_urls = yield _clean_redir_urls(text, cache_urls, True)
+    text = re_clean_google_news.sub(r'\1', text)
     defer.returnValue((text, cache_urls))
 
 def get_hash(url):

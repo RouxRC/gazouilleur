@@ -51,7 +51,7 @@ class Microblog(object):
             if streaming:
                 self.domain = "stream.twitter.com"
                 conn = TwitterStream
-                args["block"] = False
+                args['block'] = False
             else:
                 conn = Twitter
                 args['format'] = self.format
@@ -72,11 +72,11 @@ class Microblog(object):
             if not return_result:
                 args['trim_user'] = 'true'
             args['source'] = config.BOTNAME
-            setdefaulttimeout(35)
+            setdefaulttimeout(15)
             res = function(**args)
             if return_result:
                 return res
-            if config.DEBUG:
+            if config.DEBUG and not 'media[]' in args:
                 loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
@@ -84,7 +84,7 @@ class Microblog(object):
         except Exception as e:
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
-            if code in [183, 187, 403, 404, 429, 503]:
+            if code in [32, 130, 183, 187, 400, 403, 404, 429, 500, 503]:
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
@@ -108,11 +108,11 @@ class Microblog(object):
                 loggerr("Ping failed: %s" % e, action=self.site)
             return False
 
-    def get_twitter_url_size(self):
+    def get_twitter_conf(self):
         res = self._send_query(self.conn.help.configuration, return_result=True)
-        return res.get('short_url_length_https', res.get('short_url_length') + 1)
+        return res.get('short_url_length_https', res.get('short_url_length', 22) + 1), res.get('photo_size_limit', 3145728)
 
-    def microblog(self, text="", tweet_id=None, channel=None, length=0):
+    def microblog(self, text="", tweet_id=None, img=None, channel=None, length=0):
         if text.startswith("%scount" % config.COMMAND_CHARACTER):
             text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
         if self.site == "identica":
@@ -129,9 +129,12 @@ class Microblog(object):
                 if config.DEBUG:
                     loggerr(e, action=self.site)
                 return exception
-        args = {'status': clean_tilde(text, length)}
+        args = {'status': text}
         if tweet_id:
-            args['in_reply_to_status_id'] = tweet_id
+            args['in_reply_to_status_id'] = str(tweet_id)
+        if img:
+            args['media[]'] = img
+            return self._send_query(self.conn.statuses.update_with_media, args, channel=channel)
         return self._send_query(self.conn.statuses.update, args, channel=channel)
 
     def delete(self, tweet_id):
@@ -176,7 +179,6 @@ class Microblog(object):
         return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
 
     def directmsg(self, user, text, length=0):
-        text = clean_tilde(text, length)
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
@@ -268,15 +270,6 @@ class Microblog(object):
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
         return True, cache_users, "All users quoted passed"
 
-def clean_tilde(text, length):
-    if not '~' in text:
-        return text
-    if length < 141 - 5 * text.count('~'):
-        tilde = urlquote('~')
-    else:
-        tilde = '≈'
-    return text.replace('~', tilde)
-
 def check_twitter_results(data):
     text = data
     if not isinstance(text, str):
@@ -304,37 +297,42 @@ re_clean_identica_error = re.compile(r" \(POST {.*$")
 
 re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
 def get_error_message(error):
+    if "[errno 32] broken pipe" in error:
+        return format_error_message(32)
     if "[errno 111] connection refused" in error or " operation timed out" in error or "reset by peer" in error:
         return format_error_message(111)
     res = re_twitter_error.search(error)
     code = int(res.group(1)) if res else 0
-    if str(code).startswith('5'):
+    if code != 500 and str(code).startswith('5') and '"code":' not in error:
         return format_error_message(503)
     message = ""
     try:
         jsonerr = load_json(res.group(2))["errors"]
         if isinstance(jsonerr, list):
             jsonerr = jsonerr[0]
-        elif isinstance(jsonerr, unicode):
+        if isinstance(jsonerr, unicode):
             jsonerr = {"message": jsonerr}
         message = jsonerr["message"][0].upper() + jsonerr["message"][1:] if jsonerr["message"] else ""
-        if "code" in jsonerr and jsonerr["code"] in [183,187]:
+        if "code" in jsonerr and jsonerr["code"] in [130,183,187]:
             code = jsonerr["code"]
         elif code == 403 and "statuses/retweet" in error:
             code = 187
     except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error or "statuses/update" in error:
+    if code == 404 and "direct_messages/new" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
 
 twitter_error_codes = {
+    32: "Broken pipe",
     111: "Network difficulties, connection refused or timed-out",
+    130: "Forbidden",
     187: "Already done",
     404: "Cannot find that tweet",
     429: "Rate limit exhausted, should be good within the next 15 minutes",
+    500: "Twitter internal error",
     503: "Twitter is unavailable at the moment"
 }
 def format_error_message(code, error=""):
