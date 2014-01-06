@@ -291,9 +291,10 @@ class FeederProtocol(object):
         retweets, retweets_processed = listretweets
         if retweets:
             self.fact.retweets_processed = retweets_processed
-        if config.DEBUG:
-            self.log("INFO: RTs processed: %s" % retweets_processed, hint=True)
-        return self.process_twitter_feed(retweets, "retweets")
+            if config.DEBUG:
+                self.log("INFO: RTs processed: %s" % retweets_processed, hint=True)
+            return self.process_twitter_feed(retweets, "retweets")
+        return None
 
     def process_mentions(self, listmentions, *args):
         return self.process_twitter_feed(listmentions, "mentions")
@@ -317,9 +318,11 @@ class FeederProtocol(object):
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
         elif not isinstance(listtweets, list):
-                returnD(False)
+            returnD(False)
         feed = []
         for tweet in listtweets:
+            if not isinstance(tweet, dict):
+                continue
             if 'entities' in tweet:
                 entities = []
                 for entitype in ['media', 'urls']:
@@ -574,7 +577,7 @@ class FeederFactory(protocol.ClientFactory):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         self.runner = None
-        self.timeout = timeout if timeout else 4 * pagetimeout if pagetimeout else min(300, delay + 30)
+        self.timeout = timeout if timeout else 5 * pagetimeout if pagetimeout else min(300, delay + 30)
         self.timedout = 0
         self.status = "init"
         self.supervisor = LoopingCall(self.__check_timeout__)
