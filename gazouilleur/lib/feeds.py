@@ -352,6 +352,9 @@ class FeederProtocol(object):
             returnD(False)
         ids = []
         dms = []
+        if not isinstance(listdms, list):
+            self.log("downloading DMs: %s" % listdms, error=True)
+            returnD(False)
         for i in listdms:
             try:
                 date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
