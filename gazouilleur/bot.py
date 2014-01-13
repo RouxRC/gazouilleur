@@ -104,6 +104,8 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def connectionLost(self, reason):
         yield self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        for task in self.tasks:
+            task.cancel()
         for channel in self.factory.channels:
             self.left(channel)
         lowname = config.BOTNAME.lower()
