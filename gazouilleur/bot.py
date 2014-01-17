@@ -727,6 +727,8 @@ class IRCBot(NamesIRCClient):
         try:
             data = yield client.getPage(url)
             imgtype = imghdr.what("", data)
+            if not imgtype and data.startswith('\xff\xd8'):
+                imgtype = "jpeg"
             assert(imgtype in ['png', 'jpeg', 'gif'])
         except Exception as e:
             del(data)
