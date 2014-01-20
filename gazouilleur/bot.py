@@ -104,6 +104,8 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def connectionLost(self, reason):
         yield self.log("[disconnected at %s]" % time.asctime(time.localtime(time.time())))
+        for task in self.tasks:
+            task.cancel()
         for channel in self.factory.channels:
             self.left(channel)
         lowname = config.BOTNAME.lower()
@@ -725,6 +727,8 @@ class IRCBot(NamesIRCClient):
         try:
             data = yield client.getPage(url)
             imgtype = imghdr.what("", data)
+            if not imgtype and data.startswith('\xff\xd8'):
+                imgtype = "jpeg"
             assert(imgtype in ['png', 'jpeg', 'gif'])
         except Exception as e:
             del(data)

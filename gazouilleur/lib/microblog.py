@@ -84,7 +84,7 @@ class Microblog(object):
         except Exception as e:
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
-            if code in [32, 130, 183, 187, 400, 403, 404, 429, 500, 503]:
+            if code in [32, 183, 187, 400, 403, 404, 429, 500, 503]:
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
@@ -313,7 +313,7 @@ def get_error_message(error):
         if isinstance(jsonerr, unicode):
             jsonerr = {"message": jsonerr}
         message = jsonerr["message"][0].upper() + jsonerr["message"][1:] if jsonerr["message"] else ""
-        if "code" in jsonerr and jsonerr["code"] in [130,183,187]:
+        if "code" in jsonerr and jsonerr["code"] in [183,187]:
             code = jsonerr["code"]
         elif code == 403 and "statuses/retweet" in error:
             code = 187
@@ -328,7 +328,6 @@ def get_error_message(error):
 twitter_error_codes = {
     32: "Broken pipe",
     111: "Network difficulties, connection refused or timed-out",
-    130: "Forbidden",
     187: "Already done",
     404: "Cannot find that tweet",
     429: "Rate limit exhausted, should be good within the next 15 minutes",

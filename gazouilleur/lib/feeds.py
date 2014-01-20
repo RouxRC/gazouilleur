@@ -57,7 +57,7 @@ class FeederProtocol(object):
                 error_message = trace_str
         if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), error=True)
-        if trace_str and not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
+        if trace_str and not (msg.startswith("downloading") or "ERROR 503" in trace_str or "ERROR 500" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
             if (config.DEBUG and "429" not in trace_str) or not msg.startswith("examining"):
                 self.log(trace_str, error=True)
             self.fact.ircclient._show_error(failure.Failure(Exception("%s %s: %s" % (msg, details, error_message))), self.fact.channel, admins=True)
@@ -291,9 +291,10 @@ class FeederProtocol(object):
         retweets, retweets_processed = listretweets
         if retweets:
             self.fact.retweets_processed = retweets_processed
-        if config.DEBUG:
-            self.log("INFO: RTs processed: %s" % retweets_processed, hint=True)
-        return self.process_twitter_feed(retweets, "retweets")
+            if config.DEBUG:
+                self.log("INFO: RTs processed: %s" % retweets_processed, hint=True)
+            return self.process_twitter_feed(retweets, "retweets")
+        return None
 
     def process_mentions(self, listmentions, *args):
         return self.process_twitter_feed(listmentions, "mentions")
@@ -317,9 +318,11 @@ class FeederProtocol(object):
             res = {'nexturl':  nexturl}
             listtweets = listtweets['statuses']
         elif not isinstance(listtweets, list):
-                returnD(False)
+            returnD(False)
         feed = []
         for tweet in listtweets:
+            if not isinstance(tweet, dict):
+                continue
             if 'entities' in tweet:
                 entities = []
                 for entitype in ['media', 'urls']:
@@ -352,6 +355,9 @@ class FeederProtocol(object):
             returnD(False)
         ids = []
         dms = []
+        if not isinstance(listdms, list):
+            self.log("downloading DMs: %s" % listdms, error=True)
+            returnD(False)
         for i in listdms:
             try:
                 date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
@@ -574,7 +580,7 @@ class FeederFactory(protocol.ClientFactory):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         self.runner = None
-        self.timeout = timeout if timeout else 4 * pagetimeout if pagetimeout else min(300, delay + 30)
+        self.timeout = timeout if timeout else 5 * pagetimeout if pagetimeout else min(300, delay + 30)
         self.timedout = 0
         self.status = "init"
         self.supervisor = LoopingCall(self.__check_timeout__)
