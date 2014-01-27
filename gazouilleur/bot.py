@@ -25,6 +25,33 @@ client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
+
+def startsWithCommandChar(message):
+    if type(config.COMMAND_CHARACTER) is str:
+        return message.startswith(config.COMMAND_CHARACTER);
+    for char in config.COMMAND_CHARACTER:
+        if message.startswith(char):
+            return True
+    return False
+
+def getDefaultCommandChar():
+    return config.COMMAND_CHARACTER if (type(config.COMMAND_CHARACTER) is str) else config.COMMAND_CHARACTER[0]
+
+
+def getCommandCharStr():
+    return config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER)
+
+def getCommandCharRegExp():
+    if type(config.COMMAND_CHARACTER) is str:
+        return config.COMMAND_CHARACTER;
+    reg = '('+'|'.join(config.COMMAND_CHARACTER)+')'
+    return reg
+
+
+
+
+
+
 class IRCBot(NamesIRCClient):
 
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
@@ -284,28 +311,6 @@ class IRCBot(NamesIRCClient):
     def _get_target(self, channel, nick):
         return nick if channel == self.nickname else channel
 
-    def startsWithCommandChar(message):
-        if type(config.COMMAND_CHARACTER) is str:
-            return message.startswith(config.COMMAND_CHARACTER);
-        for char in config.COMMAND_CHARACTER:
-            if message.startswith(char):
-                return true;
-        return false;
-
-    def getDefaultCommandChar():
-       return config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else config.COMMAND_CHARACTER['0'] 
-
-   def getCommandCharStr():
-       return config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER) 
-
-   def getCommandCharRegExp():
-       if type(config.COMMAND_CHARACTER) is str:
-           return config.COMMAND_CHARACTER;
-       reg = '('+'|'.join(config.COMMAND_CHARACTER)+')'
-       return reg
-
-
-
     re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, getCommandCharRegExp()), re.I)
     @inlineCallbacks
     def privmsg(self, user, channel, message, tasks=None):
@@ -322,7 +327,7 @@ class IRCBot(NamesIRCClient):
         d = None
         if channel == "#gazouilleur" and not message.startswith("%schans" % getDefaultCommandChar()):
             returnD(None)
-        if not message.startsWithCommandChar():
+        if not startsWithCommandChar(message):
             if self.nickname.lower() in message.lower() and chan_is_verbose(channel):
                 d = maybeDeferred(self.command_test)
             else:
@@ -1211,7 +1216,7 @@ class IRCBot(NamesIRCClient):
             yield deferredSleep(0.5)
         self.saving_task = True
         rank = len(self.tasks)
-        if task.startsWithCommandChar():
+        if startsWithCommandChar(task):
             command, _, rest = task.lstrip(getCommandCharStr()).partition(' ')
             func = self._find_command_function(command)
             if func is None:
@@ -1248,7 +1253,7 @@ class IRCBot(NamesIRCClient):
             when = max(11, task['scheduled_ts'] + 60 - now)
             then = shortdate(datetime.fromtimestamp(now + when))
             reactor.callLater(10, self._send_message, "Task #%s from %s rescheduled after restart at %s : %s" % (task['rank'], task['author'], then, task['command']), task['channel'])
-            if task['command'].startsWithCommandChar():
+            if startsWithCommandChar(task['command']):
                 taskid = reactor.callLater(when, self.privmsg, task['author'], task['channel'], task['command'], tasks=task['rank'])
             else:
                 taskid = reactor.callLater(when, self._send_message, task['command'], task['target'])
