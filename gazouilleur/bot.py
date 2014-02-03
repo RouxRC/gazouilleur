@@ -25,7 +25,8 @@ client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
-config.COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if len(config.COMMAND_CHARACTER) > 1
+config.COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if type(config.COMMAND_CHARACTER) is str and len(config.COMMAND_CHARACTER) > 1 else config.COMMAND_CHARACTER
+config.COMMAND_CHARACTER = config.COMMAND_CHARACTER[0] if type(config.COMMAND_CHARACTER) is list and len(config.COMMAND_CHARACTER) == 1 else config.COMMAND_CHARACTER
 
 COMMAND_CHAR_DEF = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else config.COMMAND_CHARACTER[0]
 COMMAND_CHAR_STR = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER)
