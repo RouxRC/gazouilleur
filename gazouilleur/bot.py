@@ -25,31 +25,19 @@ client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
+config.COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if len(config.COMMAND_CHARACTER) > 1
+
+COMMAND_CHAR_DEF = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else config.COMMAND_CHARACTER[0]
+COMMAND_CHAR_STR = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER)
+COMMAND_CHAR_REG = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else '('+'|'.join(config.COMMAND_CHARACTER)+')'
 
 def startsWithCommandChar(message):
     if type(config.COMMAND_CHARACTER) is str:
-        return message.startswith(config.COMMAND_CHARACTER);
+        return message.startswith(config.COMMAND_CHARACTER)
     for char in config.COMMAND_CHARACTER:
         if message.startswith(char):
             return True
     return False
-
-def getDefaultCommandChar():
-    return config.COMMAND_CHARACTER if (type(config.COMMAND_CHARACTER) is str) else config.COMMAND_CHARACTER[0]
-
-
-def getCommandCharStr():
-    return config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER)
-
-def getCommandCharRegExp():
-    if type(config.COMMAND_CHARACTER) is str:
-        return config.COMMAND_CHARACTER;
-    reg = '('+'|'.join(config.COMMAND_CHARACTER)+')'
-    return reg
-
-
-
-
 
 
 class IRCBot(NamesIRCClient):
@@ -88,7 +76,7 @@ class IRCBot(NamesIRCClient):
         if "url_length" not in self.twitter:
             loggerr("Could not get Twitter's configuration, setting shortened urls length to default value.", action="twitter")
             self.twitter["url_length"] = 23
-        loggvar("Set Twitter http/https shortened urls length for %scount to %s/%s characters." % (getDefaultCommandChar(), self.twitter["url_length"]-1, self.twitter["url_length"]), action="twitter")
+        loggvar("Set Twitter http/https shortened urls length for %scount to %s/%s characters." % (COMMAND_CHAR_DEF, self.twitter["url_length"]-1, self.twitter["url_length"]), action="twitter")
 
 
     # Double logger (mongo / files)
@@ -311,7 +299,7 @@ class IRCBot(NamesIRCClient):
     def _get_target(self, channel, nick):
         return nick if channel == self.nickname else channel
 
-    re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, getCommandCharRegExp()), re.I)
+    re_catch_command = re.compile(r'^\s*%s[:,\s]*%s' % (config.BOTNAME, COMMAND_CHAR_REG), re.I)
     @inlineCallbacks
     def privmsg(self, user, channel, message, tasks=None):
         try:
@@ -322,10 +310,10 @@ class IRCBot(NamesIRCClient):
             except UnicodeDecodeError:
                 message = message.decode('cp1252')
         message = cleanblanks(message)
-        message = self.re_catch_command.sub(getDefaultCommandChar(), message)
+        message = self.re_catch_command.sub(COMMAND_CHAR_DEF, message)
         nick, user = yield self.log(message, user, channel)
         d = None
-        if channel == "#gazouilleur" and not message.startswith("%schans" % getDefaultCommandChar()):
+        if channel == "#gazouilleur" and not message.startswith("%schans" % COMMAND_CHAR_DEF):
             returnD(None)
         if not startsWithCommandChar(message):
             if self.nickname.lower() in message.lower() and chan_is_verbose(channel):
@@ -335,7 +323,7 @@ class IRCBot(NamesIRCClient):
         message = message.encode('utf-8')
         if config.DEBUG:
             loggvar("COMMAND: %s: %s" % (user, message), channel)
-        command, _, rest = message.lstrip(getCommandCharStr()).partition(' ')
+        command, _, rest = message.lstrip(COMMAND_CHAR_STR).partition(' ')
         if not command:
             returnD(None)
         func = self._find_command_function(command)
@@ -456,12 +444,12 @@ class IRCBot(NamesIRCClient):
     txt_list_comds = '" to list my commands%s' % link_commands
     def command_help(self, rest, channel=None, nick=None, discreet=False):
         """help [<command>] : Prints general help or help for specific <command>."""
-        rest = rest.lstrip(getCommandCharStr()).lower()
+        rest = rest.lstrip(COMMAND_CHAR_STR).lower()
         conf = chanconf(channel)
         commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
-        def_msg = 'Type "%shelp' % getDefaultCommandChar()
+        def_msg = 'Type "%shelp' % COMMAND_CHAR_DEF
         if not discreet:
-            def_msg = 'My commands are:  %s%s\n%s <command>" to get more details%s' % (getDefaultCommandChar(), (' ;  %s' % getDefaultCommandChar()).join(commands), def_msg, self.link_commands)
+            def_msg = 'My commands are:  %s%s\n%s <command>" to get more details%s' % (COMMAND_CHAR_DEF, (' ;  %s' % COMMAND_CHAR_DEF).join(commands), def_msg, self.link_commands)
         else:
             def_msg += self.txt_list_comds
         if rest is None or rest == '':
@@ -470,12 +458,12 @@ class IRCBot(NamesIRCClient):
             doc = clean_doc(self._get_command_doc(rest))
             if not chan_has_identica(channel, conf):
                 doc = clean_identica(doc)
-            return getDefaultCommandChar() + doc
-        return '%s%s is not a valid command. %s' % (getDefaultCommandChar(), rest, def_msg)
+            return COMMAND_CHAR_DEF + doc
+        return '%s%s is not a valid command. %s' % (COMMAND_CHAR_DEF, rest, def_msg)
 
     def command_test(self, *args):
         """test : Simple test to check whether I'm present."""
-        return 'Hello! Type "%shelp%s' % (getDefaultCommandChar(), self.txt_list_comds)
+        return 'Hello! Type "%shelp%s' % (COMMAND_CHAR_DEF, self.txt_list_comds)
 
     def command_chans(self, rest, channel=None, *args):
         """chans : Prints the list of all the channels I'm in."""
@@ -519,7 +507,7 @@ class IRCBot(NamesIRCClient):
             channel = master
             def_nb = 10
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
-        query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+getCommandCharRegExp()+'|\[\d))')}}]}
+        query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+COMMAND_CHAR_REG+'|\[\d))')}}]}
         st = 0
         current = ""
         clean_my_nick = False
@@ -586,7 +574,7 @@ class IRCBot(NamesIRCClient):
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
-    re_lastcommand = re.compile(r'^%s(last|more)' % getCommandCharRegExp(), re.I)
+    re_lastcommand = re.compile(r'^%s(last|more)' % COMMAND_CHAR_REG, re.I)
     re_optionsfromwith = re.compile(r'\s*--(from|with)\s*(\d*)\s*', re.I)
     re_optionskip = re.compile(r'\s*--skip\s*(\d*)\s*', re.I)
     @inlineCallbacks
@@ -605,7 +593,7 @@ class IRCBot(NamesIRCClient):
         st = self.lastqueries[truechannel]['skip']
         last = yield Mongo('logs', 'find', {'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], filter=sortdesc('timestamp'), skip=1)
         for m in last:
-            command, _, text = m['message'].encode('utf-8').lstrip(getCommandCharStr()).partition(' ')
+            command, _, text = m['message'].encode('utf-8').lstrip(COMMAND_CHAR_STR).partition(' ')
             if command == "lastseen":
                 continue
             text = self.re_optionskip.sub(' ', text)
@@ -620,7 +608,7 @@ class IRCBot(NamesIRCClient):
                 if function:
                     res = yield function(tmprest, channel, nick)
                     returnD(res)
-        returnD("No %slast like command found in my history log." % getDefaultCommandChar())
+        returnD("No %slast like command found in my history log." % COMMAND_CHAR_DEF)
 
     def command_more(self, rest, channel=None, nick=None):
         """more [<N>] : Alias for "lastmore". Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
@@ -658,7 +646,7 @@ class IRCBot(NamesIRCClient):
         if res:
             st = safeint(res.group(1)) * 2
             rest = self.re_optionskip.sub(' --skip %s ' % st, rest)
-        return self.command_last("2 --with ^"+getDefaultCommandChar()+"count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
+        return self.command_last("2 --with ^"+COMMAND_CHAR_DEF+"count|\S+:\s\d+\scharacters %s" % rest, channel, nick, True)
 
 
    # Twitter & Identi.ca sending commands
@@ -722,7 +710,7 @@ class IRCBot(NamesIRCClient):
     def command_twitteronly(self, text, channel=None, nick=None, img=None):
         """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm... Didn't you mean %s%s%s instead?" % (getDefaultCommandChar(), "answer" if len(text) > 30 else "rt", "pic" if img else ""))
+            return("Mmmm... Didn't you mean %s%s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt", "pic" if img else ""))
         im = self.re_img.match(text.strip())
         if im:
             return self.command_twitpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
@@ -731,7 +719,7 @@ class IRCBot(NamesIRCClient):
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:<url> as with command twitpic./TWITTER"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm... Didn't you mean %s%s instead?" % (getDefaultCommandChar(), "answer" if len(text) > 30 else "rt"))
+            return("Mmmm... Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
@@ -959,7 +947,7 @@ class IRCBot(NamesIRCClient):
             database = 'tweets'
             name = 'TWEETS: %s' % query
         if query == "":
-            returnD("Please specify what you want to follow (%shelp follow for more info)." % getDefaultCommandChar())
+            returnD("Please specify what you want to follow (%shelp follow for more info)." % COMMAND_CHAR_DEF)
         if len(query) > 300:
             returnD("Please limit your follow queries to a maximum of 300 characters")
         if database == "news" and name == "":
@@ -995,7 +983,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         if keyword == "":
-            returnD("Please specify what you want to follow (%shelp follow for more info)." % getDefaultCommandChar())
+            returnD("Please specify what you want to follow (%shelp follow for more info)." % COMMAND_CHAR_DEF)
         yield Mongo('filters', 'update', {'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel.lower()].append(keyword)
         returnD('«%s» filter added for tweets displays on %s' % (keyword, channel))
@@ -1020,7 +1008,7 @@ class IRCBot(NamesIRCClient):
             returnD(str(e))
         database = database.strip()
         if database != "tweets" and database != "news" and database != "filters":
-            returnD('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (getDefaultCommandChar(), getDefaultCommandChar(), getDefaultCommandChar()))
+            returnD('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (COMMAND_CHAR_DEF, COMMAND_CHAR_DEF, COMMAND_CHAR_DEF))
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:
@@ -1189,7 +1177,7 @@ class IRCBot(NamesIRCClient):
             channel = self.getMasterChan(channel)
         return task, channel
 
-    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % getCommandCharRegExp(), re.I)
+    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % COMMAND_CHAR_REG, re.I)
     @inlineCallbacks
     def command_runlater(self, rest, channel=None, nick=None):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
@@ -1204,7 +1192,7 @@ class IRCBot(NamesIRCClient):
             returnD(str(e))
         target = self._get_target(channel, nick)
         task = cleanblanks(task)
-        task = self.re_catch_command.sub(getDefaultCommandChar(), task)
+        task = self.re_catch_command.sub(COMMAND_CHAR_DEF, task)
         task = task.encode('utf-8')
         if self.saving_task:
             self.saving_tasks += 1
@@ -1217,12 +1205,12 @@ class IRCBot(NamesIRCClient):
         self.saving_task = True
         rank = len(self.tasks)
         if startsWithCommandChar(task):
-            command, _, rest = task.lstrip(getCommandCharStr()).partition(' ')
+            command, _, rest = task.lstrip(COMMAND_CHAR_STR).partition(' ')
             func = self._find_command_function(command)
             if func is None:
-                returnD(self._stop_saving_task("I can already tell you that %s%s is not a valid command." % (getDefaultCommandChar(), command)))
+                returnD(self._stop_saving_task("I can already tell you that %s%s is not a valid command." % (COMMAND_CHAR_DEF, command)))
             if not self._can_user_do(nick, channel, func):
-                returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (getDefaultCommandChar(), command)))
+                returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (COMMAND_CHAR_DEF, command)))
             if self.re_clean_twitter_task.match(task):
                 count = countchars(task, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
@@ -1315,7 +1303,7 @@ class IRCBot(NamesIRCClient):
             when, _ = self._extract_digit(minutes)
             minutes = max(1, when)
         self.silent[channel.lower()] = datetime.today() + timedelta(minutes=minutes)
-        return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, getDefaultCommandChar())
+        return "All right, I'll be back in %s minutes or if you run %scomeback." % (minutes, COMMAND_CHAR_DEF)
 
     def command_comeback(self, rest, channel=None, nick=None):
         """comeback : Tells me to start talking again after use of "fuckoff"./AUTH"""

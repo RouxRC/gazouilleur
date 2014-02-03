@@ -28,6 +28,7 @@ MONGODB = {
 # 3) Configure Gazouilleur's features
 # Which character to use for prefix commands to the bot.
 # Careful: using ordinar characters can naturally result in weird behaviors
+# You can specify multiple accepted characters by giving an array or a multicharacter string i.e. '!%' or ['!', '%']
 COMMAND_CHARACTER = '!'
 # Define GLOBAL_USERS with rights to perform all available commands on all channels
 GLOBAL_USERS = ['Roux']
