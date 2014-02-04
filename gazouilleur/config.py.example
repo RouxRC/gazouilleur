@@ -7,7 +7,7 @@
 
 # 1) Choose your IRC server and bot name
 # Remember to register it with a botpass
-HOST = 'irc.freenode.net'
+HOST = 'adams.freenode.net'
 PORT = 6667
 SSL = False         # Set to True for IRC servers accepting SSL mode
 BOTNAME = 'gazouilleur2'
