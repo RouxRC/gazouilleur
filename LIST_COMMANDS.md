@@ -137,7 +137,6 @@
   + `show <tweet_id|@twitter_user>`
 
      > Displays message and info on tweet with id &lt;tweet_id&gt; or on user &lt;@twitter_user&gt;.
-     > > restricted to /TWITTER
 
   + `stats`
 

@@ -880,9 +880,11 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
-        """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>./TWITTER"""
+        """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>."""
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
+        if not chan_has_twitter(channel, conf):
+            returnD('Sorry but not Twitter account is set for this channel.')
         conn = Microblog('twitter', conf)
         tweet_id = safeint(rest, twitter=True)
         if tweet_id:
