@@ -883,7 +883,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
         if not chan_has_twitter(channel, conf):
-            returnD('Sorry but not Twitter account is set for this channel.')
+            returnD('Sorry but no Twitter account is set for this channel.')
         conn = Microblog('twitter', conf)
         tweet_id = safeint(rest, twitter=True)
         if tweet_id:
