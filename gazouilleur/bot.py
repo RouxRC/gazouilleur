@@ -1172,7 +1172,7 @@ class IRCBot(NamesIRCClient):
             optchan = "#%s" % search.group(1).lower().lstrip('#')
             task = self.re_chan_in_command.sub('', task)
             if optchan in self.factory.channels:
-                channel = optchan
+                channel = optchan.encode('utf-8')
             else:
                 raise Exception("I do not follow this channel.")
         else:
