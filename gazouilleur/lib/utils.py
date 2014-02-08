@@ -62,7 +62,8 @@ PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
 URL_REGEX = re.compile('(?=((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s)))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
-ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
+ACCENTS = "àÀâÂçÇéÉèÈêÊëËîÎïÏôÔöÖûÛüÜ"
+ACCENTS_URL = re.compile(r'^\w*[%s]' % ACCENTS)
 
 def _shorten_url(text, twitter_url_length):
     tco_extra = "x" * (twitter_url_length - 13)
