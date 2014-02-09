@@ -25,22 +25,6 @@ client.HTTPClientFactory.noisy = False
 
 reactor.suggestThreadPoolSize(15*len(config.CHANNELS))
 
-config.COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if type(config.COMMAND_CHARACTER) is str and len(config.COMMAND_CHARACTER) > 1 else config.COMMAND_CHARACTER
-config.COMMAND_CHARACTER = config.COMMAND_CHARACTER[0] if type(config.COMMAND_CHARACTER) is list and len(config.COMMAND_CHARACTER) == 1 else config.COMMAND_CHARACTER
-
-COMMAND_CHAR_DEF = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else config.COMMAND_CHARACTER[0]
-COMMAND_CHAR_STR = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else ''.join(config.COMMAND_CHARACTER)
-COMMAND_CHAR_REG = config.COMMAND_CHARACTER if type(config.COMMAND_CHARACTER) is str else '('+'|'.join(config.COMMAND_CHARACTER)+')'
-
-def startsWithCommandChar(message):
-    if type(config.COMMAND_CHARACTER) is str:
-        return message.startswith(config.COMMAND_CHARACTER)
-    for char in config.COMMAND_CHARACTER:
-        if message.startswith(char):
-            return True
-    return False
-
-
 class IRCBot(NamesIRCClient):
 
     sourceURL = 'https://github.com/RouxRC/gazouilleur'
@@ -1179,7 +1163,7 @@ class IRCBot(NamesIRCClient):
             channel = self.getMasterChan(channel)
         return task, channel
 
-    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt|answ)er(only)?)\s*(\d{14}\d*\s*)?' % COMMAND_CHAR_REG, re.I)
+    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt?|answ)(er|only|pic)*)\s*(\d{14}\d*\s*)?' % COMMAND_CHAR_REG, re.I)
     @inlineCallbacks
     def command_runlater(self, rest, channel=None, nick=None):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""

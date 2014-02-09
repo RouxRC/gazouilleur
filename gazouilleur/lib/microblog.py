@@ -113,8 +113,8 @@ class Microblog(object):
         return res.get('short_url_length_https', res.get('short_url_length', 22) + 1), res.get('photo_size_limit', 3145728)
 
     def microblog(self, text="", tweet_id=None, img=None, channel=None, length=0):
-        if text.startswith("%scount" % config.COMMAND_CHARACTER):
-            text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
+        if text.startswith("%scount" % COMMAND_CHAR_REG):
+            text = text.replace("%scount" % COMMAND_CHAR_REG, "").strip()
         if self.site == "identica":
             try:
                 note = self.conn.Note(text)
