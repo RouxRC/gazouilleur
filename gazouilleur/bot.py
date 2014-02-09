@@ -655,6 +655,7 @@ class IRCBot(NamesIRCClient):
         return text, False
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
+    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er|only|pic)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
@@ -668,6 +669,7 @@ class IRCBot(NamesIRCClient):
             kwargs['text'], force = self._match_reg(kwargs['text'], self.re_force)
             if self.re_special_dms.match(kwargs['text']):
                 return "Sorry but Twitter handles messages starting like this as DMs. You should change at least the first character."
+            kwargs['text'] = self.re_clean_twitter_task.sub('', kwargs['text'])
             try:
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
@@ -1163,7 +1165,6 @@ class IRCBot(NamesIRCClient):
             channel = self.getMasterChan(channel)
         return task, channel
 
-    re_clean_twitter_task = re.compile(r'^%s(identica|(twitt?|answ)(er|only|pic)*)\s*(\d{14}\d*\s*)?' % COMMAND_CHAR_REG, re.I)
     @inlineCallbacks
     def command_runlater(self, rest, channel=None, nick=None):
         """runlater <minutes> [--chan <channel>] <command [arguments]> : Schedules <command> in <minutes> for current channel or optional <channel>."""
