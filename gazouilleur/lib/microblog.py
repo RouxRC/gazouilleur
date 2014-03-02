@@ -113,8 +113,8 @@ class Microblog(object):
         return res.get('short_url_length_https', res.get('short_url_length', 22) + 1), res.get('photo_size_limit', 3145728)
 
     def microblog(self, text="", tweet_id=None, img=None, channel=None, length=0):
-        if text.startswith("%scount" % config.COMMAND_CHARACTER):
-            text = text.replace("%scount" % config.COMMAND_CHARACTER, "").strip()
+        if text.startswith("%scount" % COMMAND_CHAR_REG):
+            text = text.replace("%scount" % COMMAND_CHAR_REG, "").strip()
         if self.site == "identica":
             try:
                 note = self.conn.Note(text)
@@ -251,7 +251,12 @@ class Microblog(object):
         return good, cache_users
 
     re_twitter_account = re.compile('(^|\W)@([A-Za-z0-9_]{1,15})')
+    re_bad_account = re.compile('(^|\W)(@[A-Za-z0-9_]{1,14}[%s]+[A-Za-z0-9_]*)([^A-Za-z0-9_]|$)' % ACCENTS)
     def test_microblog_users(self, text, cache_users={}):
+        force = ". Please correct your tweet of force by adding --force"
+        match = self.re_bad_account.search(text)
+        if match:
+            return False, cache_users, "Sorry but %s does not seem like a valid account%s" % (match.group(2), force)
         match = self.re_twitter_account.findall(text)
         if not len(match):
             return True, cache_users, "No user quoted"
@@ -267,7 +272,7 @@ class Microblog(object):
                 proposals = self.search_users(user)
                 if proposals:
                     extra = " (maybe you meant @%s ?)" % " or @".join([p.encode('utf-8') for p in proposals])
-                return False, cache_users, "Sorry but @%s doesn't seem like a real account%s. Please correct your tweet of force by adding --force" % (user, extra)
+                return False, cache_users, "Sorry but @%s doesn't seem like a real account%s%s" % (user, extra, force)
         return True, cache_users, "All users quoted passed"
 
 def check_twitter_results(data):

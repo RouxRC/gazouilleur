@@ -12,6 +12,22 @@ from gazouilleur import config
 from gazouilleur.lib.mongo import Mongo, sortasc
 from gazouilleur.lib.log import loggerr
 
+COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if type(config.COMMAND_CHARACTER) is str and len(config.COMMAND_CHARACTER) > 1 else config.COMMAND_CHARACTER
+COMMAND_CHARACTER = COMMAND_CHARACTER[0] if type(COMMAND_CHARACTER) is list and len(COMMAND_CHARACTER) == 1 else COMMAND_CHARACTER
+
+COMMAND_CHAR_DEF = COMMAND_CHARACTER if type(COMMAND_CHARACTER) is str else COMMAND_CHARACTER[0]
+COMMAND_CHAR_STR = COMMAND_CHARACTER if type(COMMAND_CHARACTER) is str else ''.join(COMMAND_CHARACTER)
+COMMAND_CHAR_REG = COMMAND_CHARACTER if type(COMMAND_CHARACTER) is str else '['+''.join(COMMAND_CHARACTER)+']'
+
+def startsWithCommandChar(message):
+    if type(COMMAND_CHARACTER) is str:
+        return message.startswith(COMMAND_CHARACTER)
+    for char in COMMAND_CHARACTER:
+        if message.startswith(char):
+            return True
+    return False
+
+
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
 re_clean_blanks = re.compile(r'%s+' % SPACES)
 cleanblanks = lambda x: re_clean_blanks.sub(r' ', x.strip()).strip()
@@ -62,7 +78,8 @@ PATH_ENDING_CHARS = ur'[%s=#/]' % UTF_CHARS
 QUERY_ENDING_CHARS = '[a-z0-9_&=#]'
 URL_REGEX = re.compile('(?=((%s+)((?:http(s)?://|www\\.)?%s(?:\/%s*%s?)?(?:\?%s*%s)?)(%s)))' % (PRE_CHARS, DOMAIN_CHARS, PATH_CHARS, PATH_ENDING_CHARS, QUERY_CHARS, QUERY_ENDING_CHARS, PRE_CHARS), re.I)
 
-ACCENTS_URL = re.compile(r'^\w*[àâéèêëîïôöùûç]', re.I)
+ACCENTS = "àÀâÂçÇéÉèÈêÊëËîÎïÏôÔöÖûÛüÜ"
+ACCENTS_URL = re.compile(r'^\w*[%s]' % ACCENTS)
 
 def _shorten_url(text, twitter_url_length):
     tco_extra = "x" * (twitter_url_length - 13)
@@ -72,7 +89,7 @@ def _shorten_url(text, twitter_url_length):
         text = text.replace(res[0], '%shttp%s___t_co_%s%s' % (res[1], res[3], tco_extra, res[4]))
     return text
 
-re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt|answ)er(only|last)?)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (config.COMMAND_CHARACTER, config.COMMAND_CHARACTER), re.I)
+re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt?|answ)(er|only|last|pic)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
 def countchars(text, twitter_url_length):
     return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip()).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
 
