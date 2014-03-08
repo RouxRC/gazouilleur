@@ -868,7 +868,7 @@ class IRCBot(NamesIRCClient):
         """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>."""
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
-        if not chan_has_twitter(channel, conf):
+        if not get_chan_twitter_user(channel, conf):
             returnD('Sorry but no Twitter account is set for this channel.')
         conn = Microblog('twitter', conf)
         tweet_id = safeint(rest, twitter=True)
