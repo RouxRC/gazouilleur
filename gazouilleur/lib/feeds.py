@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # RSS feeder part adapted from http://www.phppatterns.com/docs/develop/twisted_aggregator (Christian Stocker)
 
-import os, time
+import os, time, socket
 from random import shuffle, random
 from operator import itemgetter
 from hashlib import md5
@@ -525,11 +525,13 @@ class FeederProtocol(object):
                         except:
                             if config.DEBUG:
                                 self.log(tweet, hint=True)
+        except socket.error:
+            self.log("Stream lost connection with %s: %s", (type(e), e), error=True)
         except Exception as e:
             if not str(e).strip():
                 self.log("Stream crashed with %s: %s", (type(e), e), error=True)
             else:
-                self._handle_error(e, "following", "stream")
+                self._handle_error(failure.Failure(e), "following", "stream")
         self.depiler.stop()
         self.flush_tweets()
         self.log("Feeder closed.", hint=True)
