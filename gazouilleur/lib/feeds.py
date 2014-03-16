@@ -386,7 +386,7 @@ class FeederProtocol(object):
         if not res:
             returnD(False)
         stats, last, timestamp = res
-        if not stats:
+        if not stats or type(stats) is str:
             returnD(False)
         if not last:
             last = {'tweets': 0, 'followers': 0}

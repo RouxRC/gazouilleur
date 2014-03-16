@@ -157,6 +157,8 @@ class Microblog(object):
         done = 0
         retweets = []
         check_twitter_results(tweets)
+        if type(tweets) is str:
+            return retweets, retweets_processed
         if bearer_token:
             helper = Microblog("twitter", {"TWITTER": self.conf}, bearer_token=bearer_token)
             limitfactor = 4
