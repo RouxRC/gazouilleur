@@ -512,9 +512,11 @@ class FeederProtocol(object):
                 if self.fact.status == "closed":
                     break
                 if tweet:
-                    if tweet.get("disconnect") or tweet.get("timeout"):
-                        self.log("Disconnected %s" % ("(timeout)" if tweet.get("timeout") else tweet), error=True)
+                    if tweet.get("disconnect") or tweet.get("hangup"):
+                        self.log("Disconnected %s" % ("(timeout)" if tweet.get("heartbeat_timeout") else tweet), error=True)
                         break
+                    if tweet.get('timeout'):
+                        continue    # heartbeat
                     if tweet.get('text'):
                         self.pile.insert(0, tweet)
                     else:
