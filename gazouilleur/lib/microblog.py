@@ -120,6 +120,7 @@ class Microblog(object):
             try:
                 note = self.conn.Note(text)
                 note.to = (self.conn.Public, self.conn.Followers, self.conn.Following)
+                setdefaulttimeout(15)
                 note.send()
                 return "[identica] Huge success!"
             except Exception as e:

@@ -75,7 +75,7 @@ class Stats(object):
     def dump_data(self):
         if not self.url:
             returnValue(False)
-        stats = yield find_stats({'user': self.user}, filter=sortasc('timestamp'))
+        stats = yield find_stats({'user': self.user}, filter=sortasc('timestamp'), timeout=120)
         dates = [s['timestamp'] for s in stats]
         tweets = [s['tweets'] for s in stats]
         tweets_diff = [a - b for a, b in zip(tweets[1:],tweets[:-1])]

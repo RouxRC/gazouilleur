@@ -537,7 +537,7 @@ class IRCBot(NamesIRCClient):
         self.lastqueries[channel.lower()] = {'n': nb, 'skip': st+nb}
         if config.DEBUG:
             loggvar("Requesting last %s %s" % (rest, query), channel, "!last")
-        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message', 'channel'], limit=nb, skip=st)
+        matches = yield Mongo('logs', 'find', query, filter=sortdesc('timestamp'), fields=['timestamp', 'screenname', 'message', 'channel'], limit=nb, skip=st, timeout=45)
         if len(matches) == 0:
             more = " more" if st > 1 else ""
             returnD("No"+more+" match found in my history log.")
@@ -1023,7 +1023,7 @@ class IRCBot(NamesIRCClient):
         """tweetswith <match> : Prints the total number of tweets seen matching <match> and the first one seen."""
         res = "No match found in my history of tweets seen."
         re_arg = re.compile(r"%s" % clean_regexp(query), re.I)
-        db = MongoConn('tweets')
+        db = MongoConn(timeout=120)
         total = yield db.aggregate('tweets', [{'$match': {'message': re_arg}}, {'$group': {'_id': '$id'}}, {'$group': {'_id': 1, 'count': {'$sum' : 1}}}])
         n_tot = total[0]['count'] if total else 0
         if n_tot:

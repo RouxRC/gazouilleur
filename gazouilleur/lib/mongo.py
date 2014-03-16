@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import inspect
+import inspect, time
 from twisted.internet.defer import inlineCallbacks, returnValue as returnD
+from twisted.internet.task import LoopingCall
 from txmongo import MongoConnection, _MongoFactory, collection
 from txmongo.filter import sort as mongosort, ASCENDING, DESCENDING
 from gazouilleur.config import DEBUG, MONGODB
@@ -11,8 +12,10 @@ _MongoFactory.noisy = False
 
 class MongoConn(object):
 
-    def __init__(self, retries=3):
+    def __init__(self, retries=3, timeout=0):
         self.retries = retries
+        self.timeout = max(25, timeout)
+        self.supervisor = LoopingCall(self.__check_timeout__)
         self.conn = None
         self.db = None
         self.coll = None
@@ -22,13 +25,13 @@ class MongoConn(object):
             setattr(self, m[0], self.__get_proxy__(m[0]))
 
     @inlineCallbacks
-    def close(self, silent=False):
+    def close(self):
+        if self.supervisor.running:
+            self.supervisor.stop()
         if self.conn:
             try:
                 yield self.conn.disconnect()
             except Exception as e:
-                if not silent:
-                    self.logerr("Closing connection:", str(e))
                 pass
             del self.conn
             self.conn = None
@@ -46,9 +49,26 @@ class MongoConn(object):
     def __get_proxy__(self, method):
         @inlineCallbacks
         def __proxy(coll, *args, **kwargs):
+            self.timedout = time.time() + self.timeout
+            self.supervisor.start(int(self.timeout/4))
             res = yield self.__run__(coll, method, *args, **kwargs)
+            if time.time() > self.timedout:
+                self.logerr("YEAH REACHED %s AFTER TIMEOUT %s!!! %s %s" % (time.time() - self.timedout, self.timeout, self.coll, self.method))
+
+            if self.supervisor.running:
+                self.supervisor.stop()
             returnD(res)
         return __proxy
+
+    def __check_timeout__(self):
+        due = time.time() - self.timedout
+        if due > 0:
+            self.logerr("MONGO TIMEOUT (%s)!!! %s %s since %s" % (self.timeout, self.coll, self.method, due))
+            if due > self.timeout:
+                self.logerr("MONGO DOUBLE TIMEOUT (%s) closing now %s %s %s" % (2*self.timeout, self.coll, self.method, due + self.timeout))
+                self.close()
+                #raise Exception(msg)
+            #self.supervisor.stop()
 
     @inlineCallbacks
     def __run__(self, coll, method, *args, **kwargs):
@@ -74,19 +94,25 @@ class MongoConn(object):
                 if not lasttry:
                     if attempts_left > 0:
                         attempts_left -= 1
-                        if DEBUG:
-                            self.logerr("%sting" % status, "Retry #%d" % (self.retries-attempts_left))
-                        yield self.close(silent=True)
+                        #if DEBUG:
+                        self.logerr("%sting" % status, "Retry #%d" % (self.retries-attempts_left))
+                        try:
+                            yield self.conn.disconnect()
+                        except:
+                            pass
                         continue
-                    if DEBUG:
-                        self.logerr("%sting" % status, "HARD RETRY %s %s" % (type(e), str(e)))
-                    result = yield Mongo(coll, method, *args, lasttry=True, **kwargs)
+                    #if DEBUG:
+                    self.logerr("%sting" % status, "HARD RETRY %s %s" % (type(e), str(e)))
+                    result = yield Mongo(coll, method, *args, lasttry=True, timeout=self.timeout, **kwargs)
                 yield self.close()
+            if self.supervisor.running:
+                self.supervisor.stop()
             returnD(result)
 
 @inlineCallbacks
 def Mongo(coll, method, *args, **kwargs):
-    db = MongoConn()
+    timeout = kwargs.pop('timeout', 15)
+    db = MongoConn(timeout=timeout)
     res = yield getattr(db, method)(coll, *args, **kwargs)
     yield db.close()
     del db
