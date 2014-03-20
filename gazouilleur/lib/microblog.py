@@ -51,8 +51,8 @@ class Microblog(object):
             if streaming:
                 self.domain = "stream.twitter.com"
                 conn = TwitterStream
-                args['timeout'] = 5
-                args['heartbeat_timeout'] = 60
+                args['block'] = False
+                args['timeout'] = 10
             else:
                 conn = Twitter
                 args['format'] = self.format
