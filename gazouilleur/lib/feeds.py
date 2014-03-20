@@ -527,7 +527,7 @@ class FeederProtocol(object):
                         except:
                             if config.DEBUG:
                                 self.log(tweet, hint=True)
-        except socket.error:
+        except socket.error as e:
             self.log("Stream lost connection with %s: %s", (type(e), e), error=True)
         except Exception as e:
             if not str(e).strip():
