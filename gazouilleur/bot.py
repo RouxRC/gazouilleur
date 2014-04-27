@@ -691,7 +691,7 @@ class IRCBot(NamesIRCClient):
         """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./IDENTICA"""
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
-    re_answer = re.compile('^\d{14}')
+    re_answer = re.compile('^(%sanswer|\d{14})' % COMMAND_CHAR_REG)
     re_img = re.compile(r'^(.*)\s*img:(https?://\S+)\s*(.*)$', re.I)
     def command_twitteronly(self, text, channel=None, nick=None, img=None):
         """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
