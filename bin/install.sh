@@ -5,7 +5,7 @@ echo "Install dependencies..."
 echo "-----------------------"
 echo
 sudo apt-get update > /dev/null || exit 1
-sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev >> install.log || exit 1
+sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev >> install.log || exit 1
 echo
 
 # Install apt repository for MongoDB
