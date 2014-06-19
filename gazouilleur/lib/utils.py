@@ -287,7 +287,7 @@ def chanconf(chan, conf=None):
 
 def get_master_chan(default=config.BOTNAME):
     for chan in config.CHANNELS:
-        if "MASTER" in config.CHANNELS[chan]:
+        if "MASTER" in config.CHANNELS[chan] and config.CHANNELS[chan]["MASTER"]:
             return "#%s" % chan.lower().lstrip('#')
     return default.lower()
 
