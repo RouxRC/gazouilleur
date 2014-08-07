@@ -67,8 +67,6 @@ class MongoConn(object):
             if due > self.timeout:
                 self.logerr("MONGO DOUBLE TIMEOUT (%s) closing now %s %s" % (int(due + self.timeout), self.coll, self.method))
                 self.close()
-                #raise Exception(msg)
-            #self.supervisor.stop()
 
     @inlineCallbacks
     def __run__(self, coll, method, *args, **kwargs):
@@ -94,15 +92,15 @@ class MongoConn(object):
                 if not lasttry:
                     if attempts_left > 0:
                         attempts_left -= 1
-                        #if DEBUG:
-                        self.logerr("%sting" % status, "Retry #%d" % (self.retries-attempts_left))
+                        if DEBUG:
+                            self.logerr("%sting" % status, "Retry #%d" % (self.retries-attempts_left))
                         try:
                             yield self.conn.disconnect()
                         except:
                             pass
                         continue
-                    #if DEBUG:
-                    self.logerr("%sting" % status, "HARD RETRY %s %s" % (type(e), str(e)))
+                    if DEBUG:
+                        self.logerr("%sting" % status, "HARD RETRY %s %s" % (type(e), str(e)))
                     result = yield Mongo(coll, method, *args, lasttry=True, timeout=self.timeout, **kwargs)
                 yield self.close()
             if self.supervisor.running:
