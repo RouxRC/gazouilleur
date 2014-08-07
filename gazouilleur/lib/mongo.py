@@ -14,7 +14,7 @@ class MongoConn(object):
 
     def __init__(self, retries=3, timeout=0):
         self.retries = retries
-        self.timeout = max(25, timeout)
+        self.timeout = max(30, timeout)
         self.supervisor = LoopingCall(self.__check_timeout__)
         self.conn = None
         self.db = None
@@ -50,7 +50,7 @@ class MongoConn(object):
         @inlineCallbacks
         def __proxy(coll, *args, **kwargs):
             self.timedout = time.time() + self.timeout
-            self.supervisor.start(int(self.timeout/4))
+            self.supervisor.start(self.timeout)
             res = yield self.__run__(coll, method, *args, **kwargs)
             if time.time() > self.timedout:
                 self.logerr("YEAH REACHED %s AFTER TIMEOUT %s!!! %s %s" % (time.time() - self.timedout, self.timeout, self.coll, self.method))
@@ -65,7 +65,7 @@ class MongoConn(object):
         if due > 0:
             self.logerr("MONGO TIMEOUT (%s)!!! %s %s since %s" % (self.timeout, self.coll, self.method, due))
             if due > self.timeout:
-                self.logerr("MONGO DOUBLE TIMEOUT (%s) closing now %s %s %s" % (2*self.timeout, self.coll, self.method, due + self.timeout))
+                self.logerr("MONGO DOUBLE TIMEOUT (%s) closing now %s %s" % (int(due + self.timeout), self.coll, self.method))
                 self.close()
                 #raise Exception(msg)
             #self.supervisor.stop()
@@ -111,7 +111,7 @@ class MongoConn(object):
 
 @inlineCallbacks
 def Mongo(coll, method, *args, **kwargs):
-    timeout = kwargs.pop('timeout', 15)
+    timeout = kwargs.pop('timeout', 30)
     db = MongoConn(timeout=timeout)
     res = yield getattr(db, method)(coll, *args, **kwargs)
     yield db.close()
