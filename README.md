@@ -166,16 +166,16 @@ enabled=1" > mongodb.repo.tmp
 **Admin use:** [RockMongo](http://rockmongo.com/) is a nice PhpMyAdmin-like web tool to examine a MongoDB.
 
 
- * Configure the Python environment:
+### Prepare the Python environment
 
-  + It's recommended to use `virtualenv` with `virtualenvwrapper`:
+ * It's recommended to use `virtualenv` with `virtualenvwrapper`:
 
   ```bash
   sudo pip install virtualenv
   sudo pip install virtualenvwrapper
   ```
 
-  + Create a virtualenv for the bot from within this directory and install dependencies:
+ * Create a virtualenv for the bot from within this directory and install dependencies:
 
   ```bash
   source $(which virtualenvwrapper.sh)
