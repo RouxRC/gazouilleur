@@ -109,11 +109,29 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
  sudo apt-get install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev
  ```
 
- * [MongoDB](http://www.mongodb.org/) is required: below is an example to install it on Debian/Ubuntu:
+On CentOS:
+
+ ```bash
+ sudo yum install curl git vim python-devel python-setuptools python-pip easy_install libxml2 libxml2-dev libfreetype6-dev libpng-dev libxslt libxslt-devel gcc libffi-devel openssl-devel
+ easy_install pip
+ ```
+
+### Download the code
+
+ ```bash
+ git clone https://github.com/RouxRC/gazouilleur.git
+ cd gazouilleur
+ ```
+ 
+### Dependencies
+
+ * [MongoDB](http://www.mongodb.org/) is required
 
 **Note:** MongoDB being limited to 2Go databases on 32bit systems, it is recommanded to install Gazouilleur on a 64bit machine for extreme use of the Twitter keyword tracking functionnality.
 
 **Note2:** MongoDB Version 2.2 at least is required to get the aggregate functions to work properly. Everything will work with older versions except for the "!tweetswith" command.
+
+ ** On Debian/Ubuntu:
 
 Edit your apt `sources.list` file to include the following line:
 
@@ -132,6 +150,22 @@ sudo service mongodb restart
 
 You can configure the MongoDB server by editing `/etc/mongodb.conf`.
 
+ ** On CentOS, this is slightly more complex:
+
+```bash
+    echo "[mongodb]
+name=MongoDB Repository
+baseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64/
+gpgcheck=0
+enabled=1" > mongodb.repo.tmp
+    sudo mv mongodb.repo.tmp /etc/yum.repos.d/mongodb.repo
+    # Then update yum's source list and install:
+    sudo yum check-update
+    sudo yum install mongo-10gen mongo-10gen-server
+    sudo chkconfig mongod on
+    sudo service mongod restart
+```
+
 **Extra:** [RockMongo](http://rockmongo.com/) is a nice PhpMyAdmin-like web tool to examine a MongoDB.
 
 
@@ -147,7 +181,7 @@ You can configure the MongoDB server by editing `/etc/mongodb.conf`.
   + Create a virtualenv for the bot from within this directory and install dependencies:
 
   ```bash
-  source /usr/local/bin/virtualenvwrapper.sh
+  source $(which virtualenvwrapper.sh)
   mkvirtualenv --no-site-packages gazouilleur
   workon gazouilleur
   easy_install -U distribute
