@@ -98,7 +98,7 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
 
 ## Detailed Installation Instructions
 
-(These instuctions are meant for GNU/Linux Debian/Ubuntu-like distributions. Experiences on other distribs welcome!)
+(These instuctions are meant for GNU/Linux Debian/Ubuntu-like and CentOS-like distributions. Experiences on other distribs welcome!)
 
 ### Requirements
 
