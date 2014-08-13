@@ -62,7 +62,6 @@ Add the following line via `crontab -e` where $GAZOUILLEUR_PATH is Gazouilleur's
  @reboot     $GAZOUILLEUR_PATH/bin/gazouilleur start --quiet
  ```
 
-
 ## Getting Twitter & Identi.ca API rights for a channel
 
 ### Why create a Twitter API application?
@@ -109,7 +108,7 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
  sudo apt-get install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev
  ```
 
-On CentOS:
+ * On CentOS:
 
  ```bash
  sudo yum install curl git vim python-devel python-setuptools python-pip easy_install libxml2 libxml2-dev libfreetype6-dev libpng-dev libxslt libxslt-devel gcc libffi-devel openssl-devel
@@ -123,15 +122,13 @@ On CentOS:
  cd gazouilleur
  ```
  
-### Dependencies
-
- * [MongoDB](http://www.mongodb.org/) is required
+### Dependencies: [MongoDB](http://www.mongodb.org/)
 
 **Note:** MongoDB being limited to 2Go databases on 32bit systems, it is recommanded to install Gazouilleur on a 64bit machine for extreme use of the Twitter keyword tracking functionnality.
 
 **Note2:** MongoDB Version 2.2 at least is required to get the aggregate functions to work properly. Everything will work with older versions except for the "!tweetswith" command.
 
- ** On Debian/Ubuntu:
+ * On Debian/Ubuntu:
 
 Edit your apt `sources.list` file to include the following line:
 
@@ -150,7 +147,7 @@ sudo service mongodb restart
 
 You can configure the MongoDB server by editing `/etc/mongodb.conf`.
 
- ** On CentOS, this is slightly more complex:
+ * On CentOS, this is slightly more complex:
 
 ```bash
     echo "[mongodb]
@@ -166,7 +163,7 @@ enabled=1" > mongodb.repo.tmp
     sudo service mongod restart
 ```
 
-**Extra:** [RockMongo](http://rockmongo.com/) is a nice PhpMyAdmin-like web tool to examine a MongoDB.
+**Admin use:** [RockMongo](http://rockmongo.com/) is a nice PhpMyAdmin-like web tool to examine a MongoDB.
 
 
  * Configure the Python environment:

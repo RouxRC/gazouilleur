@@ -107,7 +107,7 @@ function start_gazouilleur {
     $VERBOSE && echo "...removing lost $PIDFILE file..."
     rm -f $PIDFILE
   fi
-  source /usr/local/bin/virtualenvwrapper.sh || ( echo "Error: You must install virtualenvwrapper to use this starter: sudo pip -q install virtualenvwrapper" && exit 1 )
+  source $(which virtualenvwrapper.sh) || ( echo "Error: You must install virtualenvwrapper to use this starter: sudo pip -q install virtualenvwrapper" && exit 1 )
   workon $BOTENV
   $COMMAND 2>&1 || exit 1
   $VERBOSE && echo "...started..."

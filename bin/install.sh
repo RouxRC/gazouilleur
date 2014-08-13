@@ -39,7 +39,7 @@ echo "---------------------"
 echo
 sudo pip -q install virtualenv >> install.log || exit 1
 sudo pip -q install virtualenvwrapper >> install.log || exit 1
-source /usr/local/bin/virtualenvwrapper.sh
+source $(which virtualenvwrapper.sh)
 mkvirtualenv --no-site-packages gazouilleur
 workon gazouilleur
 easy_install -U distribute >> install.log || exit 1
