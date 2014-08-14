@@ -947,7 +947,7 @@ class IRCBot(NamesIRCClient):
             reactor.callLater(0.5, self._restart_feeds, channel)
         returnD('«%s» query added to %s database for %s' % (query, database, channel))
 
-    re_clean_query = re.compile(r'([()+|])')
+    re_clean_query = re.compile(r'([()+|$])')
     regexp_feedquery = lambda self, x: re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', x), re.I)
     @inlineCallbacks
     def command_unfollow(self, query, channel=None, *args):
