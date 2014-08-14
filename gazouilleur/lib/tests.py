@@ -9,7 +9,7 @@ try:
     from colifrapy.tools.colorize import colorize
     colorize('a', style='bold')
 except (ImportError, TypeError) as e:
-    stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.")
+    stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n")
     exit(1)
 try:
     import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
@@ -17,18 +17,18 @@ except ImportError as e:
     stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
 
-#Load decorator
-from gazouilleur.lib.log import logerr
-
 # Check config.py
 try:
     from gazouilleur import config
 except ImportError:
-    logerr("Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.")
+    stderr.write(colorize("Could not find `gazouilleur/config.py`.\nERROR: Please run `bash bin/configure.sh` to create it, then edit it to prepare your bot.\n", 'red', style='bold'))
     exit(1)
 except SyntaxError as e:
-    logerr("Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s" % (e, "\n".join(format_exc().splitlines()[-3:-1])))
+    stderr.write(colorize("Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s\n" % (e, "\n".join(format_exc().splitlines()[-3:-1])), 'red', style='bold'))
     exit(1)
+
+#Load decorator
+from gazouilleur.lib.log import logerr
 
 try:
     config.BOTNAME, config.BOTPASS, config.HOST, config.PORT, config.MONGODB, config.GLOBAL_USERS, config.TWITTER_API_VERSION, config.TWITTER_API_LIMIT, config.BACK_HOURS, config.COMMAND_CHARACTER, config.CHANNELS, config.DEBUG, config.ADMINS
