@@ -11,7 +11,8 @@
 # 30 03 * * * bash /home/gazouilleur/gazouilleur2/bin/daily_mail.sh
 # @reboot     bash /home/gazouilleur/gazouilleur2/bin/gazouilleur start --nologs
 
-BOTPATH=$(echo $0 | sed 's/[^\/]*$//')".."
+cd "$(dirname $0)"/..
+BOTPATH=$(pwd)
 DEFAULT_EMAIL="example@example.com"
 
 CHAN="#"$1
