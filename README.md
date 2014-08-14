@@ -105,7 +105,7 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
  * The following Debian-like packages, quite common, are necessary:
 
  ```bash
- sudo apt-get install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev
+ sudo apt-get install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev
  ```
 
  * On CentOS:
