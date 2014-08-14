@@ -18,5 +18,5 @@ colifrapy==0.4.0
 # The following are only required to use the URL_STATS functionality. You can comment them if you don't need it
 # numpy apparently needs to be installed before separately for matplotlib to be installed properly, so preferably run first:
 # pip install numpy
-matplotlib
-pystache
+# matplotlib
+# pystache
