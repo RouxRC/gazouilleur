@@ -279,16 +279,18 @@ def chanconf(chan, conf=None):
     if conf:
         return conf
     if chan:
-        chan = chan.lstrip('#').lower()
-    try:
-        return config.CHANNELS[chan]
-    except:
-        return None
+        chan = chan.lower()
+    while chan.startswith("#"):
+        try:
+            return config.CHANNELS[chan]
+        except:
+            chan = chan[1:]
+    return None
 
 def get_master_chan(default=config.BOTNAME):
     for chan in config.CHANNELS:
         if "MASTER" in config.CHANNELS[chan] and config.CHANNELS[chan]["MASTER"]:
-            return "#%s" % chan.lower().lstrip('#')
+            return "#%s" % chan.lower()
     return default.lower()
 
 def chan_is_verbose(chan, conf=None):
