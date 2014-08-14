@@ -482,7 +482,7 @@ class IRCBot(NamesIRCClient):
     re_matchcommands = re.compile(r'-(-(from|with|skip|chan)|[fwsc])', re.I)
     @inlineCallbacks
     def command_last(self, rest, channel=None, nick=None, reverse=False):
-        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <word>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
+        """last [<N>] [--from <nick>] [--with <text>] [--chan <chan>|--allchans] [--skip <nb>] [--filtered|--nofilter] : Prints the last or <N> (max 5) last message(s) from current or main channel if <chan> is not given, optionally starting back <nb> results earlier and filtered by user <nick> and by <text>. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these."""
         # For private queries, give priority to master chan if set in for the use of !last commands
         nb = 0
         def_nb = 1
@@ -554,7 +554,7 @@ class IRCBot(NamesIRCClient):
         return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
 
     def command_lastwith(self, rest, channel=None, nick=None):
-        """lastwith <word> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <word> (options from "last" can apply)."""
+        """lastwith <text> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <text> (options from "last" can apply)."""
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 
