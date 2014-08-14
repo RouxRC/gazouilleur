@@ -4,33 +4,57 @@
 echo "Install dependencies..."
 echo "-----------------------"
 echo
-sudo apt-get update > /dev/null || exit 1
-sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev >> install.log || exit 1
+if apt-get > /dev/null 2>&1; then
+  sudo apt-get update > /dev/null || exit 1
+  sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev >> install.log || exit 1
+else
+  sudo yum check-update > /dev/null 2>&1 || exit 1
+  sudo yum -y install curl git vim python-devel python-setuptools python-pip easy_install libxml2 libxml2-dev libfreetype6-dev libpng-dev libxslt libxslt-devel gcc libffi-devel openssl-devel >> install.log || exit 1
+  sudo easy_install pip >> install.log || exit 1
+fi
 echo
 
 # Install apt repository for MongoDB
 echo "Add Mongo source repository..."
 echo "------------------------------"
 echo
-curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
-sudo cp /etc/apt/sources.list{,.gazouilleurbackup-`date +%Y%m%d-%H%M`}
-if ! grep "downloads-distro.mongodb.org" /etc/apt/sources.list > /dev/null; then
-cp /etc/apt/sources.list /tmp/sources.list
-  echo >> /tmp/sources.list
-  echo "# MONGODB repository, automatically added by Gazouilleur's install" >> /tmp/sources.list
-  echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" >> /tmp/sources.list
-  sudo mv /tmp/sources.list /etc/apt/sources.list
+if apt-get > /dev/null 2>&1; then
+  curl -s http://docs.mongodb.org/10gen-gpg-key.asc | sudo apt-key add -
+  sudo cp /etc/apt/sources.list{,.gazouilleurbackup-`date +%Y%m%d-%H%M`}
+  if ! grep "downloads-distro.mongodb.org" /etc/apt/sources.list > /dev/null; then
+    cp /etc/apt/sources.list /tmp/sources.list
+    echo >> /tmp/sources.list
+    echo "# MONGODB repository, automatically added by Gazouilleur's install" >> /tmp/sources.list
+    echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" >> /tmp/sources.list
+    sudo mv /tmp/sources.list /etc/apt/sources.list
+  fi
+  sudo apt-get update >> install.log || exit 1
+else
+  if ! test -s /etc/yum.repos.d/mongodb.repo; then
+    echo "[mongodb]
+name=MongoDB Repository
+baseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64/
+gpgcheck=0
+enabled=1" > mongodb.repo.tmp
+    sudo mv mongodb.repo.tmp /etc/yum.repos.d/mongodb.repo
+  fi
+  sudo yum check-update >> install.log || exit 1
 fi
-sudo apt-get update >> install.log || exit 1
 echo
 
 # Install MongoDB
 echo "Install and start MongoDB..."
 echo "----------------------------"
+echo "possible config via : vi /etc/mongodb.conf"
 echo
-sudo apt-get -y install mongodb-10gen >> install.log || exit 1
-#possible config via : vi /etc/mongodb.conf
-sudo service mongodb restart || exit 1
+if apt-get > /dev/null 2>&1; then
+  sudo apt-get -y install mongodb-10gen >> install.log || exit 1
+  sudo service mongodb restart || exit 1
+else
+  sudo yum -y install mongo-10gen mongo-10gen-server >> install.log || exit 1
+  sudo chkconfig mongod on >> install.log || exit 1
+  sudo service mongod restart || exit 1
+fi
 echo
 
 # Install Gazouilleur's VirtualEnv

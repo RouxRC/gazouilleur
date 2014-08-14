@@ -31,7 +31,14 @@ See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.
 
 ## Easy Install (Debian/Ubuntu)
 
-For an easy install on Debian-like distributions, you can try running `bash bin/install.sh` or follow step by step the [installation commands readable here](/bin/install.sh).
+First download the repository:
+
+ ```bash
+ git clone https://github.com/RouxRC/gazouilleur.git
+ cd gazouilleur
+ ```
+
+For an easy install on Debian and CentOS like distributions, you can try running `bash bin/install.sh` or follow step by step the [installation script readable here](/bin/install.sh).
 
 After dependencies are installed, you will need to edit your configuration in `gazouilleur/config.py`, then run `bash bin/configureDB.sh` to prepare your Mongo database.
 
@@ -112,7 +119,7 @@ Such monitoring is also permitted, with less accuracy, for configs without any T
 
  ```bash
  sudo yum install curl git vim python-devel python-setuptools python-pip easy_install libxml2 libxml2-dev libfreetype6-dev libpng-dev libxslt libxslt-devel gcc libffi-devel openssl-devel
- easy_install pip
+ sudo easy_install pip
  ```
 
 ### Download the code
