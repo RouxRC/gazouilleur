@@ -94,7 +94,7 @@ def countchars(text, twitter_url_length):
     return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip()).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
 
 re_clean_url1 = re.compile(r'/#!/')
-re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor)=[^&#]*))', re.I)
+re_clean_url2 = re.compile(r'((\?|&)((utm_(term|medium|source|campaign|content)|xtor|ei)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
 def clean_url(url, url0, cache_urls):
     url = re_clean_url1.sub('/', url)
@@ -153,7 +153,7 @@ def _clean_redir_urls(text, cache_urls, last=False):
 
 re_shorteners = re.compile(r'://[a-z0-9\-]{1,8}\.[a-z]{2,3}/[^/\s]+(\s|$)', re.I)
 re_clean_bad_quotes = re.compile(r'(://[^\s”“]+)[”“]+"*(\s|$)')
-re_clean_google_news = re.compile(r'^https?://www.google.com/(https?://)', re.I)
+re_clean_google_news = re.compile(r'^https?://[^/]*.google.com/(?:.*url=)?(https?://)', re.I)
 @defer.inlineCallbacks
 def clean_redir_urls(text, cache_urls):
     try:
