@@ -279,12 +279,15 @@ def chanconf(chan, conf=None):
     if conf:
         return conf
     if chan:
-        chan = chan.lower()
-    while chan.startswith("#"):
+        chan = "#"+chan.lower()
+    while chan:
         try:
             return config.CHANNELS[chan]
         except:
-            chan = chan[1:]
+            if chan.startswith("#"):
+                chan = chan[1:]
+            else:
+                break
     return None
 
 def get_master_chan(default=config.BOTNAME):
