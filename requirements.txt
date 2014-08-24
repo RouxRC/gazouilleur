@@ -3,7 +3,8 @@ feedparser
 twisted>=12.1.0
 pyOpenSSL
 pymongo
-txmongo
+# txmongo>=0.4.3
+git+https://github.com/fiorix/mongo-async-python-driver
 
 # Twitter
 twitter>=1.14.1

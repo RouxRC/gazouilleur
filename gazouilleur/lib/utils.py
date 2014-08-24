@@ -9,7 +9,7 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.task import deferLater
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
-from gazouilleur.lib.mongo import Mongo, sortasc
+from gazouilleur.lib.mongo import sortasc
 from gazouilleur.lib.log import loggerr
 
 COMMAND_CHARACTER = [config.COMMAND_CHARACTER[i] for i in range(len(config.COMMAND_CHARACTER))] if type(config.COMMAND_CHARACTER) is str and len(config.COMMAND_CHARACTER) > 1 else config.COMMAND_CHARACTER
@@ -212,9 +212,9 @@ def formatQuery(query, add_url=None):
     return query
 
 @defer.inlineCallbacks
-def getFeeds(channel, database, url_format=True, add_url=None, randorder=None):
+def getFeeds(db, channel, database, url_format=True, add_url=None, randorder=None):
     urls = []
-    queries = yield Mongo('feeds', 'find', {'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
+    queries = yield db['feeds'].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""
