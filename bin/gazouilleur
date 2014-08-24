@@ -4,7 +4,10 @@
 USAGE="$0 <start|stop|restart> [--nologs]"
 
 BOTENV=gazouilleur
-BOTPATH=##GAZOUILLEURPATH##
+
+cd "$(dirname "$0")"
+cd ..
+BOTPATH=$(pwd)
 
 STOP=false
 START=false
@@ -29,7 +32,6 @@ fi
 
 
 # Check config
-cd $BOTPATH
 mkdir -p log
 if ! test -f gazouilleur/config.py; then
   echo "No config file found. Please run bin/configure.sh and edit gazouilleur/config.py"
