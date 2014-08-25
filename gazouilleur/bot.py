@@ -359,7 +359,7 @@ class IRCBot(NamesIRCClient):
                             break
             else:
                 msg_utf = line.decode('utf-8')
-            if not msg_utf.startswith('JOIN #'):
+            if line.startswith('PRIVMSG '):
                 self.log(msg_utf, self.nickname, chan, filtered=skip)
             if skip:
                 if config.DEBUG:
@@ -370,6 +370,8 @@ class IRCBot(NamesIRCClient):
                         loggvar("FILTERED: %s [%s]" % (msg, reason), chan)
                 self._queueEmptying[chan] = reactor.callLater(0.05, self._sendLine, chan)
             else:
+                if line.startswith('PRIVMSG '):
+                    line = colorize(line)
                 self._reallySendLine(line)
                 self._queueEmptying[chan] = reactor.callLater(self.lineRate, self._sendLine, chan)
         else:
