@@ -345,7 +345,7 @@ class IRCBot(NamesIRCClient):
                 msg_utf = msg.decode('utf-8')
                 msg_low = msg_utf.lower()
                 twuser = get_chan_twitter_user(chan).lower()
-                if twuser and twuser in msg_low:
+                if twuser and twuser in msg_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan]):
                     pass
                 elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
                     skip = True
@@ -353,7 +353,7 @@ class IRCBot(NamesIRCClient):
                 elif chan in self.filters and self.re_tweets.search(msg):
                     for keyword in self.filters[chan]:
                         k = keyword.decode('utf-8')
-                        if (k in msg_low or (k.startswith('@') and msg_low.startswith(k[1:]+': '))):
+                        if (not k.startswith('@') and k in msg_low) or (k.startswith('@') and msg_low.startswith(k[1:]+': ')):
                             skip = True
                             reason = "filter on «%s»" % keyword
                             break

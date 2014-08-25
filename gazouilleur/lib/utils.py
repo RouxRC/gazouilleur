@@ -319,7 +319,7 @@ def chan_has_twitter(chan, conf=None):
 def get_chan_twitter_user(chan, conf=None):
     conf = chanconf(chan, conf)
     if conf and 'TWITTER' in conf and 'USER' in conf['TWITTER']:
-        return conf['TWITTER']['USER']
+        return conf['TWITTER']['USER'].lstrip("@")
     return ""
 
 def chan_displays_stats(chan, conf=None):
