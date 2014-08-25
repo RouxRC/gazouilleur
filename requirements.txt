@@ -1,18 +1,21 @@
-virtualenvwrapper
 lxml
 feedparser
-twisted>=12.1.0
 pyOpenSSL
+twisted>=12.1.0
+virtualenvwrapper
+
+# Mongo
 pymongo>=2.7
-# txmongo>=0.4.3
+# txmongo>=0.4.3 Wait until 0.4.3 published on pypi
 git+https://github.com/fiorix/mongo-async-python-driver
 
 # Twitter
-twitter>=1.14.1
+#twitter>=1.14.3 Wait until 1.14.4 published on pypi
+git+https://github.com/sixohsix/twitter/
 
-# PyPump (for Identi.ca): Waiting for a stable release post 0.3 with api changes <https://github.com/xray7224/PyPump/pull/63>
+# Identi.ca
+#pypump>=0.5.0 waiting until api changes checked including timeouts <https://github.com/xray7224/PyPump/pull/63>
 pypump==0.3.0
-#git+https://github.com/xray7224/PyPump.git
 
 # Colifrapy: Hey @Yomguithereal, told you I was gonna use it sometime! :)
 colifrapy==0.4.0
