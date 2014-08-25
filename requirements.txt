@@ -1,6 +1,7 @@
 lxml
 feedparser
 pyOpenSSL
+six>=1.7.3
 twisted>=12.1.0
 virtualenvwrapper
 
@@ -14,8 +15,7 @@ git+https://github.com/fiorix/mongo-async-python-driver
 git+https://github.com/sixohsix/twitter/
 
 # Identi.ca
-#pypump>=0.5.0 waiting until api changes checked including timeouts <https://github.com/xray7224/PyPump/pull/63>
-pypump==0.3.0
+pypump>=0.5.0
 
 # Colifrapy: Hey @Yomguithereal, told you I was gonna use it sometime! :)
 colifrapy==0.4.0

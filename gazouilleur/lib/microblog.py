@@ -7,7 +7,7 @@ from json import loads as load_json
 from datetime import datetime
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
-from pypump import PyPump
+from pypump import PyPump, Client
 from gazouilleur import config
 from gazouilleur.lib.mongo import find_stats, save_lasttweet_id, sortdesc
 from gazouilleur.lib.log import *
@@ -29,7 +29,8 @@ class Microblog(object):
             self.user = "%s@%s" % (self.conf['USER'].lower(), self.domain)
             from gazouilleur.identica_auth_config import identica_auth
             self.conf.update(identica_auth[self.conf['USER'].lower()])
-            self.conn = PyPump(self.user, key=self.conf['key'], secret=self.conf['secret'], token=self.conf['token'], token_secret=self.conf['token_secret'])
+            iclient = Client(webfinger=self.user, type="native", name="Gazouilleur", key=self.conf['key'], secret=self.conf['secret'])
+            self.conn = PyPump(client=iclient, token=self.conf['token'], secret=self.conf['token_secret'], verifier_callback=lambda: "")
         elif self.site == "twitter":
             self.user = self.conf['USER']
             self.post = 'FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true"
@@ -117,7 +118,7 @@ class Microblog(object):
         if self.site == "identica":
             try:
                 note = self.conn.Note(text)
-                note.to = (self.conn.Public, self.conn.Followers, self.conn.Following)
+                note.to = (self.conn.Public, self.conn.me.followers, self.conn.me.following)
                 setdefaulttimeout(15)
                 note.send()
                 return "[identica] Huge success!"

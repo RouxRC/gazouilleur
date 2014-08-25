@@ -3,9 +3,9 @@
 
 import sys, datetime
 try:
-    from pypump import PyPump
+    from pypump import PyPump, Client
 except ImportError:
-    sys.stderr.write("ERROR: Could not load module PyPump.\nERROR: Please run this command from gazouilleur's virtualenv:\n  source $(which virtualenvwrapper.sh)\n  workon gazouilleur\n  python bin/auth_identica.py\n  deactivate\nERROR: Otherwise check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
+    sys.stderr.write("ERROR: Could not load module PyPump v0.5+.\nERROR: Please run this command from gazouilleur's virtualenv:\n  source $(which virtualenvwrapper.sh)\n  workon gazouilleur\n  python bin/auth_identica.py\n  deactivate\nERROR: Otherwise check your install or run `pip install -r requirements.txt` from gazouilleur's virtualenv.\n")
     exit(1)
 try:
     from gazouilleur import config
@@ -18,6 +18,10 @@ except SyntaxError as e:
     sys.stderr.write("ERROR: Could not read `gazouilleur/config.py`.\nERROR: Please edit it to fix the following syntax issue:\nERROR: %s\n%s\n" % (e, "\n".join(traceback.format_exc().splitlines()[-3:-1])))
     exit(1)
 
+def verifier(url):
+    print url
+    return raw_input('Paste here the "Verifier" value given in Identi.ca\'s "Authorization Complete" page: ')
+
 confs = []
 for chan, conf in config.CHANNELS.iteritems():
     if 'IDENTICA' in conf and 'USER' in conf['IDENTICA']:
@@ -25,7 +29,8 @@ for chan, conf in config.CHANNELS.iteritems():
         print "Configuring Identi.ca OAuth for @%s for channel %s..." % (user, chan)
         print "Please make sure to be not logged in on Identi.ca with another account than this one in your browser before clicking the authorize url."
         try:
-            pump = PyPump("%s@identi.ca", client_name="Gazouilleur")
+            client = Client(webfinger="%s@identi.ca" % user, type="native", name="Gazouilleur")
+            pump = PyPump(client=client, verifier_callback=verifier)
             client_credentials = pump.get_registration()
             client_tokens = pump.get_token()
             confs.append('"%s": {"key": "%s", "secret": "%s", "token": "%s", "token_secret": "%s"}' % (user, client_credentials[0], client_credentials[1], client_tokens[0], client_tokens[1]))
