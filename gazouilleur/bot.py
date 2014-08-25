@@ -737,7 +737,7 @@ class IRCBot(NamesIRCClient):
             assert(imgtype in ['png', 'jpeg', 'gif'])
         except Exception as e:
             del(data)
-            returnD("Could not find a proper image to send at %s (only jpeg, png & non-animated gif accepted)." % url)
+            returnD("Could not find a proper image to send at %s (only jpeg, png & gif accepted)." % url)
         ratio = 100. * len(data) / self.twitter['max_img_size']
         if ratio > 100:
             del(data)
@@ -750,7 +750,7 @@ class IRCBot(NamesIRCClient):
         if isinstance(res, list):
             _, res = res[0]
         if type(res) is str and ("creation failed" in res or "Broken pipe" in res):
-            returnD("[twitter] Can't send %s image from %s, maybe it's too big?%s" % (imgtype, url, " or maybe an animated gif (forbidden by Twitter...)?" if imgtype == 'gif' else ""))
+            returnD("[twitter] Can't send %s image from %s, maybe it's too big?" % (imgtype, url))
         returnD(res.replace("success!", "success sending tweet with %s image attached!" % imgtype))
 
     @inlineCallbacks
