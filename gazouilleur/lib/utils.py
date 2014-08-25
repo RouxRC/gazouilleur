@@ -341,12 +341,9 @@ def chan_allows_twitter_for_all(chan, conf=None):
 def is_user_admin(nick):
     return nick in config.ADMINS
 
-def is_user_global(nick):
-    return nick in config.GLOBAL_USERS
-
 def is_user_auth(nick, channel, conf=None):
     conf = chanconf(channel, conf)
-    return is_user_global(nick) or is_user_admin(nick) or (conf and 'USERS' in conf and nick in conf['USERS'])
+    return is_user_admin(nick) or nick in config.GLOBAL_USERS or (conf and 'USERS' in conf and nick in conf['USERS'])
 
 def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     if channel.lower() == config.BOTNAME.lower():
@@ -360,7 +357,7 @@ def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
         return is_user_admin(nick)
     if command_doc.endswith('/ADMIN'):
         return is_user_admin(nick)
-    auth = is_user_auth(nick, channel, conf)
+    auth = is_user_auth(nick, channel, conf) or is_user_auth(nick.rstrip("_1"), channel, conf)
     identica = chan_has_identica(channel, conf)
     twitter = chan_has_twitter(channel, conf)
     tw_rights = chan_allows_twitter_for_all(channel, conf) or auth
