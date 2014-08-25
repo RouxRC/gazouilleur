@@ -1123,7 +1123,7 @@ class IRCBot(NamesIRCClient):
         """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
         channel = self.getMasterChan(channel)
         if not rest:
-            rest=nick
+            rest = nick
         if self.re_list.search(rest):
             noping = yield self.db['noping_users'].find({'channel': channel}, fields=['user'])
             skip = [user['user'].encode('utf-8') for user in noping]
@@ -1174,6 +1174,8 @@ class IRCBot(NamesIRCClient):
         now = time.time()
         when, task = self._extract_digit(rest)
         task = task.decode('utf-8')
+        if not task:
+            returnD("Please tell me what you want me to do!")
         when = max(0, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
         try:
