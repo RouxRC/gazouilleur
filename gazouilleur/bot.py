@@ -642,10 +642,10 @@ class IRCBot(NamesIRCClient):
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
-        """lasttweet [<N>] [<options>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" can apply)./TWITTER"""
+        """lasttweet [<N>] [<options>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" except --from can apply)./TWITTER"""
         chan = self.getMasterChan(channel)
         twuser = get_chan_twitter_user(chan)
-        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" %s" % (twuser, self.str_re_tweets, twuser, options), channel, nick)
+        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" --from %s %s" % (twuser, self.str_re_tweets, twuser, options, self.nickname), channel, nick)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -1040,13 +1040,13 @@ class IRCBot(NamesIRCClient):
 
 
     def command_lasttweets(self, options, channel=None, nick=None):
-        """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_tweets, options), channel, nick)
+        """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" except --from can apply)."""
+        return self.command_lastwith("\"%s\" --from %s %s" % (self.str_re_tweets, options, self.nickname), channel, nick)
 
-    str_re_news = '^[News — '
+    str_re_news = '^[.* — https?://\S+$'
     def command_lastnews(self, options, channel=None, nick=None):
-        """lastnews [<N>] [<options>] : Prints the last or <N> last news displayed on the chan (options from "last" can apply)."""
-        return self.command_lastwith("\"%s\" %s" % (self.str_re_news, options), channel, nick)
+        """lastnews [<N>] [<options>] : Prints the last or <N> last news displayed on the chan (options from "last" except --from can apply)."""
+        return self.command_lastwith("\"%s\" --from %s %s" % (self.str_re_news, options, self.nickname), channel, nick)
 
 
    # Ping commands

@@ -175,7 +175,7 @@ class FeederProtocol(object):
                 yield self.fact.db['news'].insert(new, safe=True)
             except:
                 self._handle_error(e, "recording news batch", url)
-            self.fact.ircclient._send_message([(True, "[News — %s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
+            self.fact.ircclient._send_message([(True, "[%s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         returnD(True)
 
     @inlineCallbacks
