@@ -378,24 +378,40 @@ timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=dat
 def is_ssl(conf):
     return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"
 
-re_tweets = re.compile(r'^(PRIVMSG .*?:\s*)?(\S+:)?( \[[\d\/\s:]+\] )?(\S+ — )?(\S+:)( .*? —)( https://twitter.com/[^/\s]*/statuses/[0-9]+)$', re.I)
-re_news = re.compile(r'^(PRIVMSG .*?:\s*)?(\S+:)?( \[[\d\/\s:]+\] )?(\S+ — )?(\[.*?\])( .* —)( https?://.+)$', re.I)
-re_last = re.compile(r'^(PRIVMSG .*?:\s*)?(\S+:)( \[[\d\/\s:]+\] \S+ — )', re.I)
-re_answ = re.compile(r'^(PRIVMSG .*?:\s*)(\S+:)', re.I)
+re_answ = re.compile(r'^(PRIVMSG .*?:)(\S+: )', re.I)
+re_last = re.compile(r'^(PRIVMSG .*?:)(\S+: )?(\[[\d\/\s:]+\] \S+ — )', re.I)
+re_lafo = re.compile(r'^(PRIVMSG .*?:)(\S+: )?(\[[\d\/\s:]+\] )(?:\S+ — )(\S+:(?: \([^)]*?\))?|\[[^\]]+\]) ', re.I)
+re_anfo = re.compile(r'^(PRIVMSG .*?:)(\S+: )(\S+(?: \([^)]*?\))?:|\[[^\]]+\]) ', re.I)
+re_foll = re.compile(r'^(PRIVMSG .*?:)(\S+(?: \([^)]*?\))?:|\[[^\]]+\])( .* —)', re.I)
+re_link = re.compile(r'((?:—|\s|https?://\S+)+)( \(.*\))?$', re.I)
 gt = lambda x,i: x.group(i) if x.group(i) else ""
-ft = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x032"+gt(x,5)+"\x036"+gt(x,6)+"\x0314"+gt(x,7)
-fl = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x0310"
-fa = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0310"
 def colorize(msg):
-    if True: #add prefix
-        prefix = "   "
-        msg = msg.replace(":", ":%s" % prefix)
-    if re_tweets.search(msg):
-        return re_tweets.sub(ft, msg)
-    if re_news.search(msg):
-        return re_news.sub(ft, msg)
-    if re_last.search(msg):
-        return re_last.sub(fl, msg)
-    if re_answ.search(msg):
-        return re_answ.sub(fa, msg)
-    return msg.replace(":", ":\x0310", 1)
+    prefix = "  "
+    fo_answ = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0310"
+    fo_last = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x0310"
+    fo_lafo = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x032"+gt(x,4)+"\x036 "
+    fo_anfo = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x032"+gt(x,3)+"\x036 "
+    fo_foll = lambda x: gt(x,1)+"\x032"+gt(x,2)+"\x036"+gt(x,3)
+    fo_link = lambda x: "\x0314"+gt(x,1)+gt(x,2)
+    if re_lafo.search(msg):
+        msg = re_lafo.sub(fo_lafo, msg)
+    elif re_anfo.search(msg):
+        msg = re_anfo.sub(fo_anfo, msg)
+    elif re_last.search(msg):
+        msg = re_last.sub(fo_last, msg)
+    elif re_foll.search(msg):
+        msg = re_foll.sub(fo_foll, msg)
+    elif re_answ.search(msg):
+        msg = re_answ.sub(fo_answ, msg)
+    else:
+        msg = msg.replace(":", ":\x0310", 1)
+    if re_link.search(msg):
+        msg = re_link.sub(fo_link, msg)
+    if prefix:
+        msg = msg.replace(":", ":%s" % prefix, 1)
+    return msg
+
+#TODO
+# add in conf for chans
+# add default conf
+# set none format
