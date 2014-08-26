@@ -370,12 +370,15 @@ class IRCBot(NamesIRCClient):
                         loggvar("FILTERED: %s [%s]" % (msg, reason), chan)
                 self._queueEmptying[chan] = reactor.callLater(0.05, self._sendLine, chan)
             else:
-                if line.startswith('PRIVMSG '):
-                    line = colorize(line)
                 self._reallySendLine(line)
                 self._queueEmptying[chan] = reactor.callLater(self.lineRate, self._sendLine, chan)
         else:
             self._queueEmptying[chan] = None
+
+    def _reallySendLine(self, line):
+        if line.startswith('PRIVMSG '):
+            line = colorize(line)
+        return NamesIRCClient._reallySendLine(self, line)
 
     def msg(self, target, msg):
         NamesIRCClient.msg(self, target, msg, 400)
