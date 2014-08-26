@@ -332,7 +332,7 @@ class IRCBot(NamesIRCClient):
         d.addErrback(self._show_error, target, nick)
         returnD(None)
 
-    # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff on
+    # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff mode is on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
     re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
     def _sendLine(self, chan="default"):
@@ -500,7 +500,6 @@ class IRCBot(NamesIRCClient):
         query = {'channel': channel, '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+COMMAND_CHAR_REG+'|\[\d))')}}]}
         st = 0
         current = ""
-        clean_my_nick = False
         allchans = False
         rest = cleanblanks(handle_quotes(rest))
         for arg in rest.split(' '):
@@ -508,8 +507,6 @@ class IRCBot(NamesIRCClient):
                 query['user'] = arg.lower()
                 current = ""
             elif current == "w":
-                if arg == self.str_re_tweets or arg == self.str_re_news:
-                    clean_my_nick = True
                 arg = clean_regexp(arg)
                 re_arg = re.compile(r"%s" % arg, re.I)
                 query['$and'].append({'message': re_arg})
@@ -549,9 +546,6 @@ class IRCBot(NamesIRCClient):
             returnD("No"+more+" match found in my history log.")
         if reverse:
             matches.reverse()
-        if clean_my_nick:
-            for i, m in enumerate(matches):
-                matches[i] = m.replace("%s — " % self.nickname, '')
         returnD("\n".join(['[%s%s] %s — %s' % (shortdate(l['timestamp']), " %s" % l['channel'].encode('utf-8') if allchans else "", l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
 
     def command_lastfrom(self, rest, channel=None, nick=None):
