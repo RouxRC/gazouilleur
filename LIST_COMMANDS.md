@@ -71,7 +71,7 @@
 
   + `lasttweet [<N>] [<options>]`
 
-     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last tweets sent with the channel's account (options from "last" except --from can apply).
      > > restricted to /TWITTER
 
   + `identica <text> [--nolimit]`
@@ -183,11 +183,11 @@
 
   + `lasttweets [<N>] [<options>]`
 
-     > Prints the last or &lt;N&gt; last tweets displayed on the chan (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last tweets displayed on the chan (options from "last" except --from can apply).
 
   + `lastnews [<N>] [<options>]`
 
-     > Prints the last or &lt;N&gt; last news displayed on the chan (options from "last" can apply).
+     > Prints the last or &lt;N&gt; last news displayed on the chan (options from "last" except --from can apply).
 
 # Ping commands
  * Available only to GLOBAL_USERS and chan's USERS except for NoPing to anyone
