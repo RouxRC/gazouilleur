@@ -41,9 +41,10 @@ TWITTER_API_VERSION = 1.1
 TWITTER_API_LIMIT = 5
 # Optionnaly set a global formatting setting to choose the colors used in the bot's messages and whether to prefix them with some characters.
 # This setting can be set individually as well for each chan
-# A standard color setting is set by default as well as a prefix of two spaces.
+# A standard color setting is set by default as well as a prefix of two spaces and monocolor settings.
 # You can use other existing presets:
 #FORMAT = "normal"      # no prefix nor any coloring
+#FORMAT = "red"         # everything red an not prefix
 #FORMAT = "prefixed"    # only a 4 spaces prefix
 # Or define your own color settings:
 #FORMAT = {
@@ -53,11 +54,14 @@ TWITTER_API_LIMIT = 5
 #    "titles": "blue",      # tweets authors and rss names
 #    "text": "purple",      # tweets messages and rss titles
 #    "meta": "gray"         # diverse meta information
+#    #"all": "light blue"   # overrides all colors if present in colors
 #  },
 #  "prefix": "  "           # text preceding all messages
 #}
 # See available colors in gazouilleur/lib/irccolors.py
-# Note: some IRC channels may be already set with mode +c which prevents displaying any color. Use /mode -v with op rights on the channel to reactivate colors.
+# Note: some IRC channels may be already set with mode +c which prevents displaying any color. Freenode disables it for instance by default on any registered channel.
+# Use /msg ChanServ SET #channel MLOCK +nt-clk with founder or op rights and +s on the channel to reenable colors.
+
 
 # 4) Define in which IRC channels Gazouilleur should operate respecting the following rules:
 # - One entry per channel with various optional options

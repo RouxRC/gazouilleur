@@ -38,7 +38,7 @@ class ColorConf(object):
       "prefix": "  "            # text preceding all messages
     }
 
-    _nocolors = {"user": 1, "msgs": 1, "titles": 1, "text": 1, "meta": 1}
+    _nocolors = {"all": 1}      # overrides all colors if present in colors
 
     normal = {              # Classical conf
       "prefix": "",
@@ -59,15 +59,23 @@ class ColorConf(object):
                 self.conf = dict(self.normal)
             elif conf == "prefixed":
                 self.conf = dict(self.prefixed)
+            elif conf in self.colorcodes.keys():
+                self.conf = {
+                  "prefix": "",
+                  "colors": {"all": self.colorcodes[conf]}
+                }
             else:
-                raise TypeError('Color config\'s name must be one of "default", "normal" or "prefixed"')
+                raise TypeError('Color config\'s name must be one of "default", "normal", "prefixed" or a valid MIRC color name, see list in %s' % __file__)
         elif type(conf) is dict:
             self.conf = dict(self.default)
             self.conf.update(conf)
         else:
-            raise TypeError('Color config must be either a json or a name')
+            raise TypeError('Colors config must be either a json or a name')
         if type(self.conf["prefix"]) is not str:
             raise TypeError('prefix field must be a string')
+        if "all" in self.conf["colors"]:
+            for k in ["user", "msgs", "titles", "text", "meta"]:
+                self.conf["colors"][k] = self.conf["colors"]["all"]
         self.define_color_patterns()
 
     def colorcode(self, val):
@@ -82,7 +90,7 @@ class ColorConf(object):
         try:
             return self.colorcodes[val.lower()]
         except:
-            raise TypeError('Colors as string must be one of "%s"' % '","'.join(self.colorcodes.keys()))
+            raise TypeError('Colors as string must be a valid MIRC color name, see list in %s' % __file__)
 
     def color(self, val):
         code = self.colorcode(val)
@@ -93,13 +101,13 @@ class ColorConf(object):
         return ""
 
     _re_head = r'PRIVMSG .*?:'
-    _re_news = r'\S+(?: \([^)]*?\))?:|\[[^\]]+\]'
+    _re_news = r'\S+(?: \(.*?\))?: |\[[^\]]+\] '
     _re_meta = r'\[[\d\/\s:]+\] '
     re_answ = re.compile(r'^(%s)(\S+: )' % _re_head, re.I)
     re_last = re.compile(r'^(%s)(\S+: )?(%s\S+ — )' % (_re_head, _re_meta), re.I)
-    re_lafo = re.compile(r'^(%s)(\S+: )?(%s)(?:\S+ — )(%s) ' % (_re_head, _re_meta, _re_news), re.I)
-    re_anfo = re.compile(r'^(%s)(\S+: )(%s) ' % (_re_head, _re_news), re.I)
-    re_foll = re.compile(r'^(%s)(%s)( .* —)' % (_re_head, _re_news), re.I)
+    re_lafo = re.compile(r'^(%s)(\S+: )?(%s)(?:\S+ — )(%s)' % (_re_head, _re_meta, _re_news), re.I)
+    re_anfo = re.compile(r'^(%s)(\S+: )(%s)' % (_re_head, _re_news), re.I)
+    re_foll = re.compile(r'^(%s)(%s)(.* —)' % (_re_head, _re_news), re.I)
     re_extr = re.compile(r'^(%s)(\[[^\]]+\]) ' % _re_head, re.I)
     re_link = re.compile(r'((?:—|\s|https?://\S+)+)( \(.*\))?$', re.I)
 
@@ -115,8 +123,8 @@ class ColorConf(object):
         _fo_last = lambda x: _me + _gt(x,3)
         self.fo_answ = lambda x: _fo_user(x) + self._ms
         self.fo_last = lambda x: _fo_user(x) + _fo_last(x) + self._ms
-        self.fo_lafo = lambda x: _fo_user(x) + _fo_last(x) + _fo_news(x,4) + " "
-        self.fo_anfo = lambda x: _fo_user(x) + _fo_news(x,3) + " "
+        self.fo_lafo = lambda x: _fo_user(x) + _fo_last(x) + _fo_news(x,4)
+        self.fo_anfo = lambda x: _fo_user(x) + _fo_news(x,3)
         self.fo_foll = lambda x: _gt(x,1) + _fo_news(x,2) + _gt(x,3)
         self.fo_extr = lambda x: _gt(x,1) + _ti + _gt(x,2) + self._ms + " "
         self.fo_link = lambda x: _me + _gt(x,1) + _gt(x,2)

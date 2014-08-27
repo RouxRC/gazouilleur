@@ -79,7 +79,7 @@ if hasattr(config, 'URL_STATS'):
 try:
     irccolors.ColorConf(config.FORMAT)
 except TypeError as e:
-    logerr("Global FORMAT conf is broken in `gazouilleur/config.py`: %s." % e)
+    logerr("Global FORMAT conf is broken in `gazouilleur/config.py`:\n%s" % e)
     exit(1)
 except:
     pass
@@ -89,7 +89,7 @@ for chan, conf in config.CHANNELS.iteritems():
     try:
         irccolors.ColorConf(conf['FORMAT'])
     except TypeError as e:
-        logerr("Conf FORMAT of channel %s is broken in `gazouilleur/config.py`: %s." % (chan, e))
+        logerr("Conf FORMAT of channel %s is broken in `gazouilleur/config.py`:\n%s" % (chan, e))
         exit(1)
 
 # Check MongoDB
