@@ -100,6 +100,7 @@ class ColorConf(object):
     re_lafo = re.compile(r'^(%s)(\S+: )?(%s)(?:\S+ — )(%s) ' % (_re_head, _re_meta, _re_news), re.I)
     re_anfo = re.compile(r'^(%s)(\S+: )(%s) ' % (_re_head, _re_news), re.I)
     re_foll = re.compile(r'^(%s)(%s)( .* —)' % (_re_head, _re_news), re.I)
+    re_extr = re.compile(r'^(%s)(\[[^\]]+\]) ' % _re_head, re.I)
     re_link = re.compile(r'((?:—|\s|https?://\S+)+)( \(.*\))?$', re.I)
 
     def define_color_patterns(self):
@@ -117,6 +118,7 @@ class ColorConf(object):
         self.fo_lafo = lambda x: _fo_user(x) + _fo_last(x) + _fo_news(x,4) + " "
         self.fo_anfo = lambda x: _fo_user(x) + _fo_news(x,3) + " "
         self.fo_foll = lambda x: _gt(x,1) + _fo_news(x,2) + _gt(x,3)
+        self.fo_extr = lambda x: _gt(x,1) + _ti + _gt(x,2) + self._ms + " "
         self.fo_link = lambda x: _me + _gt(x,1) + _gt(x,2)
 
     def colorize(self, text):
@@ -128,6 +130,8 @@ class ColorConf(object):
             text = self.re_last.sub(self.fo_last, text)
         elif self.re_foll.search(text):
             text = self.re_foll.sub(self.fo_foll, text)
+        elif self.re_extr.search(text):
+            text = self.re_extr.sub(self.fo_extr, text)
         elif self.re_answ.search(text):
             text = self.re_answ.sub(self.fo_answ, text)
         else:

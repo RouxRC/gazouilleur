@@ -56,8 +56,8 @@ TWITTER_API_LIMIT = 5
 #  },
 #  "prefix": "  "           # text preceding all messages
 #}
-#See available colors in gazouilleur/lib/irccolors.py
-
+# See available colors in gazouilleur/lib/irccolors.py
+# Note: some IRC channels may be already set with mode +c which prevents displaying any color. Use /mode -v with op rights on the channel to reactivate colors.
 
 # 4) Define in which IRC channels Gazouilleur should operate respecting the following rules:
 # - One entry per channel with various optional options
