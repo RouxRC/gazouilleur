@@ -5,29 +5,6 @@ import re
 
 class ColorConf(object):
 
-    default = {       # Default conf
-      "colors": {
-        "user": "light red",    # answered irc nicknames
-        "msgs": "cyan",           # text of irc answers
-        "titles": "blue",    # tweets authors and rss names
-        "text": "purple",      # tweets messages and rss titles
-        "meta": "gray"      # diverse meta information
-      },
-      "prefix": "  "      # text preceding all messages
-    }
-
-    _nocolors = {"user": 1, "msgs": 1, "titles": 1, "text": 1, "meta": 1}
-
-    normal = {
-      "prefix": "",
-      "colors": _nocolors
-    }
-
-    prefixed = {
-      "prefix": "    ",
-      "colors": _nocolors
-    }
-
     colorcodes = {
       "white": 0,
       "black": 1,
@@ -49,6 +26,29 @@ class ColorConf(object):
       "light gray": 15
     }
 
+
+    default = {             # Default conf
+      "colors": {
+        "user": "light red",    # answered irc nicknames
+        "msgs": "cyan",         # text of irc answers
+        "titles": "blue",       # tweets authors and rss names
+        "text": "purple",       # tweets messages and rss titles
+        "meta": "gray"          # diverse meta information
+      },
+      "prefix": "  "            # text preceding all messages
+    }
+
+    _nocolors = {"user": 1, "msgs": 1, "titles": 1, "text": 1, "meta": 1}
+
+    normal = {              # Classical conf
+      "prefix": "",
+      "colors": _nocolors
+    }
+
+    prefixed = {            # 4 spaces prefix conf
+      "prefix": "    ",
+      "colors": _nocolors
+    }
 
     def __init__(self, conf="default"):
         if type(conf) is str:

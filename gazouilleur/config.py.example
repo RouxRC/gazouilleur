@@ -39,6 +39,24 @@ TWITTER_API_VERSION = 1.1
 # Define how many time every 15 minutes some specific limited-rate queries to Twitter's API will be performed
 # Default value should be properly calibrated. Modify only if you know what you're doing.
 TWITTER_API_LIMIT = 5
+# Optionnaly set a global formatting setting to choose the colors used in the bot's messages and whether to prefix them with some characters.
+# This setting can be set individually as well for each chan
+# A standard color setting is set by default as well as a prefix of two spaces.
+# You can use other existing presets:
+#FORMAT = "normal"      # no prefix nor any coloring
+#FORMAT = "prefixed"    # only a 4 spaces prefix
+# Or define your own color settings:
+#FORMAT = {
+#  "colors": {
+#    "user": "light red",   # answered irc nicknames
+#    "msgs": "cyan",        # text of irc answers
+#    "titles": "blue",      # tweets authors and rss names
+#    "text": "purple",      # tweets messages and rss titles
+#    "meta": "gray"         # diverse meta information
+#  },
+#  "prefix": "  "           # text preceding all messages
+#}
+#See available colors in gazouilleur/lib/irccolors.py
 
 
 # 4) Define in which IRC channels Gazouilleur should operate respecting the following rules:
@@ -51,6 +69,8 @@ CHANNELS = {
   'regardscitoyens': {
     'MASTER': True,    # Master channel will be the focus of most of the commands sent in private to the bot when option --chan is not specified
     'DISCREET': False, # (optional) Set to True to forbid bot's answers when getting unknown commands or pinged
+    'FORMAT': 'default', # (optional) Set specific formatting colors and prefix for the bot's messages on this chan.
+                         # Set to default, normal or prefixed or set your own formatting config (as in FORMAT in section 3) above)
     'EXCLUDE_COMMANDS': ['title', 'lastmore'], # (optional) List names or regexp matching names of commands you do not want to be available for this chan. Example in chan below. See list of all commands in file LIST_COMMANDS.md or online at https://github.com/RouxRC/gazouilleur/blob/master/LIST_COMMANDS.md
     'USERS': [],       # These extra USERS will have rights to perform all available commands on this specific channel
     'IDENTICA': {      # Optionally set an IDENTICA USER to allow microblogging with Identi.ca
@@ -72,12 +92,14 @@ CHANNELS = {
   },
   'gazouilleur-test': {     # Add more IRC channels
     'DISCREET': True,
+    'FORMAT': 'normal',
     'EXCLUDE_COMMANDS': ['.*ping.*', 'last.*', 'count', 'test', '.*pad'],
     'USERS': [],
     'DISPLAY_RT': False
   },
   'directan': {
     'DISCREET': True,
+    'FORMAT': 'prefixed',
     'EXCLUDE_COMMANDS': ['.*ping.*', '.*count', 'test', 'lastmore', '.*pad', '(runlater|tasks|cancel)', '.*pad', 'title'],
     'USERS': [],
     'TWITTER': {
