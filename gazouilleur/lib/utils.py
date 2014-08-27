@@ -378,20 +378,26 @@ timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=dat
 def is_ssl(conf):
     return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"
 
-re_answ = re.compile(r'^(PRIVMSG .*?:)(\S+: )', re.I)
-re_last = re.compile(r'^(PRIVMSG .*?:)(\S+: )?(\[[\d\/\s:]+\] \S+ — )', re.I)
-re_lafo = re.compile(r'^(PRIVMSG .*?:)(\S+: )?(\[[\d\/\s:]+\] )(?:\S+ — )(\S+:(?: \([^)]*?\))?|\[[^\]]+\]) ', re.I)
-re_anfo = re.compile(r'^(PRIVMSG .*?:)(\S+: )(\S+(?: \([^)]*?\))?:|\[[^\]]+\]) ', re.I)
-re_foll = re.compile(r'^(PRIVMSG .*?:)(\S+(?: \([^)]*?\))?:|\[[^\]]+\])( .* —)', re.I)
+_re_head = r'PRIVMSG .*?:'
+_re_news = r'\S+(?: \([^)]*?\))?:|\[[^\]]+\]'
+_re_meta = r'\[[\d\/\s:]+\] '
+re_answ = re.compile(r'^(%s)(\S+: )' % _re_head, re.I)
+re_last = re.compile(r'^(%s)(\S+: )?(%s\S+ — )' % (_re_head, _re_meta), re.I)
+re_lafo = re.compile(r'^(%s)(\S+: )?(%s)(?:\S+ — )(%s) ' % (_re_head, _re_meta, _re_news), re.I)
+re_anfo = re.compile(r'^(%s)(\S+: )(%s) ' % (_re_head, _re_news), re.I)
+re_foll = re.compile(r'^(%s)(%s)( .* —)' % (_re_head, _re_news), re.I)
 re_link = re.compile(r'((?:—|\s|https?://\S+)+)( \(.*\))?$', re.I)
 gt = lambda x,i: x.group(i) if x.group(i) else ""
 def colorize(msg):
     prefix = "  "
-    fo_answ = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0310"
-    fo_last = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x0310"
-    fo_lafo = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x0314"+gt(x,3)+"\x032"+gt(x,4)+"\x036 "
-    fo_anfo = lambda x: gt(x,1)+"\x034"+gt(x,2)+"\x032"+gt(x,3)+"\x036 "
-    fo_foll = lambda x: gt(x,1)+"\x032"+gt(x,2)+"\x036"+gt(x,3)
+    _fo_user = lambda x: gt(x,1)+"\x034"+gt(x,2)
+    _fo_news = lambda x,i: "\x032"+gt(x,i)+"\x036"
+    _fo_last = lambda x: "\x0314"+gt(x,3)
+    fo_answ = lambda x: _fo_user(x)+"\x0310"
+    fo_last = lambda x: _fo_user(x)+_fo_last(x)+"\x0310"
+    fo_lafo = lambda x: _fo_user(x)+_fo_last(x)+_fo_news(x,4)+" "
+    fo_anfo = lambda x: _fo_user(x)+_fo_news(x,3)+" "
+    fo_foll = lambda x: gt(x,1)+_fo_news(x,2)+gt(x,3)
     fo_link = lambda x: "\x0314"+gt(x,1)+gt(x,2)
     if re_lafo.search(msg):
         msg = re_lafo.sub(fo_lafo, msg)
