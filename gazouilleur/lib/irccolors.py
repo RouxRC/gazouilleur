@@ -101,14 +101,14 @@ class ColorConf(object):
     re_link = re.compile(r'((?:—|\s|https?://\S+)+)( \(.*\))?$', re.I)
 
     def define_color_patterns(self):
-        _ms = self.color(self.conf["colors"]["msgs"])
+        self._ms = self.color(self.conf["colors"]["msgs"])
         _me = self.color(self.conf["colors"]["meta"])
         _gt = lambda x,i: x.group(i) if x.group(i) else ""
         _fo_user = lambda x: _gt(x,1) + self.color(self.conf["colors"]["user"]) + _gt(x,2)
         _fo_news = lambda x,i: self.color(self.conf["colors"]["titles"]) + _gt(x,i) + self.color(self.conf["colors"]["text"])
         _fo_last = lambda x: _me + _gt(x,3)
-        self.fo_answ = lambda x: _fo_user(x) + _ms
-        self.fo_last = lambda x: _fo_user(x) + _fo_last(x) + _ms
+        self.fo_answ = lambda x: _fo_user(x) + self._ms
+        self.fo_last = lambda x: _fo_user(x) + _fo_last(x) + self._ms
         self.fo_lafo = lambda x: _fo_user(x) + _fo_last(x) + _fo_news(x,4) + " "
         self.fo_anfo = lambda x: _fo_user(x) + _fo_news(x,3) + " "
         self.fo_foll = lambda x: _gt(x,1) + _fo_news(x,2) + _gt(x,3)
@@ -126,7 +126,7 @@ class ColorConf(object):
         elif self.re_answ.search(text):
             text = self.re_answ.sub(self.fo_answ, text)
         else:
-            text = text.replace(":", ":" + self.conf["colors"]["msgs"], 1)
+            text = text.replace(":", ":" + self._ms, 1)
         if self.re_link.search(text):
             text = self.re_link.sub(self.fo_link, text)
         text = text.replace(":", ":%s" % self.conf["prefix"], 1)
