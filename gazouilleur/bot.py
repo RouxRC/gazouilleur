@@ -14,6 +14,7 @@ from twisted.web import client
 from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
+from gazouilleur.lib.irccolors import ColorConf
 from gazouilleur.lib.log import *
 from txmongo import MongoConnection
 from gazouilleur.lib.mongo import sortasc, sortdesc, ensure_indexes
@@ -377,7 +378,7 @@ class IRCBot(NamesIRCClient):
 
     def _reallySendLine(self, line):
         if line.startswith('PRIVMSG '):
-            line = colorize(line)
+            line = ColorConf().colorize(line)
         return NamesIRCClient._reallySendLine(self, line)
 
     def msg(self, target, msg):
