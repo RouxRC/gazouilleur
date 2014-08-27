@@ -224,7 +224,7 @@ class FeederProtocol(object):
         # Delay displaying to avoid duplicates from the stream
         if source != "mystream" and not self.fact.tweets_search_page:
             yield deferredSleep()
-        existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'), timeout=5*len(ids))
+        existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in tweets if t['_id'] not in existing]
         if not news:
@@ -242,7 +242,7 @@ class FeederProtocol(object):
             good = news
         else:
             hashs = [t['uniq_rt_hash'] for t in news if t['uniq_rt_hash'] not in hashs]
-            existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'), timeout=5*len(hashs))
+            existings = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'uniq_rt_hash': {'$in': hashs}}, fields=['uniq_rt_hash'], filter=sortdesc('id'))
             existing = [t['uniq_rt_hash'] for t in existings]
 
             for t in news:
