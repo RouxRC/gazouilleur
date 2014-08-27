@@ -60,7 +60,7 @@ except KeyError as e:
     exit(1)
 
 try:
-    from gazouilleur.lib import ircclient_with_names, feeds, filelogger, httpget, log, microblog, mongo, stats, utils
+    from gazouilleur.lib import ircclient_with_names, irccolors, feeds, filelogger, httpget, log, microblog, mongo, stats, utils
 except Exception as e:
     logerr("Oups, looks like something is wrong somewhere in the code, shouldn't be committed...")
     logerr("%s\n%s" % (e, "\n".join(format_exc().splitlines()[-3:-1])))
@@ -73,6 +73,23 @@ if hasattr(config, 'URL_STATS'):
         import gazouilleur.lib.plots
     except (NameError, ImportError) as e:
         logerr("Could not load module%s.\nERROR: This module is required to activate the Twitter web stats set in URL_STATS in `gazouilleur/config.py`: %s\nERROR: Please check your installl or run `./bin/update_requirements.sh` to update the dependencies.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
+        exit(1)
+
+# Check Color Configs
+try:
+    irccolors.ColorConf(config.FORMAT)
+except TypeError as e:
+    logerr("Global FORMAT conf is broken in `gazouilleur/config.py`: %s." % e)
+    exit(1)
+except:
+    pass
+for chan, conf in config.CHANNELS.iteritems():
+    if "FORMAT" not in conf:
+        continue
+    try:
+        irccolors.ColorConf(conf['FORMAT'])
+    except TypeError as e:
+        logerr("Conf FORMAT of channel %s is broken in `gazouilleur/config.py`: %s." % (chan, e))
         exit(1)
 
 # Check MongoDB

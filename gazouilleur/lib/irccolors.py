@@ -66,6 +66,8 @@ class ColorConf(object):
             self.conf.update(conf)
         else:
             raise TypeError('Color config must be either a json or a name')
+        if type(self.conf["prefix"]) is not str:
+            raise TypeError('prefix field must be a string')
         self.define_color_patterns()
 
     def colorcode(self, val):
@@ -103,9 +105,12 @@ class ColorConf(object):
     def define_color_patterns(self):
         self._ms = self.color(self.conf["colors"]["msgs"])
         _me = self.color(self.conf["colors"]["meta"])
+        _us = self.color(self.conf["colors"]["user"])
+        _ti = self.color(self.conf["colors"]["titles"])
+        _te = self.color(self.conf["colors"]["text"])
         _gt = lambda x,i: x.group(i) if x.group(i) else ""
-        _fo_user = lambda x: _gt(x,1) + self.color(self.conf["colors"]["user"]) + _gt(x,2)
-        _fo_news = lambda x,i: self.color(self.conf["colors"]["titles"]) + _gt(x,i) + self.color(self.conf["colors"]["text"])
+        _fo_user = lambda x: _gt(x,1) + _us + _gt(x,2)
+        _fo_news = lambda x,i: _ti + _gt(x,i) + _te
         _fo_last = lambda x: _me + _gt(x,3)
         self.fo_answ = lambda x: _fo_user(x) + self._ms
         self.fo_last = lambda x: _fo_user(x) + _fo_last(x) + self._ms
