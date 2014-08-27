@@ -14,7 +14,6 @@ from twisted.web import client
 from twisted.application import internet, service
 from twisted.python import log
 from gazouilleur.lib.ircclient_with_names import NamesIRCClient
-from gazouilleur.lib.irccolors import ColorConf
 from gazouilleur.lib.log import *
 from txmongo import MongoConnection
 from gazouilleur.lib.mongo import sortasc, sortdesc, ensure_indexes
@@ -54,6 +53,7 @@ class IRCBot(NamesIRCClient):
         self.get_twitter_conf()
         self.logger =  {}
         self.feeders = {}
+        self.colorizer = {"private": chan_color_conf()}
 
     def get_twitter_conf(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -122,6 +122,7 @@ class IRCBot(NamesIRCClient):
     def signedOn(self):
         loggirc("Signed on as %s." % self.nickname)
         for channel in self.factory.channels:
+            self.colorizer[channel] = chan_color_conf(channel)
             self.join(channel)
         yield self._refresh_tasks_from_db()
 
@@ -378,7 +379,10 @@ class IRCBot(NamesIRCClient):
 
     def _reallySendLine(self, line):
         if line.startswith('PRIVMSG '):
-            line = ColorConf().colorize(line)
+            target = "private"
+            if line[8] == "#":
+                target = line[8:line.find(":")].lower().strip()
+            line = self.colorizer[target].colorize(line)
         return NamesIRCClient._reallySendLine(self, line)
 
     def msg(self, target, msg):

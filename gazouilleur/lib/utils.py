@@ -9,6 +9,7 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.task import deferLater
 from gazouilleur.lib.resolver import ResolverAgent
 from gazouilleur import config
+from gazouilleur.lib.irccolors import ColorConf
 from gazouilleur.lib.mongo import sortasc
 from gazouilleur.lib.log import loggerr
 
@@ -299,6 +300,16 @@ def get_master_chan(default=config.BOTNAME):
 def chan_is_verbose(chan, conf=None):
     conf = chanconf(chan, conf)
     return not conf or "DISCREET" not in conf or str(conf["DISCREET"]).lower() == "false"
+
+def chan_color_conf(chan=None):
+    try:
+        colors = chanconf(chan)['FORMAT']
+    except:
+        try:
+            colors = config.FORMAT
+        except:
+            colors = "default"
+    return ColorConf(colors)
 
 def chan_has_protocol(chan, protocol, conf=None):
     protocol = protocol.upper()
