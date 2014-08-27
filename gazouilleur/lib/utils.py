@@ -282,13 +282,13 @@ def chanconf(chan, conf=None):
     if chan:
         chan = "#"+chan.lower()
     while chan:
-        try:
-            return config.CHANNELS[chan]
-        except:
-            if chan.startswith("#"):
-                chan = chan[1:]
-            else:
-                break
+        for c, conf in config.CHANNELS.items():
+            if c.lower() == chan:
+                return conf
+        if chan.startswith("#"):
+            chan = chan[1:]
+        else:
+            break
     return None
 
 def get_master_chan(default=config.BOTNAME):
