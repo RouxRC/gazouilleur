@@ -97,7 +97,7 @@ class ColorConf(object):
         if code < 0 or code > 15:
             raise TypeError('Colors as int must be between 0 and 15')
         if code != 1:
-            return "\x03%O2d" % code
+            return "\x03%02d" % code
         return ""
 
     _re_head = r'PRIVMSG .*?:'
