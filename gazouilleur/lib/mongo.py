@@ -44,7 +44,7 @@ def ensure_indexes(db):
     yield db['feeds'].ensure_index(sortasc('channel') + sortasc('database') + sortdesc('timestamp'), background=True)
     yield db['filters'].ensure_index(sortasc('channel'), background=True)
     yield db['filters'].ensure_index(sortasc('channel') + sortasc('keyword') + sortdesc('timestamp'), background=True)
-    yield db['news'].ensure_index(sortasc('channel') + sortdesc('_id'), background=True)
+    yield db['news'].ensure_index(sortdesc('_id') + sortasc('channel'), background=True)
     yield db['news'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
     yield db['news'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
     yield db['dms'].ensure_index(sortasc('id') + sortasc('channel'), background=True)
