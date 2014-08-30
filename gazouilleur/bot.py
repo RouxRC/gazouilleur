@@ -646,7 +646,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -842,6 +842,29 @@ class IRCBot(NamesIRCClient):
             returnD("Sorry, no last tweet id found for this chan.")
         res = yield self.command_rmtweet(str(lasttweetid[0]['tweet_id']), channel, nick)
         returnD(res)
+
+    @inlineCallbacks
+    def command_friend(self, user, channel=None, nick=None, unfriend=False):
+        """friend <user> : Follows <user> with the chan's Twitter account (use follow to display tweets)./TWITTER"""
+        channel = self.getMasterChan(channel)
+        user = user.lstrip('@').strip('').lower()
+        if not re.match("^%s$" % TWITTER_ACCOUNT, user):
+            returnD("Please input a valid Twitter user name.")
+        account = yield self._send_via_protocol('twitter', '%sfollow' % ("un" if unfriend else ""), channel, nick, user=user)
+        if isinstance(account, str):
+            returnD(account)
+        msg = "Huge success "
+        if unfriend:
+            if account["following"]:
+                msg = "Huge success un"
+            else: msg = "We weren't "
+        elif account["notifications"]:
+            msg = "We're already "
+        returnD("[twitter] %sfollowing @%s" % (msg, account["screen_name"]))
+
+    def command_unfriend(self, user, channel=None, nick=None):
+        """unfriend <user> : Stops following <user> with the chan's Twitter account./TWITTER"""
+        return self.command_friend(user, channel, nick, True)
 
     def command_dm(self, rest, channel=None, nick=None):
         """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""

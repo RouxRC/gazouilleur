@@ -273,6 +273,12 @@ class Microblog(object):
                 return False, cache_users, "Sorry but @%s doesn't seem like a real account%s%s" % (user, extra, force)
         return True, cache_users, "All users quoted passed"
 
+    def follow(self, user, **kwargs):
+        return self._send_query(self.conn.friendships.create, {'screen_name': user, 'follow': 'true'}, return_result=True)
+
+    def unfollow(self, user, **kwargs):
+        return self._send_query(self.conn.friendships.destroy, {'screen_name': user}, return_result=True)
+
 def check_twitter_results(data):
     text = data
     if not isinstance(text, str):
@@ -323,7 +329,7 @@ def get_error_message(error):
     except:
         if config.DEBUG:
             loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error:
+    if code == 404 and "direct_messages/new" in error or "friendships" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)

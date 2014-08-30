@@ -171,7 +171,8 @@ def get_hash(url):
     hash = hashlib.md5(url)
     return hash.hexdigest()
 
-re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@[a-zA-Z0-9_]{1,15}[: ,]*' % QUOTE_CHARS)
+TWITTER_ACCOUNT = r"[a-zA-Z0-9_]{1,15}"
+re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@%s[: ,]*' % (QUOTE_CHARS, TWITTER_ACCOUNT))
 re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s%s])+' % (QUOTE_CHARS, '%', '…'.decode('utf-8')))
 def uniq_rt_hash(text):
     text = re_uniq_rt_hash.sub(' ', text)

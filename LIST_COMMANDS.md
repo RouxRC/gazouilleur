@@ -66,7 +66,7 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats)'`
+ * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend)'`
  * **List :**
 
   + `lasttweet [<N>] [<options>]`
@@ -122,6 +122,16 @@
   + `rmlasttweet`
 
      > Deletes last tweet sent to Twitter from the channel.
+     > > restricted to /TWITTER
+
+  + `friend <user>`
+
+     > Follows &lt;user&gt; with the chan's Twitter account (use follow to display tweets).
+     > > restricted to /TWITTER
+
+  + `unfriend <user>`
+
+     > Stops following &lt;user&gt; with the chan's Twitter account.
      > > restricted to /TWITTER
 
   + `dm <user> <text> [--nolimit]`
