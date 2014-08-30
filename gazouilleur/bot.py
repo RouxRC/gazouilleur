@@ -873,14 +873,21 @@ class IRCBot(NamesIRCClient):
         """unfriend <user> : Stops following <user> with the chan's Twitter account./TWITTER"""
         return self.command_friend(user, channel, nick, True)
 
+    @inlineCallbacks
     def command_dm(self, rest, channel=None, nick=None):
         """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         user, _, text = rest.partition(' ')
         user = user.lstrip('@').lower()
         if user == "" or text == "":
-            return "Please input a user name and a message."
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'directmsg', channel, nick, user=user, text=text)
+            returnD("Please input a user name and a message.")
+        res = yield self.command_friend(user, channel, nick)
+        if "success following" in res:
+            yield self._send_message("[twitter] Started following @%s with chan's account" % user, channel, nick)
+        elif "Protected account" in res:
+            yield self._send_message(res, channel, nick)
+        res = yield self._send_via_protocol('twitter', 'directmsg', channel, nick, user=user, text=text)
+        returnD(res)
 
     @inlineCallbacks
     def command_finduser(self, rest, channel=None, nick=None):
