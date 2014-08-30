@@ -1,5 +1,6 @@
 lxml
 feedparser
+service_identity
 pyOpenSSL
 six>=1.7.3
 twisted>=12.1.0
