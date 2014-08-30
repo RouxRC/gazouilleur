@@ -852,13 +852,20 @@ class IRCBot(NamesIRCClient):
             returnD("Please input a valid Twitter user name.")
         account = yield self._send_via_protocol('twitter', '%sfollow' % ("un" if unfriend else ""), channel, nick, user=user)
         if isinstance(account, str):
-            returnD(account)
+            conn = Microblog('twitter', chanconf(channel))
+            test, _ = conn.lookup_users([user], return_first_result=True)
+            if test and test["protected"]:
+                account = test
+            else:
+                returnD(account)
         msg = "Huge success "
         if unfriend:
             if account["following"]:
                 msg = "Huge success un"
             else: msg = "We weren't "
-        elif account["notifications"]:
+        elif account["protected"] and "status" not in account:
+            msg = "Protected account: pending confirmation for "
+        elif account["notifications"] or account["protected"]:
             msg = "We're already "
         returnD("[twitter] %sfollowing @%s" % (msg, account["screen_name"]))
 
@@ -918,7 +925,7 @@ class IRCBot(NamesIRCClient):
             source = clean_html(tweet['source']).encode('utf-8')
             retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
             returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s - %s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
-        user, _ = conn.lookup_users([rest], return_result=True)
+        user, _ = conn.lookup_users([rest], return_first_result=True)
         if not user:
             returnD("Please provide a valid tweet_id or twitter_user.")
         name = user['screen_name'].encode('utf-8')
