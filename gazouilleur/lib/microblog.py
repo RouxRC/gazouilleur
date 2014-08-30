@@ -15,16 +15,15 @@ from gazouilleur.lib.utils import *
 
 class Microblog(object):
 
+    twitter_api_limit = 15
+    twitter_api_version = "1.1"
+
     def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False):
         self.site = site.lower()
         self.conf = conf[site.upper()]
         # Identi.ca service only supported for commands "ping" and "microblog"
         if self.site == "identica":
             self.domain = "identi.ca"
-            self.api_version = "api"
-            # Old Status.net Identi.ca connection:
-            #self.auth = UserPassAuth(self.conf['USER'], self.conf['PASS'])
-            #self.conn = Twitter(domain=self.domain, api_version=self.api_version, auth=self.auth)
             # New Pump.io Identi.ca connection:
             self.user = "%s@%s" % (self.conf['USER'].lower(), self.domain)
             from gazouilleur.identica_auth_config import identica_auth
@@ -32,29 +31,27 @@ class Microblog(object):
             iclient = Client(webfinger=self.user, type="native", name="Gazouilleur", key=self.conf['key'], secret=self.conf['secret'])
             self.conn = PyPump(client=iclient, token=self.conf['token'], secret=self.conf['token_secret'], verifier_callback=lambda: "")
         elif self.site == "twitter":
+            self.domain = "api.twitter.com"
             self.user = self.conf['USER']
             self.post = 'FORBID_POST' not in conf['TWITTER'] or str(conf['TWITTER']['FORBID_POST']).lower() != "true"
-            self.domain = "api.twitter.com"
+            args = {"api_version": self.twitter_api_version, "secure": True}
+            format = "json"
             if get_token:
-                self.api_version = None
-                self.format = ""
-                self.auth = OAuth2(self.conf['KEY'], self.conf['SECRET'])
+                format = ""
+                args["api_version"] = None
+                args["auth"] = OAuth2(self.conf['KEY'], self.conf['SECRET'])
+            elif bearer_token:
+                args["auth"] = OAuth2(bearer_token=bearer_token)
             else:
-                self.api_version = config.TWITTER_API_VERSION
-                self.format = "json"
-                if bearer_token:
-                    self.auth = OAuth2(bearer_token=bearer_token)
-                else:
-                    self.auth = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
-            args = {"api_version": self.api_version, "auth": self.auth, "secure": True}
+                args["auth"] = OAuth(self.conf['OAUTH_TOKEN'], self.conf['OAUTH_SECRET'], self.conf['KEY'], self.conf['SECRET'])
             if streaming:
                 self.domain = "stream.twitter.com"
-                conn = TwitterStream
                 args['block'] = False
                 args['timeout'] = 10
+                conn = TwitterStream
             else:
+                args['format'] = format
                 conn = Twitter
-                args['format'] = self.format
             args['domain'] = self.domain
             self.conn = conn(**args)
 
@@ -174,7 +171,7 @@ class Microblog(object):
                 retweets += new_rts
                 done += 1
             retweets_processed[tweet['id_str']] = tweet['retweet_count']
-            if done >= limitfactor*config.TWITTER_API_LIMIT:
+            if done >= limitfactor*int(self.twitter_api_limit/3):
                 break
         return retweets, retweets_processed
 
@@ -197,8 +194,6 @@ class Microblog(object):
             last = {}
         if last and last['timestamp'] == timestamp:
             res = None
-        elif self.api_version == 1:
-            res = self._send_query(self.conn.account.totals, return_result=True)
         else:
             res = self._send_query(self.conn.users.show, {'screen_name': self.user}, return_result=True)
         check_twitter_results(res)

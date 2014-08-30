@@ -34,11 +34,7 @@ COMMAND_CHARACTER = '!'
 GLOBAL_USERS = ['Roux']
 # Define how many hours back in time Gazouilleur should try to catch up on followed news and tweets after an offtime
 BACK_HOURS = 6
-# Define which version of Twitter's API to use. V1 now being closed, there is currently no other choice
-TWITTER_API_VERSION = 1.1
-# Define how many time every 15 minutes some specific limited-rate queries to Twitter's API will be performed
-# Default value should be properly calibrated. Modify only if you know what you're doing.
-TWITTER_API_LIMIT = 5
+
 # Optionnaly set a global formatting setting to choose the colors used in the bot's messages and whether to prefix them with some characters.
 # This setting can be set individually as well for each chan
 # A standard color setting is set by default as well as a prefix of two spaces and monocolor settings.

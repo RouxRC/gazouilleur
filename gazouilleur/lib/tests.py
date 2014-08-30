@@ -31,7 +31,7 @@ except SyntaxError as e:
 from gazouilleur.lib.log import logerr
 
 try:
-    config.BOTNAME, config.BOTPASS, config.HOST, config.PORT, config.MONGODB, config.GLOBAL_USERS, config.TWITTER_API_VERSION, config.TWITTER_API_LIMIT, config.BACK_HOURS, config.COMMAND_CHARACTER, config.CHANNELS, config.DEBUG, config.ADMINS
+    config.BOTNAME, config.BOTPASS, config.HOST, config.PORT, config.MONGODB, config.GLOBAL_USERS, config.BACK_HOURS, config.COMMAND_CHARACTER, config.CHANNELS, config.DEBUG, config.ADMINS
     [config.MONGODB[k] for k in ['HOST', 'PORT', 'DATABASE', 'USER', 'PSWD']]
 except AttributeError as e:
     logerr("Some field is missing from `gazouilleur/config.py`.\nERROR: Please edit it to fix the following issue:\nERROR: %s" % str(e).replace("'module' object", 'config'))
