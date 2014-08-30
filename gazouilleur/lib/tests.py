@@ -12,7 +12,7 @@ except (ImportError, TypeError) as e:
     stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n")
     exit(1)
 try:
-    import pymongo, txmongo, lxml, twisted, twitter, feedparser, pypump
+    import pymongo, txmongo, txmongo.connection, lxml, twisted, twitter, feedparser, pypump
 except ImportError as e:
     stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
