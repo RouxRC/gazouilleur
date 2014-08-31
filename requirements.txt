@@ -12,8 +12,7 @@ pymongo>=2.7
 git+https://github.com/fiorix/mongo-async-python-driver
 
 # Twitter
-#twitter>=1.14.3 Wait until 1.14.4 published on pypi
-git+https://github.com/sixohsix/twitter/
+twitter>=1.15
 
 # Identi.ca
 pypump>=0.5.0
