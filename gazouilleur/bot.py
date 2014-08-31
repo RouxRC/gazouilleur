@@ -875,7 +875,7 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_dm(self, rest, channel=None, nick=None):
-        """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
+        """dm <user> <text> [--nolimit] : Posts <text> as a direct message to <user> on Twitter. Will also add myself to <user>'s followers so he can answer further on. (--nolimit overrides the minimum 30 characters rule)./TWITTER"""
         channel = self.getMasterChan(channel)
         user, _, text = rest.partition(' ')
         user = user.lstrip('@').lower()

@@ -136,7 +136,7 @@
 
   + `dm <user> <text> [--nolimit]`
 
-     > Posts &lt;text&gt; as a direct message to &lt;user&gt; on Twitter (--nolimit overrides the minimum 30 characters rule).
+     > Posts &lt;text&gt; as a direct message to &lt;user&gt; on Twitter. Will also add myself to &lt;user&gt;'s followers so he can answer further on. (--nolimit overrides the minimum 30 characters rule).
      > > restricted to /TWITTER
 
   + `finduser <query> [<N=3>]`
