@@ -106,6 +106,9 @@ class Microblog(object):
                 loggerr("Ping failed: %s" % e, action=self.site)
             return False
 
+    def get_twitter_rates(self):
+        return self._send_query(self.conn.application.rate_limit_status, return_result=True)
+
     def get_twitter_conf(self):
         res = self._send_query(self.conn.help.configuration, return_result=True)
         return res.get('short_url_length_https', res.get('short_url_length', 22) + 1), res.get('photo_size_limit', 3145728)
