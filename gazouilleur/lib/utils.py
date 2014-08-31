@@ -390,3 +390,14 @@ timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=dat
 def is_ssl(conf):
     return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"
 
+chunkize = lambda a, n: [a[i:i+n] for i in xrange(0, len(a), n)]
+
+def format_follower(user):
+    extra = " (%s fol." % user["followers_count"]
+    if user["verified"]:
+        extra += " — verified"
+    return "@%s%s)" % (user["screen_name"].encode("utf-8"), extra)
+
+def format_4_followers(users):
+    users = sorted(users, key=lambda x: x["followers_count"] * (-1 if x["verified"] else 1))
+    return ", ".join([format_follower(user) for user in users[:4]])

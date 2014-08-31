@@ -26,7 +26,7 @@ except ImportError:
     from StringIO import StringIO
 from gazouilleur import config
 from gazouilleur.lib.log import logg
-from gazouilleur.lib.mongo import sortdesc
+from gazouilleur.lib.mongo import sortdesc, count_followers
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
 from gazouilleur.lib.stats import Stats
@@ -379,10 +379,18 @@ class FeederProtocol(object):
         returnD(True)
 
     @inlineCallbacks
-    def process_stats(self, res, user):
-        if not res:
+    def process_stats(self, stats, user):
+      # Update followers list
+        conf = chanconf(self.fact.channel)
+        conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
+        lost = yield conn.update_followers(self.fact.db)
+        ct = len(lost)
+        if ct:
+            self.fact.ircclient._send_message('[twitter] Lost %s follower%s: %s%s' % (ct, "s" if ct>1 else "", format_4_followers(lost), "…" if ct>4 else ""), self.fact.channel)
+      # Update stats
+        if not stats:
             returnD(False)
-        stats, last, timestamp = res
+        stats, last, timestamp = stats
         if not stats or type(stats) is str:
             returnD(False)
         if not last:
@@ -395,7 +403,8 @@ class FeederProtocol(object):
         re_match_rts = re.compile(u'(([MLR]T|%s|♺)\s*)+@?%s' % (QUOTE_CHARS, user), re.I)
         rts = yield self.fact.db['tweets'].find({'channel': self.fact.channel, 'message': re_match_rts, 'timestamp': {'$gte': since}}, fields=['_id'])
         nb_rts = len(rts)
-        stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': stats.get('followers_count', last['followers']), 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
+        nb_fols = yield count_followers(user)
+        stat = {'user': user, 'timestamp': timestamp, 'tweets': stats.get('statuses_count', last['tweets']), 'followers': nb_fols, 'rts_last_hour': nb_rts, 'lists': stats.get('listed_count', last['lists'])}
         yield self.fact.db['stats'].insert(stat)
         weekday = timestamp.weekday()
         laststats = Stats(user)

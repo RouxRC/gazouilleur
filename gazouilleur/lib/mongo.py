@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 from twisted.internet.defer import inlineCallbacks, returnValue as returnD
 from txmongo import MongoConnection, connection
 from txmongo.filter import sort as mongosort, ASCENDING, DESCENDING
 from gazouilleur.config import DEBUG, MONGODB
 connection._Connection.noisy = False
+
+
+db_foll_coll = lambda x: "followers.%s" % x.lower().lstrip("@")
 
 
 def sortasc(field):
@@ -31,6 +35,16 @@ def save_lasttweet_id(channel, tweet_id):
 @inlineCallbacks
 def find_stats(query, **kwargs):
     res = yield SingleMongo('stats', 'find', query, **kwargs)
+    returnD(res)
+
+@inlineCallbacks
+def count_followers(user):
+    res = yield SingleMongo(db_foll_coll(user), 'find', {"follows_me": True})
+    returnD(len(res))
+
+@inlineCallbacks
+def find_last_followers(user):
+    res = yield SingleMongo(db_foll_coll(user), 'find', {"screen_name": {"$exists": True}, "follows_me": True, "last_update": {"$gte": time.time() - 12*3600}})
     returnD(res)
 
 

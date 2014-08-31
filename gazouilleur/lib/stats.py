@@ -6,7 +6,7 @@ from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime
 from gazouilleur import config
-from gazouilleur.lib.mongo import find_stats, sortasc, sortdesc
+from gazouilleur.lib.mongo import find_stats, count_followers, find_last_followers, sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
@@ -25,8 +25,9 @@ class Stats(object):
         since = self.now - timedelta(days=30)
         stats = yield find_stats({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
-            returnValue("%s %s %s" % (self.user, self.now, since))
+            returnValue()
         stat = stats[0]
+        stat["followers"] = yield count_followers(self.user)
         rts = 0
         fols = 0
         twts = 0
@@ -62,11 +63,14 @@ class Stats(object):
         res = []
         if stat['tweets']:
             res.append("Tweets: %d total" % stat['tweets'] + " ; ".join([""]+["%d last %s" %  (olds['tweets']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['tweets'] and olds['tweets']['stats%sH' % i]]))
-        if stat['followers']:
-            res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" %  (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
         textrts = ["%d last %s" % (olds['rts']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['rts'] and olds['rts']['stats%sH' % i]]
         if textrts:
             res.append("RTs: " + " ; ".join(textrts))
+        if stat['followers']:
+            res.append("Followers: %d total" % stat['followers'] + " ; ".join([""]+["%+d last %s" % (olds['followers']['stats%sH' % i], delays[i]) for i in order if 'stats%sH' % i in olds['followers'] and olds['followers']['stats%sH' % i]]))
+            recent = yield find_last_followers(self.user)
+            if recent:
+                res.append("Recent follower%s: %s" % ("s include" if len(recent) > 1 else "", format_4_followers(recent)))
         if self.url and res:
             res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
         returnValue([(True, "[Stats] %s" % m) for m in res])

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 from urllib import quote as urlquote
 from socket import setdefaulttimeout
 from json import loads as load_json
@@ -9,7 +10,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, OAuth, OAuth2
 from pypump import PyPump, Client
 from gazouilleur import config
-from gazouilleur.lib.mongo import find_stats, save_lasttweet_id, sortdesc
+from gazouilleur.lib.mongo import sortdesc, save_lasttweet_id, find_stats, db_foll_coll
 from gazouilleur.lib.log import *
 from gazouilleur.lib.utils import *
 
@@ -279,6 +280,54 @@ class Microblog(object):
     def unfollow(self, user, **kwargs):
         return self._send_query(self.conn.friendships.destroy, {'screen_name': user}, return_result=True)
 
+    @inlineCallbacks
+    def update_followers(self, db):
+      # Get followers list from Twitter
+        curfolls = set()
+        cursor = -1
+        while cursor:
+            res = self._send_query(self.conn.followers.ids, {'screen_name': self.user, "cursor": cursor, "count": 5000}, return_result=True)
+            if "ERROR 429" in res or "ERROR 404" in res or not isinstance(res, dict):
+                loggerr(res)
+                returnValue([])
+            cursor = res.get("next_cursor", res.get("next_cursor_str", 0))
+            curfolls |= set([str(i) for i in res["ids"]])
+      # Get known info on followers from DB
+        foll_coll = db_foll_coll(self.user)
+        oldfolls = yield db[foll_coll].find({"follows_me": True}, fields=[])
+        oldfolls = set([f["_id"] for f in oldfolls])
+        oldlost = yield db[foll_coll].find({"follows_me": False}, fields=[])
+        oldlost = set([f["_id"] for f in oldlost])
+        oldtodo = yield db[foll_coll].find({"screen_name": None}, fields=[])
+        oldtodo = [f["_id"] for f in oldtodo]
+      # Save new found followers
+        newids = curfolls - oldfolls
+        oldusers = newids & oldlost
+        if oldusers:
+            yield db[foll_coll].update({"_id": {"$in": list(oldusers)}}, {"$set": {"follows_me": True, "last_update": time.time()}}, multi=True)
+        newusers = [{"_id": str(u), "follows_me": True, "last_update": time.time() if len(oldfolls) else 0} for u in list(newids - oldusers)]
+        if newusers:
+            yield db[foll_coll].insert(newusers)
+      # Update old followers lost
+        lostids = list(oldfolls - curfolls)
+        if lostids:
+            yield db[foll_coll].update({"_id": {"$in": lostids}}, {"$set": {"follows_me": False, "last_update": time.time()}}, multi=True)
+      # Collect metas on missing profiles
+        todo = lostids + list(newids) + oldtodo
+        lost = []
+        for chunk in chunkize(todo, 100):
+            users = self._send_query(self.conn.users.lookup, {'user_id': ','.join([str(c) for c in chunk]), 'include_entities': 'false'}, return_result=True)
+            if "ERROR 429" in users or "ERROR 404" in users or not isinstance(users, list):
+                break
+            for user in users:
+                if str(user["id"]) in lostids:
+                    lost.append(user)
+                for f in ["status", "entities"]:
+                    if f in user:
+                        del(user[f])
+                yield db[foll_coll].update({"_id": str(user["id"])}, {"$set": user})
+        returnValue(lost)
+
 def check_twitter_results(data):
     text = data
     if not isinstance(text, str):
@@ -354,3 +403,4 @@ def format_error_message(code, error=""):
 _re_clean_oauth_error = re.compile(r'\s*details:\s*<!DOCTYPE html>.*$', re.I)
 def clean_oauth_error(error):
     return _re_clean_oauth_error.sub('', str(error).replace('\n', ''))
+
