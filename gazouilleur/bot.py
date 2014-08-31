@@ -153,6 +153,7 @@ class IRCBot(NamesIRCClient):
                 oauth2_token = None
                 err = clean_oauth_error(e)
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
+            conf["oauth2"] = oauth2_token
         # Follow Searched Tweets matching queries set for this channel with !follow
             self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'search', 90 if oauth2_token else 180, timeout=600, twitter_token=oauth2_token)
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
@@ -852,7 +853,8 @@ class IRCBot(NamesIRCClient):
             returnD("Please input a valid Twitter user name.")
         account = yield self._send_via_protocol('twitter', '%sfollow' % ("un" if unfriend else ""), channel, nick, user=user)
         if isinstance(account, str):
-            conn = Microblog('twitter', chanconf(channel))
+            conf = chanconf(channel)
+            conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
             test, _ = conn.lookup_users([user], return_first_result=True)
             if test and test["protected"]:
                 account = test
@@ -915,7 +917,7 @@ class IRCBot(NamesIRCClient):
         conf = chanconf(channel)
         if not get_chan_twitter_user(channel, conf):
             returnD('Sorry but no Twitter account is set for this channel.')
-        conn = Microblog('twitter', conf)
+        conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
         tweet_id = safeint(rest, twitter=True)
         if tweet_id:
             tweet = conn.show_status(tweet_id)
@@ -957,13 +959,13 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def _restart_feeds(self, channel):
+        conf = chanconf(channel)
         lowchan = channel.lower()
         feeds = [('stream', 'stream', 5, 90), ('twitter_search', 'search', 90, 600)]
         for feed, database, delay, timeout in feeds:
             if feed in self.feeders[lowchan] and self.feeders[lowchan][feed].status == "running":
-                oauth2_token = self.feeders[lowchan][feed].twitter_token or None
                 yield self.feeders[lowchan][feed].end()
-                self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if oauth2_token else 2), timeout=timeout, twitter_token=oauth2_token)
+                self.feeders[lowchan][feed] = FeederFactory(self, channel, database, delay * (1 if conf["oauth2"] else 2), timeout=timeout, twitter_token=conf["oauth2"])
                 self.feeders[lowchan][feed].start()
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
