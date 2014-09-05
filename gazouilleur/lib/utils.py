@@ -398,6 +398,11 @@ def format_follower(user):
         extra += " — verified"
     return "@%s%s)" % (user["screen_name"].encode("utf-8"), extra)
 
+def safe_invert(x):
+    if not x:
+        return 1000000000
+    return 1./x
+
 def format_4_followers(users):
-    users = sorted(users, key=lambda x: x["followers_count"] * (-1 if x["verified"] else 1))
+    users = sorted(users, key=lambda x: -x["followers_count"] if x["verified"] else safe_invert(x["followers_count"]))
     return ", ".join([format_follower(user) for user in users[:4]])
