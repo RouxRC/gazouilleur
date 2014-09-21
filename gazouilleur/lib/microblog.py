@@ -136,6 +136,7 @@ class Microblog(object):
             args['in_reply_to_status_id'] = str(tweet_id)
         if img:
             args['media[]'] = img
+            args['status'] = text.decode("utf-8")
             return self._send_query(self.conn.statuses.update_with_media, args, channel=channel)
         return self._send_query(self.conn.statuses.update, args, channel=channel)
 
