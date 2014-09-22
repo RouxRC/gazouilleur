@@ -12,7 +12,8 @@ pymongo>=2.7
 git+https://github.com/fiorix/mongo-async-python-driver
 
 # Twitter
-twitter>=1.15
+#twitter>=1.15.1
+git+https://github.com/sixohsix/twitter
 
 # Identi.ca
 pypump>=0.5.0

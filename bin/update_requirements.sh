@@ -2,7 +2,6 @@
 
 source $(which virtualenvwrapper.sh)
 workon gazouilleur
-pip uninstall -y twitter
-pip install -r requirements.txt
+pip install -r requirements.txt --upgrade || echo 'Please complete apt/yum dependencies first (see "### Requirements" in README.md'
 deactivate
 
