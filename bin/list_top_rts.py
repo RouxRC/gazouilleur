@@ -12,6 +12,8 @@ for chan in config.CHANNELS:
     account = config.CHANNELS[chan]["TWITTER"]["USER"]
     tweets = []
     for tweet in db["tweets"].find({"channel": "#%s" % chan.lower(), "user": account.lower()}, fields=["uniq_rt_hash", "message"]):
+        if tweet["message"].startswith("RT @"):
+            continue
         tweets.append({"text": tweet["message"], "rts": db["tweets"].find({"channel": "#%s" % chan.lower(), "uniq_rt_hash": tweet["uniq_rt_hash"]}).count()})
     top = sorted(tweets, key=lambda k: -k['rts'])[:10]
     print "------------"
