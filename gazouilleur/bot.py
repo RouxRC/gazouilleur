@@ -345,7 +345,11 @@ class IRCBot(NamesIRCClient):
             skip = False
             if self.re_extract_chan.match(line) != "default":
                 msg = self.re_extract_chan.sub('', line)
-                msg_utf = msg.decode('utf-8')
+                try:
+                    msg_utf = msg.decode('utf-8')
+                except UnicodeDecodeError as e:
+                    msg_utf = msg
+                    loggerr("Encoding error on %s: %s" % (msg, e), chan)
                 msg_low = msg_utf.lower()
                 twuser = get_chan_twitter_user(chan).lower()
                 if twuser and twuser in msg_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan]):

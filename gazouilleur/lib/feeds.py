@@ -161,7 +161,11 @@ class FeederProtocol(object):
             if link in links:
                 continue
             links.append(link)
-            title = unescape_html(i.get('title', '').replace('\n', ' '))
+            title = i.get('title', '').replace('\n', ' ')
+            try:
+                title = unescape_html(title)
+            except:
+                pass
             _id = md5(("%s:%s:%s" % (self.fact.channel, link, title.lower())).encode('utf-8')).hexdigest()
             ids.append(_id)
             news.append({'_id': _id, 'channel': self.fact.channel, 'message': title, 'link': link, 'date': date, 'timestamp': datetime.today(), 'source': url, 'sourcename': sourcename})
@@ -173,7 +177,7 @@ class FeederProtocol(object):
             new = new[:5]
             try:
                 yield self.fact.db['news'].insert(new, safe=True)
-            except:
+            except Exception as e:
                 self._handle_error(e, "recording news batch", url)
             self.fact.ircclient._send_message([(True, "[%s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
         returnD(True)
@@ -531,10 +535,10 @@ class FeederProtocol(object):
                             if config.DEBUG:
                                 self.log(tweet, hint=True)
         except socket.error as e:
-            self.log("Stream lost connection with %s: %s", (type(e), e), error=True)
+            self.log("Stream lost connection with %s: %s" % (type(e), e), error=True)
         except Exception as e:
             if not str(e).strip():
-                self.log("Stream crashed with %s: %s", (type(e), e), error=True)
+                self.log("Stream crashed with %s: %s" % (type(e), e), error=True)
             else:
                 self._handle_error(failure.Failure(e), "following", "stream")
         self.depiler.stop()
