@@ -314,10 +314,14 @@ class Microblog(object):
             yield db[foll_coll].insert(newusers)
       # Update old followers lost
         lostids = list(oldfolls - curfolls)
+        todolostids = []
         if lostids:
+            # only keep for display lost ones with old activity to avoid repeated unfollow weird accounts
+            todolostids = yield db[foll_coll].find({"_id": {"$in": lostids}, "last_update": {"$lte": time.time()-604800}}, fields=[])
+            todolostids = [f["_id"] for f in todolostids]
             yield db[foll_coll].update({"_id": {"$in": lostids}}, {"$set": {"follows_me": False, "last_update": time.time()}}, multi=True)
       # Collect metas on missing profiles
-        todo = lostids + list(newids) + oldtodo
+        todo = todolostids + list(newids) + oldtodo
         lost = []
         for chunk in chunkize(todo, 100):
             users = self._send_query(self.conn.users.lookup, {'user_id': ','.join([str(c) for c in chunk]), 'include_entities': 'false'}, return_result=True)
