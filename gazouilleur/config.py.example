@@ -12,7 +12,7 @@ PORT = 6667
 SSL = False         # Set to True for IRC servers accepting SSL mode
 BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
-
+DEFAULT_EMAIL='example@example.org'
 
 # 2) Configure access to your MongoDB
 # Except for specific mongo config, this should not be modified
