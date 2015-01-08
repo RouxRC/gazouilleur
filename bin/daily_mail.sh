@@ -14,11 +14,11 @@
 cd "$(dirname $0)"/..
 BOTPATH=$(pwd)
 CONFIGFILE=$BOTPATH/gazouilleur/config.py
-DEFAULT_EMAIL=$(grep DEFAULT_EMAIL $CONFIGFILE | cut -d "'" -f 2)
+DEFAULT_EMAIL=$(grep DEFAULT_EMAIL $CONFIGFILE | sed 's/"/'"'/g" | cut -d "'" -f 2)
 
 CHAN="#"$1
 if [ "$CHAN" == "#" ]; then
-  CHAN="#"$(grep "['\"]\s*:\s*{\s*$" $CONFIGFILE | head -n 1 | sed "s/^\s*['\"]\([^'\"]\+\)['\"].*$/\1/")
+  CHAN="#"$(cat $CONFIGFILE | sed 's/#.*//g' | sed 's/"/'"'/g" | tr '\n' ' ' | sed 's/.*CHANNELS//'  | cut -d "'" -f 2)
 fi
 
 DATE=$2
