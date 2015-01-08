@@ -6,7 +6,7 @@ echo "-----------------------"
 echo
 if apt-get > /dev/null 2>&1; then
   sudo apt-get update > /dev/null || exit 1
-  sudo apt-get -y install curl git vim python-dev libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev >> install.log || exit 1
+  sudo apt-get -y install curl git vim python-dev python-pip libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev >> install.log || exit 1
 else
   sudo yum check-update > /dev/null 2>&1 || exit 1
   sudo yum -y install curl git vim python-devel python-setuptools python-pip easy_install libxml2 libxml2-dev libfreetype6-dev libpng-dev libxslt libxslt-devel gcc libffi-devel openssl-devel >> install.log || exit 1
