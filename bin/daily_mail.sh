@@ -13,11 +13,12 @@
 
 cd "$(dirname $0)"/..
 BOTPATH=$(pwd)
-DEFAULT_EMAIL="example@example.com"
+CONFIGFILE=$BOTPATH/gazouilleur/config.py
+DEFAULT_EMAIL=$(grep DEFAULT_EMAIL $CONFIGFILE | cut -d "'" -f 2)
 
 CHAN="#"$1
 if [ "$CHAN" == "#" ]; then
-  CHAN="#"$(grep "['\"]\s*:\s*{\s*$" $BOTPATH/gazouilleur/config.py | head -n 1 | sed "s/^\s*['\"]\([^'\"]\+\)['\"].*$/\1/")
+  CHAN="#"$(grep "['\"]\s*:\s*{\s*$" $CONFIGFILE | head -n 1 | sed "s/^\s*['\"]\([^'\"]\+\)['\"].*$/\1/")
 fi
 
 DATE=$2
@@ -35,7 +36,7 @@ if [ ! -z "$4" ]; then
   DEBUG=true
 fi
 
-BOT=$(grep ^BOTNAME $BOTPATH/gazouilleur/config.py | sed "s/^.*['\"]\([^'\"]\+\)['\"].*$/\1/")
+BOT=$(grep ^BOTNAME $CONFIGFILE | sed "s/^.*['\"]\([^'\"]\+\)['\"].*$/\1/")
 
 LOGPATH=$BOTPATH/log/${BOT}_${CHAN}.log
 TMPPATH="/tmp/${BOT}-$CHAN.tmp"
