@@ -77,6 +77,6 @@ class NamesIRCClient(IRCClient):
         for line in split_no_urlbreak(message, length - minimumLength):
             self.sendLine(fmt + line, target.lower())
 
-def split_no_urlbreak(str, length=80):
-    return [chunk for line in str.split('\n') for chunk in wrap(line, length, break_on_hyphens=False)]
+def split_no_urlbreak(s, length=80):
+    return [chunk.encode('utf-8') for line in s.decode('utf-8').split('\n') for chunk in wrap(line, length, break_on_hyphens=False)]
 
