@@ -131,7 +131,7 @@ class Microblog(object):
                 if config.DEBUG:
                     loggerr(e, action=self.site)
                 return exception
-        args = {'status': text}
+        args = {'status': text.replace('\\n', '\n')}
         if tweet_id:
             args['in_reply_to_status_id'] = str(tweet_id)
         if img:
