@@ -225,7 +225,7 @@ class Microblog(object):
     def search_users(self, query, count=3):
         query = urlquote(cleanblanks(query).strip('@').lower().replace(' ', '+'), '')
         users = self._send_query(self.conn.users.search, {'q': query, 'count': count, 'include_entities': 'false'}, return_result=True)
-        if "ERROR 429" in users or "ERROR 404" in users:
+        if isinstance(users, str):
             return []
         return [u['screen_name'] for u in users]
 
