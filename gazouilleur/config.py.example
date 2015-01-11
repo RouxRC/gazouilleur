@@ -12,7 +12,6 @@ PORT = 6667
 SSL = False         # Set to True for IRC servers accepting SSL mode
 BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
-DEFAULT_EMAIL='example@example.org'
 
 # 2) Configure access to your MongoDB
 # Except for specific mongo config, this should not be modified
@@ -141,3 +140,5 @@ CHANNELS = {
 DEBUG = False
 # ADMINS will get in private messages info about errors
 ADMINS = GLOBAL_USERS
+# DEFAULT_EMAIL to which optionally send a channel's logs using `bin/daily_mail.sh`
+#DEFAULT_EMAIL='example@example.org'

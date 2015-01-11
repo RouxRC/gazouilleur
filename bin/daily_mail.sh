@@ -14,7 +14,7 @@
 cd "$(dirname $0)"/..
 BOTPATH=$(pwd)
 CONFIGFILE=$BOTPATH/gazouilleur/config.py
-DEFAULT_EMAIL=$(grep DEFAULT_EMAIL $CONFIGFILE | cut -d "'" -f 2)
+DEFAULT_EMAIL=$(grep 'DEFAULT_EMAIL=' $CONFIGFILE | tail -n 1 | sed "s/^.*=['\"]\([^'\"]\+\)['\"].*$/\1/")
 
 CHAN="#"$1
 if [ "$CHAN" == "#" ]; then
@@ -28,6 +28,10 @@ fi
 
 EMAILDEST=$3
 if [ -z "$EMAILDEST" ]; then
+  if [ -z "$DEFAULT_EMAIL" ]; then
+    echo "Please provide an email in argument or set DEFAULT_EMAIL into gazouilleur/config.py"
+    exit 1
+  fi
   EMAILDEST=$DEFAULT_EMAIL
 fi
 
