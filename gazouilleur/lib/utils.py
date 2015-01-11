@@ -90,7 +90,7 @@ def _shorten_url(text, twitter_url_length):
         text = text.replace(res[0], '%shttp%s___t_co_%s%s' % (res[1], res[3], tco_extra, res[4]))
     return text
 
-re_clean_twitter_command = re.compile(r'^\s*((%s(count|identica|(twitt?|answ)(er|only|last|pic)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
+re_clean_twitter_command = re.compile(r'^\s*(%srunlater[\s\d]+)?((%s(count|identica|(twitt?|answ)(er|only|last|pic)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
 def countchars(text, twitter_url_length):
     return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', text.decode('utf-8').strip().replace('\\n', ' ')).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', '').replace(' img:http', ' http'))
 
