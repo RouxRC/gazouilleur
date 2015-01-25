@@ -668,7 +668,7 @@ class IRCBot(NamesIRCClient):
         return text, False
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
-    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er|only|pic)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
+    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
@@ -687,8 +687,8 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
-            if 'img' in kwargs and kwargs['img']:
-                kwargs['length'] += self.twitter["url_length"]
+            if 'imgs' in kwargs and kwargs['imgs']:
+                kwargs['length'] += (self.twitter["url_length"]+1) * len(kwargs['imgs'])
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
@@ -705,15 +705,15 @@ class IRCBot(NamesIRCClient):
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
     re_answer = re.compile('^(%sanswer|\d{14})' % COMMAND_CHAR_REG)
-    re_img = re.compile(r'^(.*)\s*img:(https?://\S+)\s*(.*)$', re.I)
-    def command_twitteronly(self, text, channel=None, nick=None, img=None):
+    @inlineCallbacks
+    def command_twitteronly(self, text, channel=None, nick=None):
         """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm... Didn't you mean %s%s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt", "pic" if img else ""))
-        im = self.re_img.match(text.strip())
-        if im:
-            return self.command_twitpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
-        return threads.deferToThread(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, img=img)
+            returnD("Mmmm... Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
+        res = yield self._process_twitpics(text, channel)
+        if isinstance(res, str):
+            returnD(res)
+        returnD(self._send_via_protocol('twitter', 'microblog', channel, nick, text=res[0], imgs=res[1]))
 
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:<url> as with command twitpic./TWITTER"""
@@ -722,21 +722,31 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
-        if chan_has_identica(channel) and not self.re_img.match(text):
-            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
+        if chan_has_identica(channel):
+            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text.replace('img:', '')))
         return DeferredList(dl, consumeErrors=True)
 
-    re_parse_img_url = re.compile(r'^(.*)\s*(https?://\S+)(\s*--(force|nolimit))*\s*$', re.I)
+    re_img = re.compile(r'\s*img:(https?://\S+)\s*', re.I)
     @inlineCallbacks
-    def _dl_and_send_img(self, command, channel, nick, answer=False):
+    def _process_twitpics(self, text, channel=None):
+        img_urls = []
+        while self.re_img.search(text):
+            img_urls.append(self.re_img.search(text).group(1))
+            text = self.re_img.sub(' ', text, 1)
+        imgs = []
+        if img_urls:
+            conf = chanconf(channel)
+            conn = Microblog("twitter", conf, upload=True)
+            res = yield DeferredList([self._dl_and_send_img(url, conn) for url in img_urls], consumeErrors=True)
+            for bl, val in res:
+                if not bl or isinstance(val, str):
+                    returnD("[twitter] %s" % val)
+                imgs.append(val[1])
+        returnD((text, imgs))
+
+    @inlineCallbacks
+    def _dl_and_send_img(self, url, conn):
         imgtype = ""
-        match = self.re_parse_img_url.match(command)
-        if not match:
-            returnD("No url found in your message.")
-        url = match.group(2)
-        text = match.group(1).strip()
-        if match.group(3):
-            text += " %s" % match.group(3).strip()
         data = None
         try:
             data = yield client.getPage(url)
@@ -751,32 +761,19 @@ class IRCBot(NamesIRCClient):
         if ratio > 100:
             del(data)
             returnD("The %s image at %s is too big (%d%s max allowed size)." % (imgtype, url, int(ratio), '%'))
-        run = self.command_twitteronly
-        if answer:
-            run = self.command_answer
-        res = yield run(text, channel, nick, img=data)
+        res = yield conn.send_media(data)
         del(data)
-        if isinstance(res, list):
-            _, res = res[0]
         if type(res) is str and ("creation failed" in res or "Broken pipe" in res):
-            returnD("[twitter] Can't send %s image from %s, maybe it's too big?" % (imgtype, url))
-        returnD(res.replace("success!", "success sending tweet with %s image attached!" % imgtype))
+            returnD("Can't send %s image from %s, maybe it's too big?" % (imgtype, url))
+        returnD((url, res['media_id_string']))
 
     @inlineCallbacks
-    def command_twitpic(self, rest, channel=None, nick=None, replyto=None):
-        """twitpic <text> <img url> [--nolimit] [--force] : Posts <text> with a tweetpic of the image at <img url> as a status on Twitter (options --nolimit and --force from command twitter apply)./TWITTER"""
-        res = yield self._dl_and_send_img(rest, channel, nick)
-        returnD(res)
-
-    def command_answer(self, rest, channel=None, nick=None, check=True, img=None):
+    def command_answer(self, rest, channel=None, nick=None, check=True):
         """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
-        im = self.re_img.match(rest.strip())
-        if im:
-            return self.command_answerpic("%s %s %s" % (im.groups()[0], im.groups()[2], im.groups()[1]), channel, nick)
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
-            return "Please input a correct tweet_id and message."
+            returnD("Please input a correct tweet_id and message.")
         if check:
             conf = chanconf(channel)
             conn = Microblog('twitter', conf)
@@ -784,20 +781,17 @@ class IRCBot(NamesIRCClient):
             if isinstance(tweet, dict) and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
                 if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
-                    return "Don't forget to include @%s when answering his tweets ;)" % tweet['user']['screen_name']
+                    returnD("Don't forget to include @%s when answering his tweets ;)" % tweet['user']['screen_name'])
             else:
-                return tweet
+                returnD(tweet)
+        res = yield self._process_twitpics(text, channel)
+        if isinstance(res, str):
+            returnD(res)
         dl = []
-        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=text, tweet_id=tweet_id, img=img))
-        if chan_has_identica(channel) and not img:
-            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text))
-        return DeferredList(dl, consumeErrors=True)
-
-    @inlineCallbacks
-    def command_answerpic(self, rest, channel=None, nick=None):
-        """answerpic <tweet_id> <@author text> <img url> [--nolimit] [--force] : Posts <text> with a tweetpic of the image at <img url> as a response to <tweet_id> on Twitter (same rules and options from command answer apply)./TWITTER"""
-        res = yield self._dl_and_send_img(rest, channel, nick, answer=True)
-        returnD(res)
+        dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=res[0], tweet_id=tweet_id, imgs=res[1]))
+        if chan_has_identica(channel):
+            dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text.replace('img:', '')))
+        returnD(DeferredList(dl, consumeErrors=True))
 
     @inlineCallbacks
     def command_answerlast(self, rest, channel=None, nick=None):

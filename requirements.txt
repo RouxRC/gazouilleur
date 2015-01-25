@@ -12,7 +12,7 @@ pymongo>=2.7
 git+https://github.com/fiorix/mongo-async-python-driver
 
 # Twitter
-#twitter>=1.15.1
+#twitter>=1.15.1 Wait until release
 git+https://github.com/sixohsix/twitter
 
 # Identi.ca

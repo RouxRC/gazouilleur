@@ -19,7 +19,7 @@ class Microblog(object):
     twitter_api_limit = 15
     twitter_api_version = "1.1"
 
-    def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False):
+    def __init__(self, site, conf, bearer_token=None, get_token=False, streaming=False, upload=False):
         self.site = site.lower()
         self.conf = conf[site.upper()]
         # Identi.ca service only supported for commands "ping" and "microblog"
@@ -51,6 +51,8 @@ class Microblog(object):
                 args['timeout'] = 10
                 conn = TwitterStream
             else:
+                if upload:
+                    self.domain = "upload.twitter.com"
                 args['format'] = format
                 conn = Twitter
             args['domain'] = self.domain
@@ -78,7 +80,11 @@ class Microblog(object):
                 loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
-            return "[%s] Huge success!" % self.site
+            imgstr = ""
+            if "media_ids" in args:
+                nimg = args["media_ids"].count(",")
+                imgstr = " sending tweet with %s attached" % ("%s images" % (nimg+1) if nimg else "image")
+            return "[%s] Huge success%s!" % (self.site, imgstr)
         except Exception as e:
             exc_str = str(e).lower()
             code, exception = get_error_message(exc_str)
@@ -113,7 +119,10 @@ class Microblog(object):
         res = self._send_query(self.conn.help.configuration, return_result=True)
         return res.get('short_url_length_https', res.get('short_url_length', 22) + 1), res.get('photo_size_limit', 3145728)
 
-    def microblog(self, text="", tweet_id=None, img=None, channel=None, length=0):
+    def send_media(self, imgdata):
+        return self._send_query(self.conn.media.upload, {"media": imgdata}, return_result=True)
+
+    def microblog(self, text="", tweet_id=None, imgs=None, channel=None, length=0):
         if text.startswith("%scount" % COMMAND_CHAR_REG):
             text = text.replace("%scount" % COMMAND_CHAR_REG, "").strip()
         if self.site == "identica":
@@ -134,10 +143,8 @@ class Microblog(object):
         args = {'status': text.replace('\\n', '\n')}
         if tweet_id:
             args['in_reply_to_status_id'] = str(tweet_id)
-        if img:
-            args['media[]'] = img
-            args['status'] = text.decode("utf-8")
-            return self._send_query(self.conn.statuses.update_with_media, args, channel=channel)
+        if imgs:
+            args['media_ids'] = ",".join(imgs)
         return self._send_query(self.conn.statuses.update, args, channel=channel)
 
     def delete(self, tweet_id):
@@ -404,6 +411,8 @@ def format_error_message(code, error=""):
     codestr = " %s" % code if code else ""
     if code in twitter_error_codes:
         error = twitter_error_codes[code]
+    if code == 400 and "media ids" in error:
+        error += " Maybe you sent too many pictures at once?"
     if not error:
         error = "UNDEFINED"
     return code, "ERROR%s: %s." % (codestr, error.rstrip('.'))
