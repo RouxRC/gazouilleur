@@ -791,7 +791,8 @@ class IRCBot(NamesIRCClient):
         dl.append(maybeDeferred(self._send_via_protocol, 'twitter', 'microblog', channel, nick, text=res[0], tweet_id=tweet_id, imgs=res[1]))
         if chan_has_identica(channel):
             dl.append(maybeDeferred(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text.replace('img:', '')))
-        returnD(DeferredList(dl, consumeErrors=True))
+        res = yield DeferredList(dl, consumeErrors=True)
+        returnD(res)
 
     @inlineCallbacks
     def command_answerlast(self, rest, channel=None, nick=None):
