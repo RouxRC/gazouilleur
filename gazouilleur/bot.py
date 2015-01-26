@@ -651,7 +651,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -909,6 +909,21 @@ class IRCBot(NamesIRCClient):
         returnD([(True, ("Are you looking for @%s ?" % " or @".join(names)).encode('utf-8')), (True, infofirst)])
 
     @inlineCallbacks
+    def _format_tweet(self, tweet, light=False):
+        user = tweet['user']
+        name = user['screen_name'].encode('utf-8')
+        text = tweet['text']
+        if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
+            text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
+        text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
+        date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+        source = " - %s" % clean_html(tweet['source']).encode('utf-8')
+        retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
+        if light:
+            returnD("%s: %s — https://twitter.com/%s/statuses/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, retweets.encode('utf-8')))
+        returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+
+    @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
         """show <tweet_id|@twitter_user> : Displays message and info on tweet with id <tweet_id> or on user <@twitter_user>."""
         channel = self.getMasterChan(channel)
@@ -921,17 +936,8 @@ class IRCBot(NamesIRCClient):
             tweet = conn.show_status(tweet_id)
             if not isinstance(tweet, dict):
                 returnD(tweet)
-            user = tweet['user']
-            name = user['screen_name'].encode('utf-8')
-            if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
-                text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
-            else:
-                text = tweet['text']
-            text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
-            date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
-            source = clean_html(tweet['source']).encode('utf-8')
-            retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
-            returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s - %s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+            fmtweet = yield self._format_tweet(tweet)
+            returnD(fmtweet)
         user, _ = conn.lookup_users([rest], return_first_result=True)
         if not user:
             returnD("Please provide a valid tweet_id or twitter_user.")
@@ -940,6 +946,56 @@ class IRCBot(NamesIRCClient):
         url = " - %s" % user['url'] if 'url' in user and user['url'] else ""
         description, self.cache_urls = yield clean_redir_urls(user['description'].replace('\n', ' ') + url, self.cache_urls)
         returnD("@%s (%s): %s (%d tweets, %d followers) — https://twitter.com/%s%s" % (name, user['name'].encode('utf-8'), description.encode('utf-8'), user['statuses_count'], user['followers_count'], name, verified))
+
+    @inlineCallbacks
+    def command_showthread(self, rest, channel=None, nick=None):
+        """showthread <tweet_id> : Displays conversation around tweet with id <tweet_id>."""
+        channel = self.getMasterChan(channel)
+        conf = chanconf(channel)
+        if not get_chan_twitter_user(channel, conf):
+            returnD('Sorry but no Twitter account is set for this channel.')
+        conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
+        tweet_id = safeint(rest, twitter=True)
+        if not tweet_id:
+            returnD("Please provide a valid tweet_id.")
+        todo = [tweet_id]
+        done = []
+        tweets = {}
+        while todo:
+            curid = todo.pop(0)
+            done.append(curid)
+            answers = yield self.db['tweets'].find({'in_reply_to_status_id_str': str(curid)}, fields=['id'])
+            for tw in answers:
+                if tw['id'] not in done + todo:
+                    todo.append(tw['id'])
+            tweet = conn.show_status(curid)
+            if not isinstance(tweet, dict):
+                continue
+            repl = tweet["in_reply_to_status_id_str"]
+            if not repl:
+                root = curid
+            else:
+                repl = int(repl)
+                if repl not in done + todo:
+                    todo.append(repl)
+                if repl not in tweets:
+                    tweets[repl] = {"repls": []}
+                tweets[repl]["repls"].append(curid)
+            if not curid in tweets:
+                tweets[curid] = {"repls": []}
+            tweets[curid]["text"] = yield self._format_tweet(tweet, light=True)
+        if not tweets:
+            returnD("[twitter] ERROR 404: Cannot find that tweet.")
+        returnD("\n".join(self.convtree(tweets, root)))
+
+    def convtree(self, tree, root):
+        if "text" not in tree[root]:
+            return []
+        conv = [tree[root]['text']]
+        tree[root]['repls'].sort()
+        for repl in tree[root]['repls']:
+            conv += ["-> %s" % t for t in self.convtree(tree, repl)]
+        return conv
 
     def command_stats(self, rest, channel=None, nick=None):
         """stats : Prints stats on the Twitter account set for the channel./TWITTER"""
