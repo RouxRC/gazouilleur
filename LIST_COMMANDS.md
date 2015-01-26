@@ -81,22 +81,22 @@
 
   + `twitteronly <text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > Posts &lt;text&gt; as a status on Twitter (see twitter command's help for other options).
      > > restricted to /IDENTICA
 
   + `twitter <text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:&lt;url&gt; as with command twitpic.
+     > Posts &lt;text&gt; as a status on Identi.ca and on Twitter. Include up to 4 images with img:&lt;url&gt; for the cost of a single link. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter.
      > > restricted to /TWITTER
 
   + `answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter).
+     > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must include the @author of the tweet answered to except when answering myself (see twitter command's help for other options).
      > > restricted to /TWITTER
 
-  + `answerlast <text> [--nolimit] [--force]`
+  + `answerlast <text> [--nolimit] [--force] [img:<url>]`
 
-     > Send &lt;text&gt; as a tweet in answer to the last tweet sent to Twitter from the channel.
+     > Send &lt;text&gt; as a tweet in answer to the last tweet sent to Twitter from the channel (see twitter command's help for other options).
      > > restricted to /TWITTER
 
   + `rt <tweet_id>`
@@ -213,7 +213,7 @@
      > Pings all ops and admins on the chan by saying &lt;text&gt; except for users set with noping.
      > > restricted to /AUTH
 
-  + `noping <user1> [<user2> [<userN>...]] [--stop] [--list]`
+  + `noping <user1> [<user2> [<userN>…]] [--stop] [--list]`
 
      > Deactivates pings from ping command for &lt;users 1 to N&gt; listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users.
 

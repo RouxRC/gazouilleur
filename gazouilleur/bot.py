@@ -425,7 +425,7 @@ class IRCBot(NamesIRCClient):
             loggerr(failure, target)
         if not nick and not admins:
             return
-        msg = "Woooups, something is wrong..."
+        msg = "Woooups, something is wrong…"
         adminmsg = "%s \n%s" % (msg, failure.getErrorMessage())
         if config.DEBUG:
             msg = adminmsg
@@ -707,18 +707,18 @@ class IRCBot(NamesIRCClient):
     re_answer = re.compile('^(%sanswer|\d{14})' % COMMAND_CHAR_REG)
     @inlineCallbacks
     def command_twitteronly(self, text, channel=None, nick=None):
-        """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER/IDENTICA"""
+        """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (see twitter command's help for other options)./TWITTER/IDENTICA"""
         if self.re_answer.match(text.strip()):
-            returnD("Mmmm... Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
+            returnD("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
         res = yield self._process_twitpics(text, channel)
         if isinstance(res, str):
             returnD(res)
         returnD(self._send_via_protocol('twitter', 'microblog', channel, nick, text=res[0], imgs=res[1]))
 
     def command_twitter(self, text, channel=None, nick=None):
-        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter). Add an image with img:<url> as with command twitpic./TWITTER"""
+        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter. Include up to 4 images with img:<url> for the cost of a single link. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter./TWITTER"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm... Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
+            return("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
@@ -769,7 +769,7 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_answer(self, rest, channel=None, nick=None, check=True):
-        """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself. (--nolimit overrides the minimum 30 characters rule / --force overrides the restriction to mentions users I couldn't find on Twitter)./TWITTER"""
+        """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
@@ -795,7 +795,7 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_answerlast(self, rest, channel=None, nick=None):
-        """answerlast <text> [--nolimit] [--force] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel./TWITTER"""
+        """answerlast <text> [--nolimit] [--force] [img:<url>] : Send <text> as a tweet in answer to the last tweet sent to Twitter from the channel (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
         lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
@@ -1217,7 +1217,7 @@ class IRCBot(NamesIRCClient):
     split_list_users = lambda _, l: [x.lower() for x in l.split(" ")]
     @inlineCallbacks
     def command_noping(self, rest, channel=None, nick=None):
-        """noping <user1> [<user2> [<userN>...]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
+        """noping <user1> [<user2> [<userN>…]] [--stop] [--list] : Deactivates pings from ping command for <users 1 to N> listed. With --stop, reactivates pings for those users. With --list just gives the list of deactivated users."""
         channel = self.getMasterChan(channel)
         if not rest:
             rest = nick
@@ -1452,7 +1452,7 @@ class IRCBot(NamesIRCClient):
     def command_restart(self, rest, channel=None, nick=None):
         """restart : Tries to reboot me./ADMIN"""
         target = self._get_target(channel, nick)
-        self._send_message("Trying to reboot...", target, nick)
+        self._send_message("Trying to reboot…", target, nick)
         try:
             import subprocess
             reactor.callLater(1, self.quit, "admin reboot from chan by %s" % nick)
