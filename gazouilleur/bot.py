@@ -688,7 +688,7 @@ class IRCBot(NamesIRCClient):
             except:
                 kwargs['length'] = 100
             if 'imgs' in kwargs and kwargs['imgs']:
-                kwargs['length'] += (self.twitter["url_length"]+1) * len(kwargs['imgs'])
+                kwargs['length'] += self.twitter["url_length"]
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
