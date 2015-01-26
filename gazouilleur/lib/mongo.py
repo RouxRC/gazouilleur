@@ -63,6 +63,7 @@ def ensure_indexes(db):
     yield db['news'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
     yield db['dms'].ensure_index(sortasc('id') + sortasc('channel'), background=True)
     yield db['tweets'].ensure_index(sortasc('id'), background=True)
+    yield db['tweets'].ensure_index(sortasc('in_reply_to_status_id_str'), background=True)
     yield db['tweets'].ensure_index(sortasc('channel') + sortdesc('id'), background=True)
     yield db['tweets'].ensure_index(sortasc('channel') + sortasc('id') + sortdesc('timestamp'), background=True)
     yield db['tweets'].ensure_index(sortasc('channel') + sortasc('user') + sortdesc('timestamp'), background=True)
