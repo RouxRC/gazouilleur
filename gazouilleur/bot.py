@@ -562,12 +562,12 @@ class IRCBot(NamesIRCClient):
         returnD("\n".join(['[%s%s] %s — %s' % (shortdate(l['timestamp']), " %s" % l['channel'].encode('utf-8') if allchans else "", l['screenname'].encode('utf-8'), l['message'].encode('utf-8')) for l in matches]))
 
     def command_lastfrom(self, rest, channel=None, nick=None):
-        """lastfrom <nick> [<N>] : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
+        """lastfrom [<N>] <nick> : Alias for "last --from", prints the last or <N> (max 5) last message(s) from user <nick> (options from "last" except --from can apply)."""
         nb, fromnick = self._extract_digit(rest)
         return self.command_last("%s --from %s" % (nb, fromnick), channel, nick)
 
     def command_lastwith(self, rest, channel=None, nick=None):
-        """lastwith <text> [<N>] : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <text> (options from "last" can apply)."""
+        """lastwith [<N>] <text> : Alias for "last --with", prints the last or <N> (max 5) last message(s) matching <text> (options from "last" can apply)."""
         nb, word = self._extract_digit(rest)
         return self.command_last("%s --with %s" % (nb, word), channel, nick)
 

@@ -29,11 +29,11 @@
 
      > Prints the last or &lt;N&gt; (max 5) last message(s) from current or main channel if &lt;chan&gt; is not given, optionally starting back &lt;nb&gt; results earlier and filtered by user &lt;nick&gt; and by &lt;text&gt;. --nofilter includes tweets that were not displayed because of filters, --filtered searches only through these.
 
-  + `lastfrom <nick> [<N>]`
+  + `lastfrom [<N>] <nick>`
 
      > Alias for "last --from", prints the last or &lt;N&gt; (max 5) last message(s) from user &lt;nick&gt; (options from "last" except --from can apply).
 
-  + `lastwith <text> [<N>]`
+  + `lastwith [<N>] <text>`
 
      > Alias for "last --with", prints the last or &lt;N&gt; (max 5) last message(s) matching &lt;text&gt; (options from "last" can apply).
 
