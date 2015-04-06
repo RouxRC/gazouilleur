@@ -179,8 +179,11 @@ class FeederProtocol(object):
                 yield self.fact.db['news'].insert(new, safe=True)
             except Exception as e:
                 self._handle_error(e, "recording news batch", url)
-            self.fact.ircclient._send_message([(True, "[%s] %s — %s" % (n['sourcename'].encode('utf-8'), n['message'].encode('utf-8'), n['link'].encode('utf-8'))) for n in new], self.fact.channel)
+            self.fact.ircclient._send_message([(True, "[%s] %s" % (n['sourcename'].encode('utf-8'), self.format_tweet(n))) for n in new], self.fact.channel)
         returnD(True)
+
+    re_cleantwitpicurl = re.compile(r'( https?://twitter\.com/\S+/statuse?s?/\d+/photo/1) — https?://twitter\.com/\S+/statuse?s?/\d+$')
+    format_tweet = lambda self, t: self.re_cleantwitpicurl.sub(r' —\1', "%s — %s" % (t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
@@ -261,7 +264,7 @@ class FeederProtocol(object):
             self.log("Displaying %s tweets%s" % (len(good), nb_rts_str), hint=True)
         if self.fact.status != "closed":
             for t in good:
-                msg = "%s: %s — %s" % (t['screenname'].encode('utf-8'), t['message'].encode('utf-8'), t['link'].encode('utf-8'))
+                msg = "%s: %s" % (t['screenname'].encode('utf-8'), self.format_tweet(t))
                 self.fact.ircclient._send_message(msg, self.fact.channel)
         for t in news:
             yield self.fact.db['tweets'].save(t, safe=True)
