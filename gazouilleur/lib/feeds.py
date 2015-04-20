@@ -182,7 +182,7 @@ class FeederProtocol(object):
             self.fact.ircclient._send_message([(True, "[%s] %s" % (n['sourcename'].encode('utf-8'), self.format_tweet(n))) for n in new], self.fact.channel)
         returnD(True)
 
-    re_cleantwitpicurl = re.compile(r'( https?://twitter\.com/\S+/statuse?s?/\d+/photo/1) — https?://twitter\.com/\S+/statuse?s?/\d+$')
+    re_cleantwitpicurl = re.compile(r'(( https?://twitter\.com/\S+/statuse?s?/\d+)/(photo|video)/1) —\2$')
     format_tweet = lambda self, t: self.re_cleantwitpicurl.sub(r' —\1', "%s — %s" % (t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
     @inlineCallbacks
