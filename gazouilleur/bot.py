@@ -337,7 +337,7 @@ class IRCBot(NamesIRCClient):
 
     # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff mode is on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
-    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuses/[0-9]*$', re.I)
+    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuse?s?/[0-9]*$', re.I)
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
             line = self._queue[chan].pop(0)
@@ -658,7 +658,7 @@ class IRCBot(NamesIRCClient):
         """lasttweet [<N>] [<options>] : Prints the last or <N> last tweets sent with the channel's account (options from "last" except --from can apply)./TWITTER"""
         chan = self.getMasterChan(channel)
         twuser = get_chan_twitter_user(chan)
-        return self.command_lastwith("\"^%s: .*%s%s/statuses/\" --from %s %s" % (twuser, self.str_re_tweets, twuser, options, self.nickname), channel, nick)
+        return self.command_lastwith("\"^%s: .*%s%s/statuse?s?/\" --from %s %s" % (twuser, self.str_re_tweets, twuser, options, self.nickname), channel, nick)
 
     re_force = re.compile(r'\s*--force\s*')
     re_nolimit = re.compile(r'\s*--nolimit\s*')
@@ -921,8 +921,8 @@ class IRCBot(NamesIRCClient):
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
         retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
         if light:
-            returnD("%s: %s — https://twitter.com/%s/statuses/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, retweets.encode('utf-8')))
-        returnD("%s (%d followers): %s — https://twitter.com/%s/statuses/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+            returnD("%s: %s — https://twitter.com/%s/status/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, retweets.encode('utf-8')))
+        returnD("%s (%d followers): %s — https://twitter.com/%s/status/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
 
     @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
@@ -1137,7 +1137,7 @@ class IRCBot(NamesIRCClient):
             name = first['screenname'].encode('utf-8')
             date = first['timestamp'].strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
             plural = "s" if n_tot > 1 else ""
-            res = [(True, "%d tweet%s seen matching « %s »%s since the first one seen on %s:" % (n_tot, plural, query, n_rts, date)), (True, "%s: %s — https://twitter.com/%s/statuses/%d" % (name, first['message'].encode('utf-8'), name, first['id']))]
+            res = [(True, "%d tweet%s seen matching « %s »%s since the first one seen on %s:" % (n_tot, plural, query, n_rts, date)), (True, "%s: %s — https://twitter.com/%s/status/%d" % (name, first['message'].encode('utf-8'), name, first['id']))]
         returnD(res)
 
 
