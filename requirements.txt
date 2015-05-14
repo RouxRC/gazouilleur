@@ -14,7 +14,7 @@ txmongo>=0.6
 twitter>=1.17
 
 # Identi.ca
-pypump>=0.5.0
+pypump==0.5.0
 
 # Colifrapy: Hey @Yomguithereal, told you I was gonna use it sometime! :)
 colifrapy==0.4.0
