@@ -704,7 +704,9 @@ class IRCBot(NamesIRCClient):
         """identica <text> [--nolimit] : Posts <text> as a status on Identi.ca (--nolimit overrides the minimum 30 characters rule)./IDENTICA"""
         return threads.deferToThread(self._send_via_protocol, 'identica', 'microblog', channel, nick, text=text)
 
-    re_answer = re.compile('^(%sanswer|\d{14})' % COMMAND_CHAR_REG)
+    tweet_url = r"https?://\S*twitter.com/[^/]+/statuse?s?/(\d+)(?:/\S*)?\s+"
+    re_twitter_url = re.compile(r"^%s" % tweet_url)
+    re_answer = re.compile('^(%sanswer|\d{14}|%s)' % (COMMAND_CHAR_REG, tweet_url))
     @inlineCallbacks
     def command_twitteronly(self, text, channel=None, nick=None):
         """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (see twitter command's help for other options)./TWITTER/IDENTICA"""
@@ -771,6 +773,7 @@ class IRCBot(NamesIRCClient):
     def command_answer(self, rest, channel=None, nick=None, check=True):
         """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
+        rest = self.re_twitter_url.sub(r'\1 ', rest)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
             returnD("Please input a correct tweet_id and message.")
