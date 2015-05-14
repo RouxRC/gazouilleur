@@ -94,7 +94,7 @@ for chan, conf in config.CHANNELS.iteritems():
 
 # Check MongoDB
 try:
-    db = pymongo.Connection(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
+    db = pymongo.MongoClient(config.MONGODB['HOST'], config.MONGODB['PORT'])[config.MONGODB['DATABASE']]
     assert(db.authenticate(config.MONGODB['USER'], config.MONGODB['PSWD']))
 except (pymongo.errors.AutoReconnect, pymongo.errors.ConnectionFailure) as e:
     logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo service mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s; sudo service mongodb start`\n" % (e, config.BOTNAME))

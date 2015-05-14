@@ -1,19 +1,17 @@
 lxml
 feedparser
 service_identity
-pyOpenSSL
+pyOpenSSL>=0.15.1
 six>=1.7.3
-twisted>=12.1.0
+twisted>=15.1.0
 virtualenvwrapper
 
 # Mongo
 pymongo>=2.7
-# txmongo>=0.4.3 Wait until 0.4.3 published on pypi
-git+https://github.com/fiorix/mongo-async-python-driver
+txmongo>=0.6
 
 # Twitter
-#twitter>=1.15.1 Wait until release
-git+https://github.com/sixohsix/twitter
+twitter>=1.17
 
 # Identi.ca
 pypump>=0.5.0

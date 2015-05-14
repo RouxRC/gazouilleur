@@ -7,7 +7,7 @@ from socket import setdefaulttimeout
 from json import loads as load_json
 from datetime import datetime
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twitter import Twitter, TwitterStream, OAuth, OAuth2
+from twitter import Twitter, TwitterStream, TwitterHTTPError, OAuth, OAuth2
 from pypump import PyPump, Client
 from gazouilleur import config
 from gazouilleur.lib.mongo import sortdesc, save_lasttweet_id, find_stats, db_foll_coll
@@ -86,8 +86,7 @@ class Microblog(object):
                 imgstr = " sending tweet with %s attached" % ("%s images" % (nimg+1) if nimg else "image")
             return "[%s] Huge success%s!" % (self.site, imgstr)
         except Exception as e:
-            exc_str = str(e).lower()
-            code, exception = get_error_message(exc_str)
+            code, exception = get_error_message(e)
             if code in [32, 183, 187, 400, 403, 404, 429, 500, 503]:
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
@@ -368,8 +367,9 @@ def grab_extra_meta(source, result):
 
 re_clean_identica_error = re.compile(r" \(POST {.*$")
 
-re_twitter_error = re.compile(r'.* status (\d+).*({"errors":.*)$', re.I|re.S)
-def get_error_message(error):
+re_twitter_error = re.compile(r' status (\d+) for', re.I)
+def get_error_message(e):
+    error = str(e).lower()
     if "[errno 32] broken pipe" in error:
         return format_error_message(32)
     if "[errno 111] connection refused" in error or " operation timed out" in error or "reset by peer" in error:
@@ -379,20 +379,15 @@ def get_error_message(error):
     if code != 500 and str(code).startswith('5') and '"code":' not in error:
         return format_error_message(503)
     message = ""
-    try:
-        jsonerr = load_json(res.group(2))["errors"]
-        if isinstance(jsonerr, list):
-            jsonerr = jsonerr[0]
-        if isinstance(jsonerr, unicode):
-            jsonerr = {"message": jsonerr}
-        message = jsonerr["message"][0].upper() + jsonerr["message"][1:] if jsonerr["message"] else ""
-        if "code" in jsonerr and jsonerr["code"] in [183,187]:
-            code = jsonerr["code"]
+    if type(e) == TwitterHTTPError and e.response_data:
+        err = e.response_data["errors"][0]
+        if err["code"] in [183, 187]:
+            code = err["code"]
         elif code == 403 and "statuses/retweet" in error:
             code = 187
-    except:
-        if config.DEBUG:
-            loggerr("%s: %s" % (code, error))
+        message = err["message"][0].upper() + err["message"][1:] if err["message"] else ""
+    elif config.DEBUG:
+        loggerr("%s: %s" % (code, error))
     if code == 404 and "direct_messages/new" in error or "friendships" in error:
         code = 403
         message = "No twitter account found with this name"
