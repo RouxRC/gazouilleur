@@ -88,7 +88,7 @@ CHANNELS = {
       'ALLOW_ALL': False    # (optional) Set to True to allow any user on the channel to post tweets with the account
     },                      # If set to False or omitted, only GLOBAL_USERS and the USERS set for the chnnel will.
     'DISPLAY_RT': False,    # Set to True to display also all RTs for search queries set on the channel
-    'WELCOME': "Hey dude, you're new on this chan right? Welcome!"     # (optional) Set to a string you wish the bot to tell every new user getting on the channel
+    'WELCOME': "Hey dude, you're new on this chan right?\nWelcome!"     # (optional) Set to a string you wish the bot to tell every new user getting on the channel. Use \n to split in multiple lines
   },
   'gazouilleur-test': {     # Add more IRC channels
     'DISCREET': True,

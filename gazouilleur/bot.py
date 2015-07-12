@@ -247,7 +247,10 @@ class IRCBot(NamesIRCClient):
         conf = chanconf(lowchan)
         if "WELCOME" in conf and conf["WELCOME"] and self.users[lowchan] and lowuser not in self.users[lowchan]:
             self.users[lowchan].add(lowuser)
-            self._send_message(conf["WELCOME"], channel, user)
+            msgs = conf["WELCOME"].split("\n")
+            self._send_message(msgs.pop(0), channel, user)
+            for m in msgs:
+                self._send_message(m, channel)
         yield self.log("[%s joined]" % user, user, channel)
 
     @inlineCallbacks
