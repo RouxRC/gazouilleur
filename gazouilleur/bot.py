@@ -129,11 +129,11 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def _get_chan_known_users(self, channel):
-        re_chan = re.compile(r'/^#%s$/' % channel, re.I)
-        re_joined = re.compile(r'/^\[.* joined\]$/')
+        re_chan = re.compile(r'^%s$' % channel, re.I)
+        re_joined = re.compile(r'^\[.* joined\]$')
         past_users = yield self.db['logs'].aggregate([{'$match': {'channel': re_chan, 'message': re_joined}}, {'$group': {'_id': '$user'}}])
         cur_users = yield self._names(channel)
-        returnD(set([u['_id'].lower() for u in past_users] + [u.lower() for u in cur_users]))
+        returnD(set([u['_id'].lower() for u in past_users] + [u.lower().lstrip('@') for u in cur_users]))
 
     @inlineCallbacks
     def joined(self, channel):
@@ -151,6 +151,7 @@ class IRCBot(NamesIRCClient):
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
         # Get list of known users on the chan if welcome message activated
+        self.users[lowchan] = set()
         if "WELCOME" in conf and conf["WELCOME"]:
             self.users[lowchan] = yield self._get_chan_known_users(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
