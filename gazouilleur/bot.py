@@ -257,7 +257,7 @@ class IRCBot(NamesIRCClient):
     def userLeft(self, user, channel, reason=None):
         msg = "[%s left" % user
         if reason:
-            msg += " (%s)]" % reason
+            msg += " (%s)" % reason
         msg += "]"
         yield self.log(msg, user, channel)
 
