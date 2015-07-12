@@ -51,6 +51,7 @@ def find_last_followers(user):
 @inlineCallbacks
 def ensure_indexes(db):
     yield db['logs'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
+    yield db['logs'].ensure_index(sortasc('channel') + sortasc('user'), background=True)
     yield db['logs'].ensure_index(sortasc('channel') + sortasc('user') + sortdesc('timestamp'), background=True)
     yield db['tasks'].ensure_index(sortasc('channel') + sortasc('timestamp'), background=True)
     yield db['feeds'].ensure_index(sortasc('database') + sortasc('timestamp'), background=True)

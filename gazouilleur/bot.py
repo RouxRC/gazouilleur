@@ -54,6 +54,7 @@ class IRCBot(NamesIRCClient):
         self.logger =  {}
         self.feeders = {}
         self.colorizer = {"private": chan_color_conf()}
+        self.users = {}
 
     def get_twitter_conf(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -127,6 +128,14 @@ class IRCBot(NamesIRCClient):
         yield self._refresh_tasks_from_db()
 
     @inlineCallbacks
+    def _get_chan_known_users(self, channel):
+        re_chan = re.compile(r'/^#%s$/' % channel, re.I)
+        re_joined = re.compile(r'/^\[.* joined\]$/')
+        past_users = yield self.db['logs'].aggregate([{'$match': {'channel': re_chan, 'message': re_joined}}, {'$group': {'_id': '$user'}}])
+        cur_users = yield self._names(channel)
+        returnD(set([u['_id'].lower() for u in past_users] + [u.lower() for u in cur_users]))
+
+    @inlineCallbacks
     def joined(self, channel):
         NamesIRCClient.joined(self, channel)
         lowchan = channel.lower()
@@ -141,6 +150,9 @@ class IRCBot(NamesIRCClient):
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
         conf = chanconf(channel)
+        # Get list of known users on the chan if welcome message activated
+        if "WELCOME" in conf and conf["WELCOME"]:
+            self.users[lowchan] = yield self._get_chan_known_users(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
         twuser = get_chan_twitter_user(channel, conf)
@@ -230,6 +242,12 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def userJoined(self, user, channel):
+        lowchan = channel.lower()
+        lowuser = user.lower()
+        conf = chanconf(lowchan)
+        if "WELCOME" in conf and conf["WELCOME"] and lowuser not in self.users[lowchan]:
+            self.users[lowchan].add(lowuser)
+            self._send_message(conf["WELCOME"], channel, user)
         yield self.log("[%s joined]" % user, user, channel)
 
     @inlineCallbacks
@@ -258,8 +276,9 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def userRenamed(self, oldnick, newnick):
-        users = yield self._get_user_channels(oldnick)
-        for c in users:
+        chans = yield self._get_user_channels(oldnick)
+        for c in chans:
+            self.users[c.lower()].add(newnick.lower())
             yield self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
 
     def getMasterChan(self, channel):
