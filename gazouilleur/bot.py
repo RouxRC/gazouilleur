@@ -1353,11 +1353,12 @@ class IRCBot(NamesIRCClient):
         now = time.time()
         tasks = yield self.db['tasks'].find({'scheduled_ts': {'$gte': now - 30}, 'channel': {'$in': self.factory.channels}}, filter=sortasc('scheduled_ts'))
         for task in filter(lambda x: "canceled" not in x, tasks):
-            for x in filter(lambda x: isinstance(task[x], unicode), task):
+            for x in filter(lambda y: isinstance(task[y], unicode), task):
                 task[x] = task[x].encode('utf-8')
             task['rank'] = len(self.tasks)
             when = max(11, task['scheduled_ts'] + 60 - now)
             then = shortdate(datetime.fromtimestamp(now + when))
+            yield self.db['tasks'].update({"_id": task['_id']}, {"$set": {"rank": task['rank']}})
             reactor.callLater(10, self._send_message, "Task #%s from %s rescheduled after restart at %s : %s" % (task['rank'], task['author'], then, task['command']), task['channel'])
             if startsWithCommandChar(task['command']):
                 taskid = reactor.callLater(when, self.privmsg, task['author'], task['channel'], task['command'], tasks=task['rank'])
@@ -1392,7 +1393,7 @@ class IRCBot(NamesIRCClient):
             if task['channel'] != channel.lower():
                 returnD("Task #%s is not scheduled for this channel." % task_id)
             task['id'].cancel()
-            yield self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, upsert=True)
+            yield self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, multi=True)
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
         except exceptions.IndexError:
