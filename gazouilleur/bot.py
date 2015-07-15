@@ -1328,7 +1328,7 @@ class IRCBot(NamesIRCClient):
             if not self._can_user_do(nick, channel, func):
                 returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (COMMAND_CHAR_DEF, command)))
             if self.re_clean_twitter_task.match(task):
-                count = countchars(task, self.twitter["url_length"])
+                count = countchars(rest, self.twitter["url_length"])
                 if (count > 140 or count < 30) and "--nolimit" not in task:
                     returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
