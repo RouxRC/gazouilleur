@@ -246,7 +246,7 @@ class IRCBot(NamesIRCClient):
         lowchan = channel.lower()
         lowuser = user.lower()
         conf = chanconf(lowchan)
-        if "WELCOME" in conf and conf["WELCOME"] and self.users[lowchan] and lowuser not in self.users[lowchan]:
+        if conf and "WELCOME" in conf and conf["WELCOME"] and self.users[lowchan] and lowuser not in self.users[lowchan]:
             self.users[lowchan].add(lowuser)
             msgs = conf["WELCOME"].split("\n")
             self._send_message(msgs.pop(0), channel, user)
