@@ -193,7 +193,7 @@ class Microblog(object):
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
 
     def get_dms(self, **kwargs):
-        return self._send_query(self.conn.direct_messages, return_result=True)
+        return self._send_query(self.conn.direct_messages, {'full_text': True}, return_result=True)
 
     @inlineCallbacks
     def get_stats(self, **kwargs):

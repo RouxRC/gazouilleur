@@ -714,7 +714,7 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] += self.twitter["url_length"]
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
-            if kwargs['length'] > 140 and siteprotocol == "twitter" and not nolimit:
+            if kwargs['length'] > 140 and siteprotocol == "twitter" and command != "directmsg" and not nolimit:
                 return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, kwargs['length'])
             if siteprotocol == "twitter" and command != "directmsg" and not force:
                 bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
