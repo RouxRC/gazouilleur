@@ -1320,6 +1320,8 @@ class IRCBot(NamesIRCClient):
             yield deferredSleep(0.5)
         self.saving_task = True
         rank = len(self.tasks)
+        if "--nolimit" in task:
+            task = self.re_nolimit.sub('', task) + " --nolimit"
         if startsWithCommandChar(task):
             command, _, rest = task.lstrip(COMMAND_CHAR_STR).partition(' ')
             func = self._find_command_function(command)
