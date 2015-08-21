@@ -1,7 +1,7 @@
 #!/bin/bash
 # Send by email digest log of an IRC chan (removes the bot's messages)
 #
-# USAGE: bin/weekly_mail.sh [ <CHAN> [<STARTDATE> [<EMAIL>]]]
+# USAGE: bin/weekly_mail.sh [ <CHAN> [<EMAIL> [<STARTDATE>]]]
 # Set in gazouilleur/config.py which <DEFAULT_EMAIL> will be sent to when not set in option
 # Then set in a crontab:
 # 30 03 * * * bash /home/gazouilleur/gazouilleur2/bin/weekly_mail.sh
@@ -16,18 +16,18 @@ if [ "$CHAN" == "#" ]; then
   CHAN="#"$(grep "['\"]\s*:\s*{\s*$" $CONFIGFILE | head -n 1 | sed "s/^\s*['\"]\([^'\"]\+\)['\"].*$/\1/")
 fi
 
-DATE=$2
-if [ -z "$DATE" ]; then
-  DATE=$(date -d 'last-week' '+%Y-%m-%d')
-fi
-
-EMAILDEST=$3
+EMAILDEST=$2
 if [ -z "$EMAILDEST" ]; then
   if [ -z "$DEFAULT_EMAIL" ]; then
     echo "Please provide an email in argument or set DEFAULT_EMAIL into gazouilleur/config.py"
     exit 1
   fi
   EMAILDEST=$DEFAULT_EMAIL
+fi
+
+DATE=$3
+if [ -z "$DATE" ]; then
+  DATE=$(date -d 'last-week' '+%Y-%m-%d')
 fi
 
 DEBUG=false
