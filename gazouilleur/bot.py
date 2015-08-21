@@ -1345,6 +1345,11 @@ class IRCBot(NamesIRCClient):
         self.tasks.append(task_obj)
         returnD(self._stop_saving_task("Task #%s scheduled at %s : %s" % (rank, then, task)))
 
+    re_tweetlater = re.compile(r'^\s*(\d+\s+)?(.*)$')
+    def command_tweetlater(self, rest, channel=None, nick=None):
+        """tweetlater <minutes> <text> [--nolimit] [--force] [img:<url>] : Alias for runlater twitter (options from "twitter" apply). Use runlater for rt and answer./TWITTER"""
+        return self.command_runlater(self.re_tweetlater.sub(lambda x: (x.group(1) if x.group(1) else "") + "!twitter %s" % x.group(2), rest), channel, nick)
+
     def _stop_saving_task(self, text):
         self.saving_task = False
         self.saved_tasks += 1

@@ -227,6 +227,11 @@
 
      > Schedules &lt;command&gt; in &lt;minutes&gt; for current channel or optional &lt;channel&gt;.
 
+  + `tweetlater <minutes> <text> [--nolimit] [--force] [img:<url>]`
+
+     > Alias for runlater twitter (options from "twitter" apply). Use runlater for rt and answer.
+     > > restricted to /TWITTER
+
   + `tasks [--chan <channel>]`
 
      > Prints the list of coming tasks scheduled for current channel or optional &lt;channel&gt;.
