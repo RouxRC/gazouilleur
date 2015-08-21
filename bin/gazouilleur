@@ -94,6 +94,7 @@ function stop_gazouilleur {
 }
 
 function start_gazouilleur {
+  rm -f web/digest_*.html
   $VERBOSE && echo "Starting Gazouilleur instance $BOTNAME..."
   GAZOU_PID=$(pgrep -f "$COMMAND")
   if ! test -z "$GAZOU_PID" && ps -p $GAZOU_PID -f | grep "$COMMAND" > /dev/null; then

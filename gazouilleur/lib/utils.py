@@ -359,6 +359,11 @@ def is_user_auth(nick, channel, conf=None):
     conf = chanconf(channel, conf)
     return is_user_admin(nick) or nick in config.GLOBAL_USERS or (conf and 'USERS' in conf and nick in conf['USERS'])
 
+try:
+    URL_STATS = config.URL_STATS.strip()
+except:
+    URL_STATS = None
+
 def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     if channel.lower() == config.BOTNAME.lower():
         channel = get_master_chan()
@@ -375,6 +380,8 @@ def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     identica = chan_has_identica(channel, conf)
     twitter = chan_has_twitter(channel, conf)
     tw_rights = chan_allows_twitter_for_all(channel, conf) or auth
+    if "/STATS" in command_doc and not URL_STATS:
+        return False
     if "/IDENTICA" in command_doc:
         if "/TWITTER" in command_doc:
             return identica and twitter and tw_rights

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<?xml version="1.0" encoding="UTF-8"?>
+<html>
+  <head>
+      <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
+      <title>Digest gazouilleur {{channel}}</title>
+      <style>
+body{
+  margin: 10px;
+}
+h1{
+  text-align: center;
+}
+a{
+  color: black;
+}
+a:visited, small, small a, small a:visited{
+  color: grey;
+}
+b a, b a:visited, small a, small a:visited{
+  text-decoration: none;
+}
+#images div{
+  height: 250px;
+  margin: 5px;
+  overflow-y: auto;
+  float: left;
+}
+      </style>
+  </head>
+  <body>
+
+<h1>Digest gazouilleur for {{channel}} from {{t0}} to {{t1}}</h1>
+<h2>RSS news</h2>
+<ul>
+{{#news}}
+  <li><b><a target="_blank" href="{{link}}">{{name}}</a></b>
+    <ul>
+    {{#elements}}
+      <li><a target="_blank" href="{{link}}">{{text}}</a></li>
+    {{/elements}}
+    </ul>
+  </li>
+{{/news}}
+</ul>
+{{^news}}
+  <p>No news from RSS :(</p>
+{{/news}}
+<h2>Links from tweets</h2>
+<ul>
+{{#tweets}}
+  <li>
+    <b>({{count}}) </b>
+    <a target="_blank" href="{{link}}">{{link}}</a>
+    <small>(first seen in: <a target="_blank" href="{{firstlink}}">{{first}}</a></small>
+  </li>
+{{/tweets}}
+</ul>
+{{^tweets}}
+  <p>No new link from tweets :(</p>
+{{/tweets}}
+<h2>Images from tweets</h2>
+<div id="images"></div>
+  </body>
+<script>
+window.twttr = (function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0],
+    t = window.twttr || {};
+  if (d.getElementById(id)) return t;
+  js = d.createElement(s);
+  js.id = id;
+  js.src = "https://platform.twitter.com/widgets.js";
+  fjs.parentNode.insertBefore(js, fjs);
+ 
+  t._e = [];
+  t.ready = function(f) {
+    t._e.push(f);
+  };
+  return t;
+}(document, "script", "twitter-wjs"));
+
+window.onload = function(){
+  var el = document.getElementById('images'),
+    options = {
+      theme: 'light',
+      align: 'left',
+      conversation: 'none',
+      width: 285
+    },
+    count = 0;
+  {{#imgs}}
+    count++;
+    setTimeout(function(){
+      var tel = document.createElement("div");
+      el.appendChild(tel);
+      twttr.widgets.createTweet("{{id}}", tel, options);
+    }, count * 300);
+  {{/imgs}}
+};
+</script>
+</html>

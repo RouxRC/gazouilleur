@@ -4,25 +4,26 @@
 import os, time
 from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
-from datetime import datetime
+from datetime import datetime, timedelta
 from gazouilleur import config
-from gazouilleur.lib.mongo import find_stats, count_followers, find_last_followers, sortasc, sortdesc
+from gazouilleur.lib.mongo import SingleMongo, find_stats, count_followers, find_last_followers, sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
 from gazouilleur.lib.utils import *
 
 class Stats(object):
 
     def __init__(self, user):
-        self.now = timestamp_hour(datetime.today())
         self.user = user
         try:
             self.url = '%s/' % config.URL_STATS.rstrip('/')
         except:
             self.url = None
+        self.templates = os.path.join("web", "templates")
 
     @inlineCallbacks
     def print_last(self):
-        since = self.now - timedelta(days=30)
+        now = timestamp_hour(datetime.today())
+        since = now - timedelta(days=30)
         stats = yield find_stats({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
             returnValue()
@@ -36,7 +37,7 @@ class Stats(object):
         order.sort()
         olds = {'tweets': {}, 'followers': {}, 'rts': {}}
         for s in stats:
-            d = self.now - s['timestamp']
+            d = now - s['timestamp']
             delay = d.seconds / 3600 + d.days * 24
             fols = stat['followers'] - s['followers']
             twts = stat['tweets'] - s['tweets']
@@ -126,17 +127,88 @@ class Stats(object):
         except Exception as e:
             loggerr("Could not write images in web/img for %s : %s" % (self.user, e), action="stats")
 
-        self.render_template(os.path.join("web", "templates"), "static_stats.html")
+        data = {'user': self.user, 'url': self.url}
+        self.render_template("static_stats.html", self.user, data)
         returnValue(True)
 
-    def render_template(self, path, filename):
-        data = {'user': self.user, 'url': self.url}
-        outfile = filename.replace('.html', '_%s.html' % self.user)
+    def render_template(self, template, name, data):
+        outfile = template.replace('.html', '_%s.html' % name)
         try:
+            import codecs
             import pystache
             from contextlib import nested
-            with nested(open(os.path.join(path, filename), "r"), open(os.path.join("web", outfile), "w")) as (template, generated):
-                generated.write(pystache.render(template.read(), data))
+            ofile = os.path.join("web", outfile)
+            with nested(open(os.path.join(self.templates, template), "r"), codecs.open(ofile, "w", encoding="utf-8")) as (temp, generated):
+                generated.write(pystache.Renderer(string_encoding='utf8').render(temp.read(), data))
+            os.chmod(ofile, 0o644)
+            return True
         except IOError as e:
-            loggerr("Could not write web/%s from %s/%s : %s" % (outfile, path, filename, e), action="stats")
+            loggerr("Could not write web/%s from %s/%s : %s" % (outfile, self.templates, template, e), action="stats")
+            return False
 
+    @inlineCallbacks
+    def digest(self, hours, channel):
+        now = datetime.today()
+        since = now - timedelta(hours=hours)
+        query = {'channel': channel, 'timestamp': {'$gte': since}}
+        data = {
+            "channel": channel,
+            "t0": clean_date(since),
+            "t1": clean_date(now),
+            "news": [],
+            "imgs": [],
+            "tweets": []
+        }
+
+        news = yield SingleMongo('news', 'find', query, fields=['sourcename', 'source', 'link', 'message'], filter=sortasc('sourcename')+sortasc('timestamp'))
+        lastsource = ""
+        for n in news:
+            source = n["sourcename"]
+            if source != lastsource:
+                lastsource = source
+                data["news"].append({
+                    "name": source,
+                    "link": n["link"],
+                    "elements": []
+                })
+            data["news"][-1]["elements"].append({
+                "text": n["message"],
+                "link": n["link"]
+            })
+        del(news)
+
+        tweets = yield SingleMongo('tweets', 'find', query, fields=['screenname', 'message', 'link'], filter=sortasc('timestamp'))
+        links = {}
+        imgs = {}
+        for t in tweets:
+            for link in URL_REGEX.findall(t["message"]):
+                link = link[2]
+                tid = re_twitmedia.search(link)
+                if tid:
+                    tid = tid.group(1)
+                    if tid not in imgs:
+                        imgs[tid] = 1
+                        data["imgs"].append({"id": tid})
+                    continue
+                if link not in links:
+                    links[link] = {
+                        "link": link,
+                        "first": ("%s: %s" % (t["screenname"], t["message"].replace(link, ""))),
+                        "firstlink": t["link"],
+                        "count": 0
+                    }
+                links[link]["count"] += 1
+
+        del(tweets)
+        data["tweets"] = [links[l] for l in sorted(links.keys())]
+        del(links)
+
+        filename = "%s_%s_%s" % (channel.lstrip("#"), data["t0"].replace(" ", "+"), data["t1"].replace(" ", "+"))
+        if not self.render_template("digest.html", filename, data):
+            returnValue("Wooops could not generate html for %s..." % filename)
+        returnValue("Digest for the last %s hours available at %sdigest_%s.html" % (hours, self.url, filename))
+
+re_twitmedia = re.compile(r'^https?://twitter\.com/\S+/statuse?s?/(\d+)/(photo|video)/\d+$')
+def clean_date(d):
+    d = d.isoformat()
+    return d[:d.find(":", 15)].replace("T", " ")

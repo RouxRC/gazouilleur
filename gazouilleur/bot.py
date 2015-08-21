@@ -676,7 +676,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -1038,7 +1038,7 @@ class IRCBot(NamesIRCClient):
    # ---------------------------------------
    ## (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
    ## Others available to anyone
-   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'
+   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news)|digest)'
 
     @inlineCallbacks
     def _restart_feeds(self, channel):
@@ -1168,7 +1168,6 @@ class IRCBot(NamesIRCClient):
             res = [(True, "%d tweet%s seen matching « %s »%s since the first one seen on %s:" % (n_tot, plural, query, n_rts, date)), (True, "%s: %s — https://twitter.com/%s/status/%d" % (name, first['message'].encode('utf-8'), name, first['id']))]
         returnD(res)
 
-
     def command_lasttweets(self, options, channel=None, nick=None):
         """lasttweets [<N>] [<options>] : Prints the last or <N> last tweets displayed on the chan (options from "last" except --from can apply)."""
         return self.command_lastwith("\"%s\" --from %s %s" % (self.str_re_tweets, options, self.nickname), channel, nick)
@@ -1178,6 +1177,25 @@ class IRCBot(NamesIRCClient):
         """lastnews [<N>] [<options>] : Prints the last or <N> last news displayed on the chan (options from "last" except --from can apply)."""
         return self.command_lastwith("\"%s\" --from %s %s" % (self.str_re_news, options, self.nickname), channel, nick)
 
+    def command_digest(self, hours, channel=None, nick=None):
+        """digest [<H>|week|month] [--chan <channel>]: publishes a webpage with a digest of all unique links seen in news & tweets over the last week, month or <H> hours (defaults to 24) for current channel or optional <channel>./STATS"""
+        try:
+            hours, channel = self._get_chan_from_command(hours, channel)
+        except Exception as e:
+            return(str(e))
+        hours = hours.strip().lower()
+        if not hours or hours in ["d", "day"]:
+            hours = 24
+        elif hours in ["w", "week"]:
+            hours = 24*7
+        elif hours in ["m", "month"]:
+            hours = 24*30
+        hours = safeint(str(hours).strip())
+        if not(hours):
+            return('Please give in either "week", "month" or a number of hours.')
+        twuser = get_chan_twitter_user(channel).lower()
+        stats = Stats(twuser)
+        return stats.digest(hours, channel)
 
    # Ping commands
    # -------------

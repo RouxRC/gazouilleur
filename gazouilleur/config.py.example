@@ -125,8 +125,8 @@ CHANNELS = {
 #SOLITARY = True
 
 
-# 6) Optionally add web statistics of the Twitter accounts
-# URL_STATS is optional to provide a web view on Twitter's stats.
+# 6) Optionally add digest webpages and web statistics of the Twitter accounts
+# URL_STATS is optional to provide a web view on Twitter's stats and activate the !digest command.
 # It requires the installation of a web server (apache, ...) and to install matplotlib
 # Uncomment the line and set your url if you want to use it.
 # This url needs to be routed by a webserver to Gazouilleur's "web" directory.

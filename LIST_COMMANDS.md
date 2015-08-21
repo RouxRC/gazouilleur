@@ -66,7 +66,7 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)+tweet|dm|finduser|stats|(un)?friend|show(thread)?)'`
+ * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)'`
  * **List :**
 
   + `lasttweet [<N>] [<options>]`
@@ -150,7 +150,7 @@
 # Twitter &amp; RSS Feeds monitoring commands
  * (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
  * Others available to anyone
- * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news))'`
+ * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news)|digest)'`
  * **List :**
 
   + `follow <name url|text|@user>`
@@ -192,6 +192,8 @@
   + `lastnews [<N>] [<options>]`
 
      > Prints the last or &lt;N&gt; last news displayed on the chan (options from "last" except --from can apply).
+        """digest [<H>|week|month] [--chan <channel>]: publishes a webpage with a digest of all unique links seen in news &amp; tweets over the last week, month or &lt;H&gt; hours (defaults to 24) for current channel or optional &lt;channel&gt;.
+     > > restricted to /STATS
 
 # Ping commands
  * Available only to GLOBAL_USERS and chan's USERS except for NoPing to anyone
