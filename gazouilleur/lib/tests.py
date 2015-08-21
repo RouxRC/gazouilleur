@@ -100,7 +100,7 @@ except (pymongo.errors.AutoReconnect, pymongo.errors.ConnectionFailure) as e:
     logerr("MongoDB is unreachable, %s \nERROR: Please check `mongo` is installed and restart it with `sudo /etc/init.d/mongodb restart`\nERROR: You may need to repair your database, run `tail -n 30 /var/log/mongodb/mongodb.log` for more details.\nERROR: Classic cleaning would be: `sudo service mongodb stop; sudo rm /var/lib/mongodb/mongod.lock; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair --repairpath /var/lib/mongodb/%s; sudo service mongodb start`\n" % (e, config.BOTNAME))
     exit(1)
 except (AssertionError, pymongo.errors.OperationFailure) as e:
-    logerr("Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically.\n%s\n" % (config.MONGODB['DATABASE'], e))
+    logerr("Cannot connect to database %s in MongoDB.\nERROR: Please check the database and its users are created,\nERROR: or run `bash bin/configureDB.sh` to create or update them automatically (or configureDB-mongo3.sh when using MongoDB v3+).\n%s\n" % (config.MONGODB['DATABASE'], e))
     exit(1)
 
 # Check Identi.ca config

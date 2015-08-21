@@ -23,6 +23,8 @@ from gazouilleur.lib.microblog import Microblog, clean_oauth_error
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 client.HTTPClientFactory.noisy = False
+import urllib3
+urllib3.disable_warnings()
 
 THREADS = 15*len(config.CHANNELS)
 reactor.suggestThreadPoolSize(THREADS)
@@ -48,7 +50,7 @@ class IRCBot(NamesIRCClient):
         self.nickname = config.BOTNAME
         self.username = config.BOTNAME
         self.password = config.BOTPASS
-        self.db = MongoConnection(config.MONGODB['HOST'], config.MONGODB['PORT'], pool_size=THREADS/3)[config.MONGODB['DATABASE']]
+        self.db = MongoConnection(config.MONGODB['HOST'], config.MONGODB['PORT'], pool_size=int(THREADS/3))[config.MONGODB['DATABASE']]
         self.breathe = datetime.today()
         self.get_twitter_conf()
         self.logger =  {}
