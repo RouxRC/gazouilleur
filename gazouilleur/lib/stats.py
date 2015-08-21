@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, time
+import os, re, time
 from json import dump as write_json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime, timedelta
@@ -150,7 +150,7 @@ class Stats(object):
     def digest(self, hours, channel):
         now = datetime.today()
         since = now - timedelta(hours=hours)
-        query = {'channel': channel, 'timestamp': {'$gte': since}}
+        query = {'channel': re.compile(r'^#*%s$' % channel, re.I), 'timestamp': {'$gte': since}}
         data = {
             "channel": channel,
             "t0": clean_date(since),
@@ -182,13 +182,17 @@ class Stats(object):
         imgs = {}
         for t in tweets:
             for link in URL_REGEX.findall(t["message"]):
-                link = link[2]
+                link, _ = clean_url(link[2])
+                if not link.startswith("http"):
+                    continue
                 tid = re_twitmedia.search(link)
                 if tid:
                     tid = tid.group(1)
                     if tid not in imgs:
                         imgs[tid] = 1
                         data["imgs"].append({"id": tid})
+                    continue
+                if re_tweet.match(link):
                     continue
                 if link not in links:
                     links[link] = {
@@ -208,6 +212,7 @@ class Stats(object):
             returnValue("Wooops could not generate html for %s..." % filename)
         returnValue("Digest for the last %s hours available at %sdigest_%s.html" % (hours, self.url, filename))
 
+re_tweet = re.compile(r'https?://twitter\.com/\S+/statuse?s?/\d+$')
 re_twitmedia = re.compile(r'^https?://twitter\.com/\S+/statuse?s?/(\d+)/(photo|video)/\d+$')
 def clean_date(d):
     d = d.isoformat()
