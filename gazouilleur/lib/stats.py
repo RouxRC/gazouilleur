@@ -150,7 +150,8 @@ class Stats(object):
     def digest(self, hours, channel):
         now = datetime.today()
         since = now - timedelta(hours=hours)
-        query = {'channel': re.compile(r'^#*%s$' % channel, re.I), 'timestamp': {'$gte': since}}
+        re_chan = re.compile(r'^#*%s$' % channel.lower(), re.I)
+        query = {'channel': re_chan, 'timestamp': {'$gte': since}}
         data = {
             "channel": channel,
             "t0": clean_date(since),
@@ -180,7 +181,20 @@ class Stats(object):
         tweets = yield SingleMongo('tweets', 'find', query, fields=['screenname', 'message', 'link'], filter=sortasc('timestamp'))
         links = {}
         imgs = {}
+        filters = yield SingleMongo('filters', 'find', {'channel': re_chan}, fields=['keyword'])
+        filters = [keyword['keyword'].lower() for keyword in filters]
         for t in tweets:
+            skip = False
+            tuser_low = t['screenname'].lower()
+            if "@%s" % tuser_low in filters:
+                continue
+            msg_low = t["message"].lower()
+            if not ((self.user and self.user in msg_low) or self.user == tuser_low):
+                for k in filters:
+                    if k in msg_low:
+                        skip = True
+                        break
+            if skip: continue
             for link in URL_REGEX.findall(t["message"]):
                 link, _ = clean_url(link[2])
                 if not link.startswith("http"):
@@ -204,7 +218,7 @@ class Stats(object):
                 links[link]["count"] += 1
 
         del(tweets)
-        data["tweets"] = [links[l] for l in sorted(links.keys())]
+        data["tweets"] = sorted(links.values(), key=lambda x: "%06d-%s" % (10**6-x['count'], x['link']))
         del(links)
 
         filename = "%s_%s_%s" % (channel.lstrip("#"), data["t0"].replace(" ", "+"), data["t1"].replace(" ", "+"))
