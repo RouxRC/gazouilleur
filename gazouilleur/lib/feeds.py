@@ -540,7 +540,7 @@ class FeederProtocol(object):
         except socket.error as e:
             self.log("Stream lost connection with %s: %s" % (type(e), e), error=True)
         except Exception as e:
-            if not str(e).strip():
+            if str(e).strip():
                 self.log("Stream crashed with %s: %s" % (type(e), e), error=True)
             else:
                 self._handle_error(failure.Failure(e), "following", "stream")
