@@ -365,27 +365,29 @@ class IRCBot(NamesIRCClient):
     re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuse?s?/[0-9]*$', re.I)
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
-            line = self._queue[chan].pop(0)
+            line, original = self._queue[chan].pop(0)
             msg = line
             skip = False
             if self.re_extract_chan.match(line) != "default":
                 msg = self.re_extract_chan.sub('', line)
                 try:
                     msg_utf = msg.decode('utf-8')
+                    orig_utf = original.decode('utf-8')
                 except UnicodeDecodeError as e:
                     msg_utf = msg
+                    orig_utf = original
                     loggerr("Encoding error on %s: %s" % (msg, e), chan)
-                msg_low = msg_utf.lower()
+                orig_low = orig_utf.lower()
                 twuser = get_chan_twitter_user(chan).lower()
-                if twuser and twuser in msg_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan]):
+                if twuser and twuser in orig_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan]):
                     pass
-                elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(msg):
+                elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(original):
                     skip = True
                     reason = "fuckoff until %s" % self.silent[chan]
-                elif chan in self.filters and self.re_tweets.search(msg):
+                elif chan in self.filters and self.re_tweets.search(original):
                     for keyword in self.filters[chan]:
                         k = keyword.decode('utf-8')
-                        if (not k.startswith('@') and k in msg_low) or (k.startswith('@') and msg_low.startswith(k[1:]+': ')):
+                        if (not k.startswith('@') and k in orig_low) or (k.startswith('@') and orig_low.startswith(k[1:]+': ')):
                             skip = True
                             reason = "filter on «%s»" % keyword
                             break

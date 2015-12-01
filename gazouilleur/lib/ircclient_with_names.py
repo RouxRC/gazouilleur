@@ -52,17 +52,18 @@ class NamesIRCClient(IRCClient):
         self._queue[lowchan] = []
         self._queueEmptying[lowchan] = None
 
-    def sendLine(self, line, chan="default"):
+    def sendLine(self, line, chan="default", original=""):
         if self.lineRate is None or chan not in self._queue or chan not in self._queueEmptying:
             self._reallySendLine(line)
         else:
-            self._queue[chan].append(line)
+            self._queue[chan].append((line, original))
             if not self._queueEmptying[chan]:
                 self._sendLine(chan)
 
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
-            self._reallySendLine(self._queue[chan].pop(0))
+            line, original = self._queue[chan].pop(0)
+            self._reallySendLine(line)
             self._queueEmptying[chan] = reactor.callLater(self.lineRate, self._sendLine, chan)
         else:
             self._queueEmptying[chan] = None
@@ -75,7 +76,7 @@ class NamesIRCClient(IRCClient):
         if length <= minimumLength:
             raise ValueError("Maximum length must exceed %d for message to %s" % (minimumLength, target))
         for line in split_no_urlbreak(message, length - minimumLength):
-            self.sendLine(fmt + line, target.lower())
+            self.sendLine(fmt + line, target.lower(), original=message)
 
 def split_no_urlbreak(s, length=80):
     return [chunk.encode('utf-8') for line in s.decode('utf-8').split('\n') for chunk in wrap(line, length, break_on_hyphens=False)]

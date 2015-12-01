@@ -197,7 +197,10 @@ def assembleResults(results, limit=300):
     assemble = []
     line = ""
     for result in results:
-        line += " «%s»  | " % str(result.encode('utf-8'))
+        try:
+            line += " «%s»  | " % str(result.encode('utf-8'))
+        except:
+            line += " «%s»  | " % result
         if len(line) > limit:
             assemble.append(formatQuery(line, None))
             line = ""
