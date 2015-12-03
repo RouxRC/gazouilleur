@@ -362,7 +362,7 @@ class IRCBot(NamesIRCClient):
 
     # Hack the endpoint method sending messages to block messages as soon as possible when filter or fuckoff mode is on
     re_extract_chan = re.compile(r'PRIVMSG (#\S+) :')
-    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuse?s?/[0-9]*$', re.I)
+    re_tweets = re.compile(r' — https://twitter.com/[^/\s]*/statuse?s?/[0-9]*(/(photo|video)/1)?$', re.I)
     def _sendLine(self, chan="default"):
         if self._queue[chan]:
             line, original = self._queue[chan].pop(0)
