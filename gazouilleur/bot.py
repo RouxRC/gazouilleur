@@ -8,6 +8,7 @@ import sys, os.path, types, re, exceptions
 import random, time, imghdr
 from datetime import datetime
 import lxml.html
+from OpenSSL import SSL
 from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
 from twisted.web import client
@@ -1526,6 +1527,12 @@ class IRCBotFactory(protocol.ReconnectingClientFactory):
         channels.append("#gazouilleur")
 
 
+class ClientTLSContext(ssl.ClientContextFactory):
+    isClient = 1
+    def getContext(self):
+        return SSL.Context(SSL.TLSv1_METHOD)
+
+
 # Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
     if is_ssl(config):
@@ -1541,7 +1548,7 @@ elif __name__ == '__builtin__':
     filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
     application.setComponent(log.ILogObserver, filelog.emit)
     if is_ssl(config):
-        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
+        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ClientTLSContext())
     else:
         ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
