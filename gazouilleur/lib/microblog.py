@@ -152,6 +152,9 @@ class Microblog(object):
     def retweet(self, tweet_id, channel=None):
         return self._send_query(self.conn.statuses.retweet, {'id': tweet_id}, channel=channel)
 
+    def like(self, tweet_id, channel=None):
+        return self._send_query(self.conn.favorites.create, {'_id': tweet_id, 'include_entities': False}, channel=channel)
+
     def show_status(self, tweet_id):
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
 

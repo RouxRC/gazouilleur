@@ -4,7 +4,7 @@ Gazouilleur is an IRC bot offering Twitter interactions on multiple channels in 
 
  * display one channel's Twitter account's tweets, direct messages, mentions and optionally retweets
  * measure and visualise its statistics
- * send on Twitter messages, answers, retweets or direct messages and duplicates on Identi.ca
+ * send on Twitter messages, answers, retweets, likes or direct messages and duplicates on Identi.ca
  * remove messages from Twitter
  * follow or unfollow on demand the results of any search query on Twitter (through Twitter's search & streaming APIs or via the parsing of IceRocket.com, or alternatively Topsy.com, HTML search results.)
 

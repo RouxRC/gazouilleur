@@ -679,7 +679,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|like|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -855,6 +855,14 @@ class IRCBot(NamesIRCClient):
         if chan_has_identica(channel, conf):
             dl.append(maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
         return DeferredList(dl, consumeErrors=True)
+
+    def command_like(self, tweet_id, channel=None, nick=None):
+        """like <tweet_id> : Likes (ex-favorites) <tweet_id> on Twitter./TWITTER"""
+        channel = self.getMasterChan(channel)
+        tweet_id = safeint(tweet_id, twitter=True)
+        if not tweet_id:
+            return "Please input a correct tweet_id."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'like', channel, nick, tweet_id=tweet_id)
 
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
