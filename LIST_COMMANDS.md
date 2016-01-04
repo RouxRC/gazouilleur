@@ -66,7 +66,7 @@
  * Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
  * Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
  * available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)'`
+ * **Exclude regexp :** `'(identica|twit.*|answer.*|rt|like|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)'`
  * **List :**
 
   + `lasttweet [<N>] [<options>]`
@@ -102,6 +102,11 @@
   + `rt <tweet_id>`
 
      > Retweets &lt;tweet_id&gt; on Twitter and posts a ♻ status on Identi.ca.
+     > > restricted to /TWITTER
+
+  + `like <tweet_id>`
+
+     > Likes (ex-favorites) &lt;tweet_id&gt; on Twitter.
      > > restricted to /TWITTER
 
   + `rmtweet <tweet_id>`

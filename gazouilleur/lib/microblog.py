@@ -87,7 +87,7 @@ class Microblog(object):
             return "[%s] Huge success%s!" % (self.site, imgstr)
         except Exception as e:
             code, exception = get_error_message(e)
-            if code in [32, 183, 187, 400, 403, 404, 429, 500, 503]:
+            if code in [None, 32, 183, 187, 400, 403, 404, 429, 500, 503]:
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
@@ -151,6 +151,9 @@ class Microblog(object):
 
     def retweet(self, tweet_id, channel=None):
         return self._send_query(self.conn.statuses.retweet, {'id': tweet_id}, channel=channel)
+
+    def like(self, tweet_id, channel=None):
+        return self._send_query(self.conn.favorites.create, {'_id': tweet_id, 'include_entities': False}, channel=channel)
 
     def show_status(self, tweet_id):
         return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
@@ -380,6 +383,8 @@ def get_error_message(e):
         return format_error_message(503)
     message = ""
     if type(e) == TwitterHTTPError and e.response_data:
+        if "errors" not in e.response_data:
+            return format_error_message(None, str(e.response_data))
         err = e.response_data["errors"][0]
         if err["code"] in [183, 187]:
             code = err["code"]

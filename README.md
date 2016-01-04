@@ -4,7 +4,7 @@ Gazouilleur is an IRC bot offering Twitter interactions on multiple channels in 
 
  * display one channel's Twitter account's tweets, direct messages, mentions and optionally retweets
  * measure and visualise its statistics
- * send on Twitter messages, answers, retweets or direct messages and duplicates on Identi.ca
+ * send on Twitter messages, answers, retweets, likes or direct messages and duplicates on Identi.ca
  * remove messages from Twitter
  * follow or unfollow on demand the results of any search query on Twitter (through Twitter's search & streaming APIs or via the parsing of IceRocket.com, or alternatively Topsy.com, HTML search results.)
 
@@ -45,6 +45,12 @@ After dependencies are installed, you will need to edit your configuration in `g
 Depending on the desired options, the configuration will require to get Twitter and/or Identi.ca API rights ([see below](#getting-twitter--identica-api-rights-for-a-channel)).
 
 You can also scroll down to the detailed [installation instructions below](#detailed-installation-instructions).
+
+_Note:_ There currently is no packaged version of Gazouilleur, but you can set it up as a system service thanks to Lunar^ by:
+- installing the virtualenv in /opt/gazouilleur/virtualenv
+- installing gazouilleur in /opt/gazouilleur/gazouilleur
+- copy the service file `gazouilleur.service` into `/etc/systemd/system/gazouilleur.service`
+
 
 ## Run Gazouilleur
 

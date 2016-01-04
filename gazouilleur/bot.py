@@ -8,6 +8,7 @@ import sys, os.path, types, re, exceptions
 import random, time, imghdr
 from datetime import datetime
 import lxml.html
+from OpenSSL import SSL
 from twisted.internet import reactor, protocol, threads, ssl, error as twerror
 from twisted.internet.defer import maybeDeferred, DeferredList, inlineCallbacks, returnValue as returnD
 from twisted.web import client
@@ -678,7 +679,7 @@ class IRCBot(NamesIRCClient):
    ## Twitter available when TWITTER's USER, KEY, SECRET, OAUTH_TOKEN and OAUTH_SECRET are provided in gazouilleur/config.py for the chan and FORBID_POST is not given or set to True.
    ## Identi.ca available when IDENTICA's USER is provided in gazouilleur/config.py for the chan.
    ## available to anyone if TWITTER's ALLOW_ALL is set to True, otherwise only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(identica|twit.*|answer.*|rt|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
+   ## Exclude regexp : '(identica|twit.*|answer.*|rt|like|(rm|last)*tweet(later)?|dm|finduser|stats|(un)?friend|show(thread)?)' (setting FORBID_POST to True already does the job)
 
     str_re_tweets = ' — https?://twitter\.com/'
     def command_lasttweet(self, options, channel=None, nick=None):
@@ -855,6 +856,14 @@ class IRCBot(NamesIRCClient):
             dl.append(maybeDeferred(self._rt_on_identica, tweet_id, conf, channel, nick))
         return DeferredList(dl, consumeErrors=True)
 
+    def command_like(self, tweet_id, channel=None, nick=None):
+        """like <tweet_id> : Likes (ex-favorites) <tweet_id> on Twitter./TWITTER"""
+        channel = self.getMasterChan(channel)
+        tweet_id = safeint(tweet_id, twitter=True)
+        if not tweet_id:
+            return "Please input a correct tweet_id."
+        return threads.deferToThread(self._send_via_protocol, 'twitter', 'like', channel, nick, tweet_id=tweet_id)
+
     def command_rmtweet(self, tweet_id, channel=None, nick=None):
         """rmtweet <tweet_id> : Deletes <tweet_id> from Twitter./TWITTER"""
         channel = self.getMasterChan(channel)
@@ -949,10 +958,11 @@ class IRCBot(NamesIRCClient):
         text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
         date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
-        retweets = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
+        extra = " - %s RTs" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
+        extra += u" - %s ♥" % tweet['favorite_count'] if 'favorite_count' in tweet and tweet['favorite_count'] else ""
         if light:
-            returnD("%s: %s — https://twitter.com/%s/status/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, retweets.encode('utf-8')))
-        returnD("%s (%d followers): %s — https://twitter.com/%s/status/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, retweets.encode('utf-8')))
+            returnD("%s: %s — https://twitter.com/%s/status/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, extra.encode('utf-8')))
+        returnD("%s (%d followers): %s — https://twitter.com/%s/status/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, extra.encode('utf-8')))
 
     @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
@@ -1526,6 +1536,12 @@ class IRCBotFactory(protocol.ReconnectingClientFactory):
         channels.append("#gazouilleur")
 
 
+class ClientTLSContext(ssl.ClientContextFactory):
+    isClient = 1
+    def getContext(self):
+        return SSL.Context(SSL.TLSv1_METHOD)
+
+
 # Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
     if is_ssl(config):
@@ -1541,7 +1557,7 @@ elif __name__ == '__builtin__':
     filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
     application.setComponent(log.ILogObserver, filelog.emit)
     if is_ssl(config):
-        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
+        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ClientTLSContext())
     else:
         ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
