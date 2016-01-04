@@ -6,10 +6,10 @@ from traceback import format_exc
 
 # Check dependencies
 try:
-    from colifrapy.tools.colorize import colorize
+    from gazouilleur.lib.colorize import colorize
     colorize('a', style='bold')
 except (ImportError, TypeError) as e:
-    stderr.write("ERROR: Could not load module colifrapy.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n")
+    stderr.write("ERROR: Could not load module colorize.\nERROR: Something obviously wrong here...\n")
     exit(1)
 try:
     import pymongo, txmongo, txmongo.connection, lxml, twisted, twitter, feedparser, pypump, zope.interface, stevedore, urllib3, cffi, cryptography, OpenSSL

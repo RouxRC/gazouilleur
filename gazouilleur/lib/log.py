@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from colifrapy.tools.colorize import colorize
 from twisted.python import log
 from gazouilleur import config
+from .colorize import colorize
 
 COLOR_LOGS = (str(getattr(config, "COLOR_LOGS", "true")).lower() == "true")
 def colr(text, color, bold=True):
