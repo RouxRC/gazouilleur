@@ -46,6 +46,12 @@ Depending on the desired options, the configuration will require to get Twitter 
 
 You can also scroll down to the detailed [installation instructions below](#detailed-installation-instructions).
 
+_Note:_ There currently is no packaged version of Gazouilleur, but you can set it up as a system service thanks to Lunar^ by:
+- installing the virtualenv in /opt/gazouilleur/virtualenv
+- installing gazouilleur in /opt/gazouilleur/gazouilleur
+- copy the service file `gazouilleur.service` into `/etc/systemd/system/gazouilleur.service`
+
+
 ## Run Gazouilleur
 
  * Start, stop or restart the bot:

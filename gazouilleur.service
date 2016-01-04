@@ -1,0 +1,23 @@
+[Unit]
+Description=Twitter-IRC bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gazouilleur
+Environment=PYTHONPATH=/opt/gazouilleur
+ExecStart=/opt/gazouilleur/virtualenv/bin/python /opt/gazouilleur/gazouilleur/bot.py
+
+User=gazouilleur
+Group=gazouilleur
+
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=full
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/opt/gazouilleur/log
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
