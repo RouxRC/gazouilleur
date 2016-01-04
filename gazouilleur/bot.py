@@ -142,7 +142,8 @@ class IRCBot(NamesIRCClient):
     def joined(self, channel):
         NamesIRCClient.joined(self, channel)
         conf = chanconf(channel)
-        conf["oauth2"] = None
+        if conf:
+            conf["oauth2"] = None
         lowchan = channel.lower()
         self.logger[lowchan] = FileLogger(lowchan)
         loggirc("Joined.", channel)
