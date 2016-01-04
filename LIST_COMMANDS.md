@@ -157,10 +157,10 @@
      > Prints stats on the Twitter account set for the channel.
      > > restricted to /TWITTER
 
-# Twitter &amp; RSS Feeds monitoring commands
- * (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
+# Twitter, RSS Feeds &amp; Webpages monitoring commands
+ * (Un)Follow, (Un)Filter and Monitor available only to GLOBAL_USERS and chan's USERS
  * Others available to anyone
- * **Exclude regexp :** `'(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news)|digest)'`
+ * **Exclude regexp :** `'(u?n?f(ollow|ilter)|u?n?monitor|list|newsurl|last(tweet|news)|digest)'`
  * **List :**
 
   + `follow <name url|text|@user>`
@@ -173,6 +173,16 @@
      > Asks me to stop following and displaying elements from a RSS named &lt;name&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
      > > restricted to /AUTH
 
+  + `monitor <name>`
+
+     > Asks me to regularily check and tell if the webpage at &lt;url&gt; and identified as &lt;name&gt; changes.
+     > > restricted to /AUTH
+
+  + `unmonitor <name>`
+
+     > Asks me to stop monitoring changes on the webpage named &lt;name&gt;.
+     > > restricted to /AUTH
+
   + `filter <word|@user>`
 
      > Filters the display of tweets or news containing &lt;word&gt; or sent by user &lt;@user&gt;, except for tweets from or quoting the chan's account.
@@ -183,9 +193,9 @@
      > Removes a tweets display filter for &lt;word&gt; or &lt;@user&gt;.
      > > restricted to /AUTH
 
-  + `list [--chan <channel>] <tweets|news|filters>`
+  + `list [--chan <channel>] <tweets|news|filters|pages>`
 
-     > Displays the list of filters or news or tweets queries followed for current channel or optional &lt;channel&gt;.
+     > Displays the list of filters or pages monitored or news or tweets queries followed for current channel or optional &lt;channel&gt;.
 
   + `newsurl <name>`
 

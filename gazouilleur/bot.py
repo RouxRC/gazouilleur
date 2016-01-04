@@ -1129,11 +1129,11 @@ class IRCBot(NamesIRCClient):
         return stats.print_last()
 
 
-   # Twitter & RSS Feeds monitoring commands
-   # ---------------------------------------
-   ## (Un)Follow and (Un)Filter available only to GLOBAL_USERS and chan's USERS
+   # Twitter, RSS Feeds & Webpages monitoring commands
+   # -------------------------------------------------
+   ## (Un)Follow, (Un)Filter and Monitor available only to GLOBAL_USERS and chan's USERS
    ## Others available to anyone
-   ## Exclude regexp : '(u?n?f(ollow|ilter)|list|newsurl|last(tweet|news)|digest)'
+   ## Exclude regexp : '(u?n?f(ollow|ilter)|u?n?monitor|list|newsurl|last(tweet|news)|digest)'
 
     @inlineCallbacks
     def _restart_feeds(self, channel):
@@ -1148,14 +1148,16 @@ class IRCBot(NamesIRCClient):
 
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     @inlineCallbacks
-    def command_follow(self, query, channel=None, nick=None):
+    def command_follow(self, query, channel=None, nick=None, webpages=False):
         """follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         url = self.re_url.search(query)
         if url and url.group(1):
-            database = 'news'
+            database = 'news' if not webpages else 'pages'
             name = remove_ext_quotes(query.replace(url.group(1), '').strip().lower())
             query = url.group(1)
+        elif webpages:
+            returnD("Please specify a url for the page %s you want to monitor (%shelp monitor for more info)." % (query, COMMAND_CHAR_DEF))
         else:
             database = 'tweets'
             name = 'TWEETS: %s' % query
@@ -1163,25 +1165,25 @@ class IRCBot(NamesIRCClient):
             returnD("Please specify what you want to follow (%shelp follow for more info)." % COMMAND_CHAR_DEF)
         if len(query) > 300:
             returnD("Please limit your follow queries to a maximum of 300 characters")
-        if database == "news" and name == "":
+        if database != "tweets" and name == "":
             returnD("Please provide a name for this url feed.")
         yield self.db['feeds'].update({'database': database, 'channel': channel, 'name': name}, {'database': database, 'channel': channel, 'name': name, 'query': query, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
-        if database == "news":
-            query = "%s <%s>" % (name, query)
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
+        else:
+            query = "%s <%s>" % (name, query)
         returnD('«%s» query added to %s database for %s' % (query, database, channel))
 
     re_clean_query = re.compile(r'([()+|$])')
     regexp_feedquery = lambda self, x: re.compile(r'^%s$' % self.re_clean_query.sub(r'\\\1', x), re.I)
     @inlineCallbacks
-    def command_unfollow(self, query, channel=None, *args):
+    def command_unfollow(self, query, channel=None, nick=None, webpages=False):
         """unfollow <name|text|@user> : Asks me to stop following and displaying elements from a RSS named <name>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         query = query.strip("«»")
-        database = 'news'
+        database = 'news' if not webpages else 'pages'
         res = yield self.db['feeds'].remove({'channel': channel, 'name': self.regexp_feedquery(remove_ext_quotes(query)), 'database': database}, safe=True)
-        if not res or not res['n']:
+        if not ((res and res['n']) or webpages):
             database = 'tweets'
             res = yield self.db['feeds'].remove({'channel': channel, 'query': self.regexp_feedquery(query), 'database': database}, safe=True)
         if not res or not res['n']:
@@ -1189,6 +1191,14 @@ class IRCBot(NamesIRCClient):
         if database == "tweets":
             reactor.callLater(0.5, self._restart_feeds, channel)
         returnD('«%s» query removed from %s database for %s' % (query, database, channel))
+
+    def command_monitor(self, query, channel=None, nick=None):
+        """monitor <name> : Asks me to regularily check and tell if the webpage at <url> and identified as <name> changes./AUTH"""
+        return self.command_follow(query, channel, nick, webpages=True)
+
+    def command_unmonitor(self, query, channel=None, *args):
+        """unmonitor <name> : Asks me to stop monitoring changes on the webpage named <name>./AUTH"""
+        return self.command_unfollow(query, channel, webpages=True)
 
     @inlineCallbacks
     def command_filter(self, keyword, channel=None, nick=None):
@@ -1214,14 +1224,14 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_list(self, database, channel=None, *args):
-        """list [--chan <channel>] <tweets|news|filters> : Displays the list of filters or news or tweets queries followed for current channel or optional <channel>."""
+        """list [--chan <channel>] <tweets|news|filters|pages> : Displays the list of filters or pages monitored or news or tweets queries followed for current channel or optional <channel>."""
         try:
             database, channel = self._get_chan_from_command(database, channel)
         except Exception as e:
             returnD(str(e))
         database = database.strip()
-        if database != "tweets" and database != "news" and database != "filters":
-            returnD('Please enter either «%slist tweets», «%slist news» or «%slist filters».' % (COMMAND_CHAR_DEF, COMMAND_CHAR_DEF, COMMAND_CHAR_DEF))
+        if database not in ["tweets", "news", "filters", "pages"]:
+            returnD('Please enter either «%slist tweets», «%slist news», «%slist pages» or «%slist filters».' % (COMMAND_CHAR_DEF, COMMAND_CHAR_DEF, COMMAND_CHAR_DEF, COMMAND_CHAR_DEF))
         if database == "filters":
             feeds = assembleResults(self.filters[channel.lower()])
         else:

@@ -47,7 +47,6 @@ def find_last_followers(user):
     res = yield SingleMongo(db_foll_coll(user), 'find', {"screen_name": {"$exists": True}, "follows_me": True, "last_update": {"$gte": time.time() - 12*3600}})
     returnD(res)
 
-
 @inlineCallbacks
 def ensure_indexes(db, retry=True):
     try:
@@ -60,6 +59,9 @@ def ensure_indexes(db, retry=True):
         yield db['feeds'].ensure_index(sortasc('channel') + sortasc('database') + sortdesc('timestamp'), background=True)
         yield db['filters'].ensure_index(sortasc('channel'), background=True)
         yield db['filters'].ensure_index(sortasc('channel') + sortasc('keyword') + sortdesc('timestamp'), background=True)
+        yield db['pages'].ensure_index(sortdesc('_id') + sortasc('channel'), background=True)
+        yield db['pages'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
+        yield db['pages'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
         yield db['news'].ensure_index(sortdesc('_id') + sortasc('channel'), background=True)
         yield db['news'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
         yield db['news'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
@@ -75,8 +77,9 @@ def ensure_indexes(db, retry=True):
     except OperationFailure as e:
         # catch and destroy old indices built with older pymongo versions
         if retry:
-            for coll in ["logs", "tasks", "feeds", "filters", "news", "dms", "tweets", "stats", "lasttweets"]:
+            for coll in ["logs", "tasks", "feeds", "filters", "news", "dms", "tweets", "pages", "stats", "lasttweets"]:
                 yield db[coll].drop_indexes()
             yield ensure_indexes(db, retry=False)
         else:
             raise e
+
