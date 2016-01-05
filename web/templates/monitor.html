@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<?xml version="1.0" encoding="UTF-8"?>
+<html>
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
+    <title>WebMonitor by gazouilleur for {{name}}</title>
+<!-- TODO: stylify everything-->
+    <style>
+    </style>
+  </head>
+  <body>
+    <h1>WebMonitor by gazouilleur for <a target="_blank" href="{{url}}">{{name}} at {{url}}</a></h1>
+    <h2>Available versions</h2>
+    <ul>
+      <li><b><a target="_blank" href="{{url}}">Actual</a></b></li>
+    {{#versions}}
+      <li><b><a target="_blank" href="monitor/{{name}}/{{.}}">Saved {{.}}</a></b></li>
+    {{/versions}}
+    </ul>
+    <h2 id="version">Actual version</h2>
+    <iframe id="page" src="{{url}}"></iframe>
+    <h2>Diff view</h2>
+    <span id="old"></span> Vs. <span id="new"></span>
+    <div id="diff"></div>
+  </body>
+<script type="text/javascript">
+// TODO: load page in iframe on click + set name in version
+// TODO: code differ
+// TODO: juggle between view and diff modes
+</script>
+</html>

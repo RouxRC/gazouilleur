@@ -8,17 +8,14 @@ from datetime import datetime, timedelta
 from gazouilleur import config
 from gazouilleur.lib.mongo import SingleMongo, find_stats, count_followers, find_last_followers, sortasc, sortdesc
 from gazouilleur.lib.log import loggerr
+from gazouilleur.lib.templater import Templater
 from gazouilleur.lib.utils import *
 
-class Stats(object):
+class Stats(Templater):
 
     def __init__(self, user):
         self.user = user
-        try:
-            self.url = '%s/' % config.URL_STATS.rstrip('/')
-        except:
-            self.url = None
-        self.templates = os.path.join("web", "templates")
+        Templater.__init__(self)
 
     @inlineCallbacks
     def print_last(self):
@@ -130,21 +127,6 @@ class Stats(object):
         data = {'user': self.user, 'url': self.url}
         self.render_template("static_stats.html", self.user, data)
         returnValue(True)
-
-    def render_template(self, template, name, data):
-        outfile = template.replace('.html', '_%s.html' % name)
-        try:
-            import codecs
-            import pystache
-            from contextlib import nested
-            ofile = os.path.join("web", outfile)
-            with nested(open(os.path.join(self.templates, template), "r"), codecs.open(ofile, "w", encoding="utf-8")) as (temp, generated):
-                generated.write(pystache.Renderer(string_encoding='utf8').render(temp.read(), data))
-            os.chmod(ofile, 0o644)
-            return True
-        except IOError as e:
-            loggerr("Could not write web/%s from %s/%s : %s" % (outfile, self.templates, template, e), action="stats")
-            return False
 
     @inlineCallbacks
     def digest(self, hours, channel):
