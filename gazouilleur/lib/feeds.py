@@ -128,28 +128,36 @@ class FeederProtocol(object):
                 feed.append({'created_at': 'now', 'title': tweet['text'], 'link': "https://twitter.com/%s/status/%s" % (tweet['user'], tweet['id_str'])})
         return {"nexturl": nexturl, "tweets": feed}
 
-    def get_data_from_page(self, page, url):
-        if not page:
+    def get_data_from_page(self, page_content, url):
+        if not page_content:
+            self.log("No content found at %s" % url, error=True)
             return
-        try:
-            feed = parse_feed(StringIO(page+''))
-        except TypeError:
-            feed = parse_feed(StringIO(str(page)))
         self.fact.cache[url] = time.time()
+        if self.fact.name == "pages":
+            return page_content
+        try:
+            feed = parse_feed(StringIO(page_content+''))
+        except TypeError:
+            feed = parse_feed(StringIO(str(page_content)))
         return feed
 
     @inlineCallbacks
-    def process_elements(self, feed, url):
-        if not feed or not feed.entries:
+    def process_elements(self, data, url, name=None):
+        if not data:
+            returnD(False)
+        if self.fact.name == "pages":
+            self.log(name+ ": \n"+"\n".join(data.split('\n')[:3]), hint=True)
+            returnD(True)
+        if not data.entries:
             returnD(False)
         sourcename = url
-        if feed.feed and 'title' in feed.feed:
-            sourcename = feed.feed['title']
+        if data.feed and 'title' in data.feed:
+            sourcename = data.feed['title']
             sourcename = unescape_html(sourcename)
         ids = []
         news = []
         links = []
-        for i in feed.entries:
+        for i in data.entries:
             date = i.get('published_parsed', i.get('updated_parsed', ''))
             if date:
                 date = datetime.fromtimestamp(time.mktime(date))
@@ -242,9 +250,9 @@ class FeederProtocol(object):
             if query and nexturl and pagecount < 3*self.fact.back_pages_limit:
                 deferToThreadPool(reactor, self.threadpool, reactor.callLater, 15, self.start_twitter_search, [query], max_id=nexturl, pagecount=pagecount+1)
             elif not query and nexturl and "p=%d" % (self.fact.back_pages_limit+1) not in nexturl and "page=%s" % (2*self.fact.back_pages_limit) not in nexturl:
-                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, nexturl)
+                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start_web, nexturl)
             elif not query and not nexturl and int(source[-1:]) <= self.fact.back_pages_limit:
-                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start, next_page(source))
+                deferToThreadPool(reactor, self.threadpool, reactor.callLater, 41, self.start_web, next_page(source))
         if self.fact.displayRT:
             good = news
         else:
@@ -270,7 +278,7 @@ class FeederProtocol(object):
             yield self.fact.db['tweets'].save(t, safe=True)
         returnD(True)
 
-    def start(self, url=None):
+    def start_web(self, url=None, name=None):
         d = succeed('')
         if not self.in_cache(url):
             if config.DEBUG:
@@ -285,7 +293,7 @@ class FeederProtocol(object):
             if self.fact.name == "tweets":
                 d.addCallback(self.process_tweets, url)
             else:
-                d.addCallback(self.process_elements, url)
+                d.addCallback(self.process_elements, url, name)
             d.addErrback(self._handle_error, "working on", url)
         return d
 
@@ -609,7 +617,7 @@ class FeederFactory(protocol.ClientFactory):
 
     def start(self):
         if config.DEBUG and self.name != "stream":
-            self.log("Start %s feeder every %ssec %s" % (self.name, self.delay, self.feeds), hint=True)
+            self.log("Start %s feeder every %ssec %s" % (self.name, self.delay, self.feeds if self.feeds else ""), hint=True)
         args = {}
         conf = chanconf(self.channel)
         if self.name in ["retweets", "dms", "stats", "mentions", "mytweets"]:
@@ -621,7 +629,7 @@ class FeederFactory(protocol.ClientFactory):
             run_command = self.protocol.start_stream
             args['conf'] = conf
         else:
-            run_command = self.run_rss_feeds
+            run_command = self.run_web_feeds
         self.runner = LoopingCall(run_command, **args)
         self.runner.start(self.delay)
 
@@ -667,7 +675,7 @@ class FeederFactory(protocol.ClientFactory):
         self.status = "stopped"
 
     @inlineCallbacks
-    def run_rss_feeds(self):
+    def run_web_feeds(self):
         if not self.__init_timeout__():
             returnD(False)
         urls = self.feeds
@@ -675,8 +683,11 @@ class FeederFactory(protocol.ClientFactory):
             urls = yield getFeeds(self.db, self.channel, self.name, add_url=self.tweets_search_page)
         ct = 0
         for url in urls:
+            name = None
+            if self.name == "pages":
+                url, name = url
             yield deferredSleep(3 + int(random()*500)/100)
             self.update_timeout(extra=10)
-            yield self.protocol.start(url)
+            yield self.protocol.start_web(url, name=name)
         self.status = "stopped"
 

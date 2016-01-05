@@ -165,6 +165,8 @@ class IRCBot(NamesIRCClient):
             self.users[lowchan] = yield self._get_chan_known_users(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
+        # Monitor webpages set for this channel with !monitor
+        self.feeders[lowchan]['pages'] = FeederFactory(self, channel, 'pages', 299, pagetimeout=35)
         twuser = get_chan_twitter_user(channel, conf)
         if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
@@ -185,11 +187,11 @@ class IRCBot(NamesIRCClient):
                 self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 20 if conf["oauth2"] else 30, twitter_token=conf["oauth2"])
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='icerocket')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, feeds=[getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='icerocket')
             # ... or via IceRocket.com old RSS feeds
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, pagetimeout=20, [getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser), rss=True)])
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 89, pagetimeout=20, feeds=[getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser), rss=True)])
             # ... or via Topsy.com
-            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, [getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='topsy')
+            #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, feeds=[getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='topsy')
             # Follow DMs sent to Twitter USER
                 self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER

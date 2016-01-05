@@ -282,6 +282,8 @@ def getFeeds(db, channel, database, url_format=True, add_url=None, randorder=Non
     else:
         if not url_format:
             urls = assembleResults([feed['name'] for feed in queries])
+        elif database == "pages":
+            urls = [(str(feed['query']), feed['name']) for feed in queries]
         else:
             urls = [str(feed['query']) for feed in queries]
     defer.returnValue(urls)
