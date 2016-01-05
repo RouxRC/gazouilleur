@@ -9,9 +9,14 @@ class WebMonitor(Templater):
     def __init__(self, name):
         Templater.__init__(self)
         self.name = name
-        self.path = os.path.join('web', 'monitor', 'name')
+        basedir = os.path.join('web', 'monitor')
+        self.path = os.path.join(basedir, name)
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+            os.chmod(basedir, 0o755)
         if not os.path.exists(self.path):
-            os.makedirs(self.path, 0o755)
+            os.makedirs(self.path)
+            os.chmod(self.path, 0o755)
 
     def check_diff(self, url, data):
         # TODO:
