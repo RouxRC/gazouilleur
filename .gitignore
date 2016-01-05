@@ -11,3 +11,4 @@ web/img
 web/data
 web/static_stats*.html
 web/digest_*.html
+web/monitor*
