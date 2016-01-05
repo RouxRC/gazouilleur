@@ -3,13 +3,15 @@
 <html>
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
-    <title>WebMonitor by gazouilleur for {{name}}</title>
+    <title>WebMonitor for {{name}} powered by Gazouilleur</title>
 <!-- TODO: stylify everything-->
     <style>
+h1 {font-size: 18px;}
+#page {width: 100%; height: 800px;}
     </style>
   </head>
   <body>
-    <h1>WebMonitor by gazouilleur for <a target="_blank" href="{{url}}">{{name}} at {{url}}</a></h1>
+    <h1>WebMonitor for <a target="_blank" href="{{url}}">{{name}} at {{url}}</a> <small>Powered by <a href="https://github.com/RouxRC/gazouilleur"></a></small></h1>
     <h2>Available versions</h2>
     <ul>
       <li><b><a target="_blank" href="{{url}}">Actual</a></b></li>
@@ -19,9 +21,11 @@
     </ul>
     <h2 id="version">Actual version</h2>
     <iframe id="page" src="{{url}}"></iframe>
+  <!--
     <h2>Diff view</h2>
     <span id="old"></span> Vs. <span id="new"></span>
     <div id="diff"></div>
+  -->
   </body>
 <script type="text/javascript">
 // TODO: load page in iframe on click + set name in version

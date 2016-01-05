@@ -15,7 +15,8 @@ class WebMonitor(Templater):
 
     def check_diff(self, url, data):
         # TODO:
-        # apply url_rewrite for '<[^>]*=['"]/([^/]|$)' et '<[^>]*=['"](!:http)'
+        # - handle error pages
+        # - apply url_rewrite for '<[^>]*=['"]/([^/]|$)' et '<[^>]*=['"](!:http)'
         # - check if file -last exists
         # - if so diff md5 current/last
         # - check if exist and not diff

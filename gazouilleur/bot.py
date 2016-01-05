@@ -1249,6 +1249,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def command_newsurl(self, name, channel=None, *args):
         """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
+        # TODO Handle urls for monitor
         channel = self.getMasterChan(channel)
         res = yield self.db['feeds'].find({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'], limit=1)
         if res:
