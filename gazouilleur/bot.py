@@ -142,7 +142,8 @@ class IRCBot(NamesIRCClient):
     def joined(self, channel):
         NamesIRCClient.joined(self, channel)
         conf = chanconf(channel)
-        conf["oauth2"] = None
+        if conf:
+            conf["oauth2"] = None
         lowchan = channel.lower()
         self.logger[lowchan] = FileLogger(lowchan)
         loggirc("Joined.", channel)
@@ -1026,15 +1027,15 @@ class IRCBot(NamesIRCClient):
             tweets[curid]["text"] = yield self._format_tweet(tweet, light=True)
         if not tweets:
             returnD("[twitter] ERROR 404: Cannot find that tweet.")
-        returnD("\n".join(self.convtree(tweets, root)))
+        returnD("\n".join(self._convtree(tweets, root)))
 
-    def convtree(self, tree, root):
+    def _convtree(self, tree, root):
         if "text" not in tree[root]:
             return []
         conv = [tree[root]['text']]
         tree[root]['repls'].sort()
         for repl in tree[root]['repls']:
-            conv += ["-> %s" % t for t in self.convtree(tree, repl)]
+            conv += ["-> %s" % t for t in self._convtree(tree, repl)]
         return conv
 
     def command_stats(self, rest, channel=None, nick=None):
@@ -1449,7 +1450,7 @@ class IRCBot(NamesIRCClient):
    # -----------------
    ## Pad & Title available to anyone
    ## FuckOff/ComeBack & SetPad available only to GLOBAL_USERS and chan's USERS
-   ## Exclude regexp : '(fuckoff|comeback|.*pad|title)'
+   ## Exclude regexp : '(fuckoff|comeback|.*pad|title|dice)'
 
     def command_fuckoff(self, minutes, channel=None, nick=None):
         """fuckoff [<N>] : Tells me to shut up for the next <N> minutes (defaults to 5)./AUTH"""
@@ -1502,6 +1503,13 @@ class IRCBot(NamesIRCClient):
         title = u' '.join(pagetree.xpath('//title/text()')).strip()
         title = title.encode('utf-8')
         return '%s -- "%s"' % (url, title)
+
+    def command_dice(self, rest, *args):
+        """dice [<N>] : Let me toss heads or tails, or give a random number between 1 and <N> if given."""
+        maxval = safeint(rest)
+        if not maxval:
+            return "Heads!" if random.randint(0, 1) else "Tails!"
+        return random.randint(1, maxval)
 
 
    # Admin commands

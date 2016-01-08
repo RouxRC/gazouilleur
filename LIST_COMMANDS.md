@@ -252,7 +252,7 @@
 # Other commands...
  * Pad &amp; Title available to anyone
  * FuckOff/ComeBack &amp; SetPad available only to GLOBAL_USERS and chan's USERS
- * **Exclude regexp :** `'(fuckoff|comeback|.*pad|title)'`
+ * **Exclude regexp :** `'(fuckoff|comeback|.*pad|title|dice)'`
  * **List :**
 
   + `fuckoff [<N>]`
@@ -277,6 +277,10 @@
   + `title <url>`
 
      > Prints the title of the webpage at &lt;url&gt;.
+
+  + `dice [<N>]`
+
+     > Let me toss heads or tails, or give a random number between 1 and &lt;N&gt; if given.
 
 # Admin commands
  * AddAuth available only to GLOBAL_USERS and  chan's USERS
