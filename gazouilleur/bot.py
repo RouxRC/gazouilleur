@@ -1331,6 +1331,8 @@ class IRCBot(NamesIRCClient):
         task = task.decode('utf-8')
         if not task:
             returnD("Please tell me what you want me to do!")
+        if when > 250000:
+            returnD("Do you really want to do that in more than 6 months? Looks like something wrong to me...")
         when = max(0, when) * 60
         then = shortdate(datetime.fromtimestamp(now + when))
         try:
