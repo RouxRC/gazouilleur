@@ -16,7 +16,9 @@ PrivateDevices=yes
 ProtectHome=yes
 ProtectSystem=full
 ReadOnlyDirectories=/
+ReadWriteDirectories=-/opt/gazouilleur/cache
 ReadWriteDirectories=-/opt/gazouilleur/log
+ReadWriteDirectories=-/opt/gazouilleur/web
 CapabilityBoundingSet=
 
 [Install]
