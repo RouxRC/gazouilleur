@@ -747,7 +747,7 @@ class IRCBot(NamesIRCClient):
 
     def command_tweet(self, text, channel=None, nick=None):
         """tweet <text> [--nolimit] [--force] [img:<url>] : Alias for twitter command./TWITTER"""
-        return self.command_twitter(self, text, channel=None, nick=None)
+        return self.command_twitter(text, channel=None, nick=None)
 
     def command_twitter(self, text, channel=None, nick=None):
         """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter. Include up to 4 images with img:<url> for the cost of a single link. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter./TWITTER"""
