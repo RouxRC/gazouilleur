@@ -92,6 +92,7 @@ CHANNELS = {
   },
   'gazouilleur-test': {     # Add more IRC channels
     'DISCREET': True,
+    'PASSWORD': 'ProtectedChannelPassword',
     'FORMAT': 'normal',
     'EXCLUDE_COMMANDS': ['.*ping.*', 'last.*', 'count', 'test', '.*pad'],
     'USERS': [],

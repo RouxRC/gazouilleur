@@ -127,7 +127,8 @@ class IRCBot(NamesIRCClient):
         loggirc("Signed on as %s." % self.nickname)
         for channel in self.factory.channels:
             self.colorizer[channel] = chan_color_conf(channel)
-            self.join(channel)
+            conf = chanconf(channel)
+            self.join(channel, conf["PASSWORD"] if "PASSWORD" in conf else None)
         yield self._refresh_tasks_from_db()
 
     @inlineCallbacks
