@@ -23,6 +23,7 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
  * shut up on request
  * display debug messages to admin users
  * optional fine control over user rights and channel commands
+ * receive [daily](https://github.com/RouxRC/gazouilleur/blob/master/bin/daily_mail.sh) and [weekly](https://github.com/RouxRC/gazouilleur/blob/master/bin/weekly_mail.sh) conversation log by mail
  * ...
 
 See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.md)
