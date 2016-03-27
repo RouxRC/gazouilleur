@@ -1,11 +1,8 @@
 urllib3
+ndg-httpsclient>=0.4.0
 lxml
 feedparser
 service_identity
-cffi>=1.1.0
-cryptography>=0.5.3
-pyOpenSSL>=0.15.1
-six>=1.7.3
 zope.interface
 twisted>=15.1.0
 stevedore
