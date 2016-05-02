@@ -178,7 +178,7 @@ class Stats(object):
             })
         del(news)
 
-        tweets = yield SingleMongo('tweets', 'find', query, fields=['screenname', 'message', 'link'], filter=sortasc('timestamp'))
+        tweets = yield SingleMongo('tweets', 'find', query, fields=['screenname', 'message', 'link'], filter=sortasc('id'))
         links = {}
         imgs = {}
         filters = yield SingleMongo('filters', 'find', {'channel': re_chan}, fields=['keyword'])
