@@ -97,15 +97,16 @@ def countchars(text, twitter_url_length):
     return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', clean_imgs(text.decode('utf-8').strip().replace('\\n', ' '), twitter_url_length)).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
 
 re_clean_url1 = re.compile(r'/#!/')
-re_clean_url2 = re.compile(r'([?&#]((utm_(term|medium|source|campaign|content)|xtor|ei)=[^&#]*))', re.I)
+re_clean_url2 = re.compile(r'(([?&#])((utm_(term|medium|source|campaign|content)|xtor|ei)=[^&#]*))', re.I)
 re_clean_url3 = re.compile(ur'(%s|%s|[\.…<>:?!=)])+$' % (SPACES, QUOTE_CHARS))
 def clean_url(url, url0="", cache_urls={}):
     url = re_clean_url1.sub('/', url)
     for i in re_clean_url2.findall(url):
         if i[1] == "?":
-            url = url.replace(i[1], '')
+            url = url.replace(i[2], '')
         else:
             url = url.replace(i[0], '')
+    url = url.replace("?&", "?")
     url = re_clean_url3.sub('', url)
     cache_urls[url0] = url
     return url, cache_urls
