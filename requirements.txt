@@ -1,16 +1,16 @@
-urllib3
+urllib3[secure]
 ndg-httpsclient>=0.4.0
 lxml
 feedparser
 service_identity
 zope.interface
-twisted>=15.1.0
+twisted==15.1.0
 stevedore
 virtualenvwrapper
 
 # Mongo
-pymongo>=3.0.3
-txmongo>=15.1.0
+pymongo==3.0.3
+txmongo==15.1.0
 
 # Twitter
 twitter>=1.17
