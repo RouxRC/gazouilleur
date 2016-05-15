@@ -768,6 +768,7 @@ class IRCBot(NamesIRCClient):
         while self.re_img.search(text):
             img_urls.append(self.re_img.search(text).group(1))
             text = self.re_img.sub(' ', text, 1)
+        text = text.strip()
         imgs = []
         if img_urls:
             conf = chanconf(channel)

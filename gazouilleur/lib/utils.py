@@ -91,7 +91,7 @@ def _shorten_url(text, twitter_url_length):
     return text
 
 re_clean_imgs = re.compile(r'\s*img:https?://\S+', re.I)
-clean_imgs = lambda x, l: ("x"*l if re_clean_imgs.search(x) else "") + re_clean_imgs.sub('', x)
+clean_imgs = lambda x, l: ("x"*l+" " if re_clean_imgs.search(x) else "") + re_clean_imgs.sub('', x)
 re_clean_twitter_command = re.compile(r'^\s*(%srunlater[\s\d]+)?((%s(count|identica|(twitt?|answ)(er|only|last)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
 def countchars(text, twitter_url_length):
     return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', clean_imgs(text.decode('utf-8').strip().replace('\\n', ' '), twitter_url_length)).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
