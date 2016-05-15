@@ -804,23 +804,27 @@ class IRCBot(NamesIRCClient):
         returnD((url, res['media_id_string']))
 
     @inlineCallbacks
-    def command_answer(self, rest, channel=None, nick=None, check=True):
+    def command_answer(self, rest, channel=None, nick=None):
         """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
         rest = self.re_twitter_url.sub(r'\1 ', rest)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
             returnD("Please input a correct tweet_id and message.")
-        if check:
-            conf = chanconf(channel)
-            conn = Microblog('twitter', conf)
-            tweet = conn.show_status(tweet_id)
-            if isinstance(tweet, dict) and 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
+        conf = chanconf(channel)
+        conn = Microblog('twitter', conf)
+        tweet = conn.show_status(tweet_id)
+        if isinstance(tweet, dict):
+            tweet = tweet.get('retweeted_status', tweet)
+            tweet_id = tweet['id_str']
+            if 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
                 author = tweet['user']['screen_name'].lower()
                 if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
                     returnD("Don't forget to include @%s when answering his tweets ;)" % tweet['user']['screen_name'])
             else:
                 returnD(tweet)
+        else:
+            returnD(tweet)
         res = yield self._process_twitpics(text, channel)
         if isinstance(res, str):
             returnD(res)
@@ -838,7 +842,7 @@ class IRCBot(NamesIRCClient):
         lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
             returnD("Sorry, no last tweet id found for this chan." )
-        res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick, check=False)
+        res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick)
         returnD(res)
 
     def _rt_on_identica(self, tweet_id, conf, channel, nick):
