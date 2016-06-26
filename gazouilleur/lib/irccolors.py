@@ -103,6 +103,7 @@ class ColorConf(object):
     _re_head = r'PRIVMSG .*?:'
     _re_news = r'\S+(?: \(.*?\))?: |\[[^\]]+\] '
     _re_meta = r'\[[\d\/\s:]+\] '
+    re_dm = re.compile(r'^(%s)(\[DM\] \S+: )' % _re_head, re.I)
     re_answ = re.compile(r'^(%s)(\S+: )' % _re_head, re.I)
     re_last = re.compile(r'^(%s)(\S+: )?(%s\S+ — )' % (_re_head, _re_meta), re.I)
     re_lafo = re.compile(r'^(%s)(\S+: )?(%s)(?:\S+ — )(%s)' % (_re_head, _re_meta, _re_news), re.I)
@@ -121,6 +122,7 @@ class ColorConf(object):
         _fo_user = lambda x: _gt(x,1) + _us + _gt(x,2)
         _fo_news = lambda x,i: _ti + _gt(x,i) + _te
         _fo_last = lambda x: _me + _gt(x,3)
+        self.fo_dm = lambda x: _gt(x,1) + _me + _gt(x,2) + _us
         self.fo_answ = lambda x: _fo_user(x) + self._ms
         self.fo_last = lambda x: _fo_user(x) + _fo_last(x) + self._ms
         self.fo_lafo = lambda x: _fo_user(x) + _fo_last(x) + _fo_news(x,4)
@@ -130,7 +132,9 @@ class ColorConf(object):
         self.fo_link = lambda x: _me + _gt(x,1) + _gt(x,2)
 
     def colorize(self, text):
-        if self.re_lafo.search(text):
+        if self.re_dm.search(text):
+            text = self.re_dm.sub(self.fo_dm, text)
+        elif self.re_lafo.search(text):
             text = self.re_lafo.sub(self.fo_lafo, text)
         elif self.re_anfo.search(text):
             text = self.re_anfo.sub(self.fo_anfo, text)
