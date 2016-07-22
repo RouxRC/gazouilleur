@@ -1119,7 +1119,7 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_filter(self, keyword, channel=None, nick=None):
-        """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>./AUTH"""
+        """filter <word|@user> : Filters the display of tweets or news containing <word> or sent by user <@user>, except for tweets from or quoting the chan's account./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
         if keyword == "":

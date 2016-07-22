@@ -84,6 +84,11 @@
      > Posts &lt;text&gt; as a status on Twitter (see twitter command's help for other options).
      > > restricted to /IDENTICA
 
+  + `tweet <text> [--nolimit] [--force] [img:<url>]`
+
+     > Alias for twitter command.
+     > > restricted to /TWITTER
+
   + `twitter <text> [--nolimit] [--force] [img:<url>]`
 
      > Posts &lt;text&gt; as a status on Identi.ca and on Twitter. Include up to 4 images with img:&lt;url&gt; for the cost of a single link. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter.
@@ -170,7 +175,7 @@
 
   + `filter <word|@user>`
 
-     > Filters the display of tweets or news containing &lt;word&gt; or sent by user &lt;@user&gt;.
+     > Filters the display of tweets or news containing &lt;word&gt; or sent by user &lt;@user&gt;, except for tweets from or quoting the chan's account.
      > > restricted to /AUTH
 
   + `unfilter <word|@user>`
