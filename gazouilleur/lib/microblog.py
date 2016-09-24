@@ -8,6 +8,7 @@ from json import loads as load_json
 from datetime import datetime
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twitter import Twitter, TwitterStream, TwitterHTTPError, OAuth, OAuth2
+from twitter.api import TwitterListResponse
 from pypump import PyPump, Client
 from gazouilleur import config
 from gazouilleur.lib.mongo import sortdesc, save_lasttweet_id, find_stats, db_foll_coll
@@ -65,16 +66,20 @@ class Microblog(object):
             raise Exception("Wrong token type given by twitter, weird : %s" % res)
         return obj["access_token"]
 
-    def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, channel=None):
+    def _send_query(self, function, args={}, tryout=0, previous_exception=None, return_result=False, extended_tweets=False, channel=None):
         if tryout > 2:
             return previous_exception.encode('utf-8')
         try:
             if not return_result:
                 args['trim_user'] = 'true'
+            if extended_tweets:
+                args['tweet_mode'] = 'extended'
             args['source'] = config.BOTNAME
             setdefaulttimeout(15)
             res = function(**args)
             if return_result:
+                if extended_tweets:
+                    res = reformat_extended_tweets(res)
                 return res
             if config.DEBUG and not 'media[]' in args:
                 loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
@@ -156,13 +161,13 @@ class Microblog(object):
         return self._send_query(self.conn.favorites.create, {'_id': tweet_id, 'include_entities': False}, channel=channel)
 
     def show_status(self, tweet_id):
-        return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True)
+        return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True, extended_tweets=True)
 
     def get_mytweets(self, **kwargs):
-        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1}, return_result=True)
+        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1}, return_result=True, extended_tweets=True)
 
     def get_mentions(self, **kwargs):
-        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1}, return_result=True)
+        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1}, return_result=True, extended_tweets=True)
 
     def get_retweets(self, retweets_processed={}, bearer_token=None, **kwargs):
         tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_user_entities': 'false'}, return_result=True)
@@ -190,7 +195,7 @@ class Microblog(object):
         return retweets, retweets_processed
 
     def get_retweets_by_id(self, tweet_id, **kwargs):
-        return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True)
+        return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True, extended_tweets=True)
 
     def directmsg(self, user, text, length=0):
         return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
@@ -217,7 +222,7 @@ class Microblog(object):
         args = {'q': query, 'count': count, 'result_type': 'recent'}
         if max_id:
             args['max_id'] = max_id
-        return self._send_query(self.conn.search.tweets, args, return_result=True)
+        return self._send_query(self.conn.search.tweets, args, return_result=True, extended_tweets=True)
 
     def search_stream(self, follow=[], track=[]):
         if not "stream" in self.domain or not len(follow) + len(track):
@@ -355,6 +360,36 @@ def check_twitter_results(data):
     if text and isinstance(text, str) and ("WARNING" in text or text.startswith("[twitter] ERROR ")):
         raise(Exception(text))
     return data
+
+def reformat_extended_tweets(tweet):
+    if type(tweet) == TwitterListResponse:
+        return [reformat_extended_tweets(t) for t in tweet]
+    elif "statuses" in tweet:
+        tweet["statuses"] = [reformat_extended_tweets(t) for t in tweet.get("statuses", [])]
+        return tweet
+
+    if "extended_tweet" in tweet:
+        for field in tweet["extended_tweet"]:
+            tweet[field] = tweet["extended_tweet"][field]
+    tweet['text'] = tweet.get('full_text', tweet.get('text', ''))
+
+    if 'entities' in tweet or 'extended_entities' in tweet:
+        for entity in tweet.get('extended_entities', tweet['entities']).get('media', []) + tweet.get('entities', {}).get('urls', []):
+            if 'expanded_url' in entity and 'url' in entity and entity['expanded_url']:
+                try:
+                    cleanurl, _ = clean_url(entity['expanded_url'].encode('utf-8'))
+                    tweet["text"] = tweet["text"].replace(entity['url'], cleanurl)
+                except Exception as e:
+                    self.log(e, error=True)
+
+    tweet["url"] = "https://twitter.com/%s/status/%s" % (tweet['user']['screen_name'], tweet['id_str'])
+
+    if 'retweeted_status' in tweet:
+        tweet['retweeted_status'] = reformat_extended_tweets(tweet['retweeted_status'])
+        if tweet['retweeted_status']['id_str'] != tweet['id_str']:
+            tweet['text'] = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
+
+    return tweet
 
 def grab_extra_meta(source, result):
     for meta in ["in_reply_to_status_id_str", "in_reply_to_screen_name", "lang", "geo", "coordinates", "source"]:

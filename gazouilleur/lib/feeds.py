@@ -28,7 +28,7 @@ from gazouilleur import config
 from gazouilleur.lib.log import logg
 from gazouilleur.lib.mongo import sortdesc, count_followers
 from gazouilleur.lib.utils import *
-from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta
+from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta, reformat_extended_tweets
 from gazouilleur.lib.stats import Stats
 
 class FeederProtocol(object):
@@ -327,23 +327,7 @@ class FeederProtocol(object):
         for tweet in listtweets:
             if not isinstance(tweet, dict):
                 continue
-            if 'entities' in tweet:
-                entities = []
-                for entitype in ['media', 'urls']:
-                    if entitype in tweet['entities']:
-                        entities += tweet['entities'][entitype]
-                for entity in entities:
-                  try:
-                    if 'expanded_url' in entity and 'url' in entity and entity['expanded_url'] and entity['url'] not in self.fact.cache_urls and len(entity['expanded_url']) < 250:
-                        cleaned, self.fact.cache_urls = clean_url(entity['expanded_url'].encode('utf-8'), entity['url'].encode('utf-8'), self.fact.cache_urls)
-                        _, self.fact.cache_urls = yield clean_redir_urls(cleaned.decode('utf-8'), self.fact.cache_urls)
-                  except Exception as e:
-                     self.log(e, error=True)
-            if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
-                text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
-            else:
-                text = tweet['text']
-            tw = {'created_at': tweet['created_at'], 'title': unescape_html(text), 'link': "https://twitter.com/%s/status/%s" % (tweet['user']['screen_name'], tweet['id_str'])}
+            tw = {'created_at': tweet['created_at'], 'title': unescape_html(tweet['text']), 'link': tweet['url']}
             tw = grab_extra_meta(tweet, tw)
             feed.append(tw)
         if query:
@@ -528,6 +512,7 @@ class FeederProtocol(object):
                     if tweet.get('timeout'):
                         continue    # heartbeat
                     if tweet.get('text'):
+                        tweet = reformat_extended_tweets(tweet)
                         self.pile.insert(0, tweet)
                     else:
                         try:

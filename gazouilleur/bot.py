@@ -963,8 +963,6 @@ class IRCBot(NamesIRCClient):
         user = tweet['user']
         name = user['screen_name'].encode('utf-8')
         text = tweet['text']
-        if "retweeted_status" in tweet and tweet['retweeted_status']['id_str'] != tweet['id_str']:
-            text = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
         text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
         date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
