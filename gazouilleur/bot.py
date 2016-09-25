@@ -738,7 +738,7 @@ class IRCBot(NamesIRCClient):
         quote_tweet = None
         quote = re_clean_tweets.search(text)
         if quote:
-            quote_tweet = ("http://%s%s" % (quote.group(1), quote.group(2))).lower()
+            quote_tweet = ("https://%s%s" % (quote.group(1), quote.group(2))).lower()
             text = clean_tweets(text)
         return text, quote_tweet
 

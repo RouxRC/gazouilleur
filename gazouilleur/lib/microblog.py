@@ -392,7 +392,7 @@ def reformat_extended_tweets(tweet):
         if tweet['retweeted_status']['id_str'] != tweet['id_str']:
             tweet['text'] = "RT @%s: %s" % (tweet['retweeted_status']['user']['screen_name'], tweet['retweeted_status']['text'])
 
-    if "quoted_status" in tweet:
+    if "quoted_status" in tweet and tweet["quoted_status"]['id_str'] != tweet['id_str']:
         tweet["quoted_status"] = reformat_extended_tweets(tweet["quoted_status"])
         tweet['text'] = tweet['text'].replace(tweet["quoted_status"]["url"].lower(), u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]))
 
