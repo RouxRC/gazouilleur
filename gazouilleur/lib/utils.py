@@ -123,6 +123,8 @@ def _clean_redir_urls(text, cache_urls, last=False):
     for res in URL_REGEX.findall(text):
         url00 = res[2].encode('utf-8')
         url0 = url00
+        if re_tweet_url.search(url0):
+            continue
         if not url00.startswith('http'):
             if "@" in url00 or url00.startswith('#'):
                 continue
