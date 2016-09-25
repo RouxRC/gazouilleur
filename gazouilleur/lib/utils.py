@@ -90,18 +90,31 @@ def _shorten_url(text, twitter_url_length):
         text = text.replace(res[0], '%shttps___t_co_%s%s' % (res[1], tco_extra, res[4]))
     return text
 
-re_clean_spaces = re.compile(r'\s\s+')
-clean_spaces = lambda x: re_clean_spaces.sub(" ", x)
-re_clean_tweets = re.compile(r'\s*https?://twitter.com/([^/]+)/statuse?s?/(\d+)\s*', re.I)
-clean_tweets = lambda x: re_clean_tweets.sub(' ', x)
-TWITTER_ACCOUNT = r"[a-zA-Z0-9_]{1,15}"
-re_clean_accounts = re.compile(r'\s*@%s\s*' % TWITTER_ACCOUNT)
-clean_accounts = lambda x: re_clean_accounts.sub(' ', x)
+re_clean_tweets = re.compile(r'\s*https?://\S*(twitter.com/[^/]+/status)e?s?(/\d+)(\s.*?)?\s*$', re.I)
+clean_tweets = lambda x: re_clean_tweets.sub(lambda r: r.group(3) if r.groups() else '', x)
 re_clean_imgs = re.compile(r'\s*img:https?://\S+', re.I)
 clean_imgs = lambda x: re_clean_imgs.sub('', x)
+def clean_quote_or_imgs(text):
+    if re_clean_imgs.search(text):
+        return clean_imgs(text)
+    return clean_tweets(text)
+
 re_clean_twitter_command = re.compile(r'^\s*(%srunlater[\s\d]+)?((%s(count|identica|(twitt?|answ)(er|only|last)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
+
+re_clean_spaces = re.compile(r'\s\s+')
+clean_spaces = lambda x: re_clean_spaces.sub(" ", x)
+
 def countchars(text, twitter_url_length):
-    return len(_shorten_url(_shorten_url(re_clean_twitter_command.sub('', clean_imgs(clean_spaces(clean_tweets(clean_accounts(text.decode('utf-8')))).strip().replace('\\n', ' '))).strip(), twitter_url_length), twitter_url_length).replace(' --nolimit', '').replace(' --force', ''))
+    tmp = text.decode('utf-8')
+    tmp = tmp.replace('\\n', ' ')
+    tmp = clean_quote_or_imgs(tmp)
+    tmp = clean_spaces(tmp).strip()
+    tmp = re_clean_twitter_command.sub('', tmp)
+    tmp = _shorten_url(tmp, twitter_url_length)
+    tmp = _shorten_url(tmp, twitter_url_length)
+    tmp = tmp.replace(' --nolimit', '')
+    tmp = tmp.replace(' --force', '')
+    return len(tmp)
 
 re_clean_url1 = re.compile(r'/#!/')
 re_clean_url2 = re.compile(r'(([?&#])((utm_(term|medium|source|campaign|content)|xtor|ei)=[^&#]*))', re.I)
@@ -183,6 +196,7 @@ def get_hash(url):
     hash = hashlib.md5(url)
     return hash.hexdigest()
 
+TWITTER_ACCOUNT = r"[a-zA-Z0-9_]{1,15}"
 re_uniq_rt_hash = re.compile(r'([MLR]T|%s)+\s*@%s[: ,]*' % (QUOTE_CHARS, TWITTER_ACCOUNT))
 re_clean_spec_chars = re.compile(r'(%s|[-_.,;:?!<>(){}[\]/\\~^+=|#@&$%s%s])+' % (QUOTE_CHARS, '%', '…'.decode('utf-8')))
 def uniq_rt_hash(text):

@@ -662,9 +662,41 @@ class IRCBot(NamesIRCClient):
    ## Available to anyone
    ## Exclude regexp : '.*count'
 
-    def command_count(self, rest, *args):
+    def _check_answered_accounts(self, channel, tweet_id, text):
+        conf = chanconf(channel)
+        conn = Microblog('twitter', conf)
+        tweet = conn.show_status(tweet_id)
+        if not isinstance(tweet, dict) or 'text' not in tweet:
+            return tweet
+
+        tocheck = [tweet['user']['screen_name']] + [u['screen_name'] for u in tweet.get('entities', {}).get('user_mentions', [])]
+        warnings = []
+        searchable = text.decode('utf-8').lower()
+        for account in tocheck:
+            if "@%s" % account.lower() in searchable:
+                warnings.append("@%s" % account)
+        return warnings
+
+    re_match_answer = re.compile(r'^\s*%sanswer(last)?\s+(\d+)\s+' % COMMAND_CHARACTER)
+    def command_count(self, rest, channel=None, nick=None, _return_value=False):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
-        return "%d characters (max 140)" % countchars(rest, self.twitter["url_length"])
+        answ = self.re_match_answer.search(rest)
+        if answ:
+            rest = self.re_match_answer.sub('', rest)
+            tweet_id = self.re_twitter_url.sub(r'\1 ', answ.group(2))
+            channel = self.getMasterChan(channel)
+            warnings = self._check_answered_accounts(channel, tweet_id, rest)
+            if warnings:
+                if type(warnings) != list:
+                    return warnings
+                else:
+                    self._send_message("[twitter] Characters for @accounts answered to don't count anymore in tweets, you shouldn't include %s in your tweet, except for names actually part of your message in which case they do count as characters (use --force to allow it)" % " & ".join(warnings), channel, nick)
+
+        res = countchars(rest, self.twitter["url_length"])
+
+        if _return_value:
+            return res
+        return "%d characters (max 140)" % res
 
     def command_lastcount(self, rest, channel=None, nick=None):
         """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
@@ -696,6 +728,14 @@ class IRCBot(NamesIRCClient):
             return regexp.sub(' ', text).strip(), True
         return text, False
 
+    def _clean_quotetweet(self, text):
+        quote_tweet = None
+        quote = re_clean_tweets.search(text)
+        if quote:
+            quote_tweet = ("http://%s%s" % (quote.group(1), quote.group(2))).lower()
+            text = clean_tweets(text)
+        return text, quote_tweet
+
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
     re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
@@ -716,12 +756,12 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] = countchars(kwargs['text'], self.twitter["url_length"])
             except:
                 kwargs['length'] = 100
-            if 'imgs' in kwargs and kwargs['imgs']:
-                kwargs['length'] += self.twitter["url_length"]
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
             if kwargs['length'] > 140 and siteprotocol == "twitter" and command != "directmsg" and not nolimit:
                 return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, kwargs['length'])
+            if siteprotocol == "twitter" and not(kwargs["imgs"]):
+                kwargs['text'], kwargs['quote_tweet'] = self._clean_quotetweet(kwargs['text'])
             if siteprotocol == "twitter" and command != "directmsg" and not force:
                 bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
                 if not bl:
@@ -740,7 +780,7 @@ class IRCBot(NamesIRCClient):
     def command_twitteronly(self, text, channel=None, nick=None):
         """twitteronly <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Twitter (see twitter command's help for other options)./TWITTER/IDENTICA"""
         if self.re_answer.match(text.strip()):
-            returnD("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
+            returnD("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 16 else "rt"))
         res = yield self._process_twitpics(text, channel)
         if isinstance(res, str):
             returnD(res)
@@ -751,9 +791,9 @@ class IRCBot(NamesIRCClient):
         return self.command_twitter(text, channel=channel, nick=nick)
 
     def command_twitter(self, text, channel=None, nick=None):
-        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter. Include up to 4 images with img:<url> for the cost of a single link. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter./TWITTER"""
+        """twitter <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and on Twitter. Include up to 4 images with img:<url> at no character cost. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter or already included in the conversation for answers./TWITTER"""
         if self.re_answer.match(text.strip()):
-            return("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 30 else "rt"))
+            return("Mmmm… Didn't you mean %s%s instead?" % (COMMAND_CHAR_DEF, "answer" if len(text) > 16 else "rt"))
         channel = self.getMasterChan(channel)
         dl = []
         dl.append(maybeDeferred(self.command_twitteronly, text, channel, nick))
@@ -805,26 +845,19 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_answer(self, rest, channel=None, nick=None):
-        """answer <tweet_id> <@author text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must include the @author of the tweet answered to except when answering myself (see twitter command's help for other options)./TWITTER"""
+        """answer <tweet_id> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must not include anymore the @author of the tweet answered (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
         rest = self.re_twitter_url.sub(r'\1 ', rest)
         tweet_id, text = self._extract_digit(rest)
         if tweet_id < 2 or text == "":
             returnD("Please input a correct tweet_id and message.")
-        conf = chanconf(channel)
-        conn = Microblog('twitter', conf)
-        tweet = conn.show_status(tweet_id)
-        if isinstance(tweet, dict):
-            tweet = tweet.get('retweeted_status', tweet)
-            tweet_id = tweet['id_str']
-            if 'user' in tweet and 'screen_name' in tweet['user'] and 'text' in tweet:
-                author = tweet['user']['screen_name'].lower()
-                if author != conf['TWITTER']['USER'].lower() and "@%s" % author not in text.decode('utf-8').lower():
-                    returnD("Don't forget to include @%s when answering his tweets ;)" % tweet['user']['screen_name'])
-            else:
-                returnD(tweet)
-        else:
-            returnD(tweet)
+        warnings = self._check_answered_accounts(channel, tweet_id, text)
+        rest, force = self._match_reg(rest, self.re_force)
+        if warnings and not force:
+            if type(warnings) == list:
+                returnD("Characters for @accounts answered to don't count anymore in tweets, you shouldn't include %s in your tweet, except for names actually part of your message in which case you can bypass this and consume characters by adding --force" % " & ".join(warnings))
+            returnD(warnings)
+
         res = yield self._process_twitpics(text, channel)
         if isinstance(res, str):
             returnD(res)
@@ -1372,7 +1405,7 @@ class IRCBot(NamesIRCClient):
             if not self._can_user_do(nick, channel, func):
                 returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (COMMAND_CHAR_DEF, command)))
             if self.re_clean_twitter_task.match(task):
-                count = countchars(rest, self.twitter["url_length"])
+                count = self.command_count(rest, channel, nick, _return_value=True)
                 if (count > 140 or count < 30) and "--nolimit" not in task:
                     returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
