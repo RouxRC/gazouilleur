@@ -677,26 +677,32 @@ class IRCBot(NamesIRCClient):
                 warnings.append("@%s" % account)
         return warnings
 
-    re_match_answer = re.compile(r'^\s*%sanswer(last)?\s+(\d+)\s+' % COMMAND_CHARACTER)
+    re_match_answer = re.compile(r'^\s*%sanswer(last|\s+\d+)\s+' % COMMAND_CHARACTER)
+    @inlineCallbacks
     def command_count(self, rest, channel=None, nick=None, _return_value=False):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
         answ = self.re_match_answer.search(rest)
         if answ:
-            rest = self.re_match_answer.sub('', rest)
-            tweet_id = self.re_twitter_url.sub(r'\1 ', answ.group(2))
             channel = self.getMasterChan(channel)
+            rest = self.re_match_answer.sub('', rest)
+            tweet_id = self.re_twitter_url.sub(r'\1 ', answ.group(1).strip())
+            if tweet_id == 'last':
+                tweet_id = yield self.db['lasttweets'].find({'channel': channel})
+                if not tweet_id:
+                    returnD("Sorry, no last tweet id found for this chan.")
+                tweet_id = tweet_id[0]["tweet_id"]
             warnings = self._check_answered_accounts(channel, tweet_id, rest)
             if warnings:
                 if type(warnings) != list:
-                    return warnings
+                    returnD(warnings)
                 else:
                     self._send_message("[twitter] Characters for @accounts answered to don't count anymore in tweets, you shouldn't include %s in your tweet, except for names actually part of your message in which case they do count as characters (use --force to allow it)" % " & ".join(warnings), channel, nick)
 
         res = countchars(rest, self.twitter["url_length"])
 
         if _return_value:
-            return res
-        return "%d characters (max 140)" % res
+            returnD(res)
+        returnD("%d characters (max 140)" % res)
 
     def command_lastcount(self, rest, channel=None, nick=None):
         """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
@@ -874,7 +880,7 @@ class IRCBot(NamesIRCClient):
         channel = self.getMasterChan(channel)
         lasttweetid = yield self.db['lasttweets'].find({'channel': channel})
         if not lasttweetid:
-            returnD("Sorry, no last tweet id found for this chan." )
+            returnD("Sorry, no last tweet id found for this chan.")
         res = yield self.command_answer("%s %s" % (str(lasttweetid[0]["tweet_id"]), rest), channel, nick)
         returnD(res)
 
@@ -1405,7 +1411,7 @@ class IRCBot(NamesIRCClient):
             if not self._can_user_do(nick, channel, func):
                 returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (COMMAND_CHAR_DEF, command)))
             if self.re_clean_twitter_task.match(task):
-                count = self.command_count(rest, channel, nick, _return_value=True)
+                count = yield self.command_count(rest, channel, nick, _return_value=True)
                 if (count > 140 or count < 30) and "--nolimit" not in task:
                     returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
