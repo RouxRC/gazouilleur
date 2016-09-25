@@ -96,7 +96,7 @@ class Microblog(object):
                 return "[%s] %s" % (self.site, exception.encode('utf-8'))
             if config.DEBUG and exception != previous_exception:
                 loggerr("http://%s/%s.%s %s : %s" % (self.domain, "/".join(function.uriparts), function.format, args, exception), action=self.site)
-            return self._send_query(function, args, tryout+1, exception, return_result)
+            return self._send_query(function, args, tryout+1, exception, return_result, extended_tweets, channel)
 
     def ping(self):
         setdefaulttimeout(35)
@@ -365,10 +365,10 @@ def check_twitter_results(data):
     return data
 
 def reformat_extended_tweets(tweet):
-    if type(tweet) == TwitterListResponse:
+    if type(tweet) in [list, TwitterListResponse]:
         return [reformat_extended_tweets(t) for t in tweet]
     elif "statuses" in tweet:
-        tweet["statuses"] = [reformat_extended_tweets(t) for t in tweet.get("statuses", [])]
+        tweet["statuses"] = [reformat_extended_tweets(t) for t in tweet["statuses"]]
         return tweet
 
     if "extended_tweet" in tweet:
@@ -380,10 +380,10 @@ def reformat_extended_tweets(tweet):
         for entity in tweet.get('extended_entities', tweet['entities']).get('media', []) + tweet.get('entities', {}).get('urls', []):
             if 'expanded_url' in entity and 'url' in entity and entity['expanded_url']:
                 try:
-                    cleanurl, _ = clean_url(entity['expanded_url'].encode('utf-8'))
+                    cleanurl, _ = clean_url(entity['expanded_url'])
                     tweet["text"] = tweet["text"].replace(entity['url'], cleanurl)
                 except Exception as e:
-                    self.log(e, error=True)
+                    loggerr(e)
 
     tweet["url"] = "https://twitter.com/%s/status/%s" % (tweet['user']['screen_name'], tweet['id_str'])
 
