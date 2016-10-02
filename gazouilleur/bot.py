@@ -686,13 +686,13 @@ class IRCBot(NamesIRCClient):
             channel = self.getMasterChan(channel)
             rest = self.re_match_answer.sub('', rest)
             tweet_id = self.re_twitter_url.sub(r'\1 ', answ.group(1).strip())
-            if tweet_id == 'last':
+            if tweet_id == 'last' and _return_value:
                 tweet_id = yield self.db['lasttweets'].find({'channel': channel})
                 if not tweet_id:
                     returnD("Sorry, no last tweet id found for this chan.")
                 tweet_id = tweet_id[0]["tweet_id"]
             warnings = self._check_answered_accounts(channel, tweet_id, rest)
-            if warnings:
+            if warnings and (tweet_id != 'last' or _return_value):
                 if type(warnings) != list:
                     returnD(warnings)
                 else:
