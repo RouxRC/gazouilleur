@@ -205,7 +205,7 @@ def uniq_rt_hash(text):
     text = cleanblanks(text)
     return get_hash(text.encode('utf-8'))
 
-re_entities = re.compile(r'&([^;]+);')
+re_entities = re.compile(r'&([^;]{,6});')
 def unescape_html(text):
     return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
 
