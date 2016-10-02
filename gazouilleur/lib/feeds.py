@@ -511,7 +511,7 @@ class FeederProtocol(object):
                         break
                     if tweet.get('timeout'):
                         continue    # heartbeat
-                    if tweet.get('text'):
+                    if tweet.get('id_str'):
                         tweet = reformat_extended_tweets(tweet)
                         self.pile.insert(0, tweet)
                     else:
