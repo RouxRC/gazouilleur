@@ -374,7 +374,7 @@ def reformat_extended_tweets(tweet):
     if "extended_tweet" in tweet:
         for field in tweet["extended_tweet"]:
             tweet[field] = tweet["extended_tweet"][field]
-    tweet['text'] = tweet.get('full_text', tweet.get('text', ''))
+    tweet['text'] = tweet.get('full_text', tweet.get('text', '')).replace('&amp;', '&')
 
     if 'entities' in tweet or 'extended_entities' in tweet:
         for entity in tweet.get('extended_entities', tweet['entities']).get('media', []) + tweet.get('entities', {}).get('urls', []):
@@ -384,6 +384,7 @@ def reformat_extended_tweets(tweet):
                     tweet["text"] = tweet["text"].replace(entity['url'], cleanurl)
                 except Exception as e:
                     loggerr(e)
+                    tweet["text"] = tweet["text"].replace(entity['url'], entity['expanded_url'])
 
     tweet["url"] = "https://twitter.com/%s/status/%s" % (tweet['user']['screen_name'], tweet['id_str'])
 
@@ -394,8 +395,7 @@ def reformat_extended_tweets(tweet):
 
     if "quoted_status" in tweet and tweet["quoted_status"]['id_str'] != tweet['id_str']:
         tweet["quoted_status"] = reformat_extended_tweets(tweet["quoted_status"])
-        tweet['text'] = tweet['text'].replace(tweet["quoted_status"]["url"].lower(), u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]))
-
+        tweet['text'] = re.sub(tweet["quoted_status"]["url"].replace('/', '\/'), u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]), tweet['text'], re.I)
     return tweet
 
 def grab_extra_meta(source, result):
