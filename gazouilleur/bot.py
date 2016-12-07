@@ -773,6 +773,8 @@ class IRCBot(NamesIRCClient):
                     bl, self.twitter['users'], msg = conn.test_microblog_users(kwargs['text'], self.twitter['users'])
                     if not bl:
                         return "[%s] %s" % (siteprotocol, msg)
+                else:
+                    kwargs["force"] = True
         command = getattr(conn, command, None)
         return command(**kwargs)
 
