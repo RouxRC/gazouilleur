@@ -126,7 +126,7 @@ class Microblog(object):
     def send_media(self, imgdata):
         return self._send_query(self.conn.media.upload, {"media": imgdata}, return_result=True)
 
-    def microblog(self, text="", tweet_id=None, imgs=None, quote_tweet=None, channel=None, length=0):
+    def microblog(self, text="", tweet_id=None, imgs=None, quote_tweet=None, channel=None, length=0, force=False):
         if text.startswith("%scount" % COMMAND_CHAR_REG):
             text = text.replace("%scount" % COMMAND_CHAR_REG, "").strip()
         if self.site == "identica":
@@ -147,7 +147,8 @@ class Microblog(object):
         args = {'status': text.replace('\\n', '\n')}
         if tweet_id:
             args['in_reply_to_status_id'] = str(tweet_id)
-            args['auto_populate_reply_metadata'] = 'true'
+            if not force:
+                args['auto_populate_reply_metadata'] = 'true'
         if quote_tweet:
             args['attachment_url'] = quote_tweet
         if imgs:
