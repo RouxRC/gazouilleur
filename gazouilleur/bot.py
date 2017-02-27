@@ -678,10 +678,12 @@ class IRCBot(NamesIRCClient):
                 warnings.append("@%s" % account)
         return warnings
 
-    re_match_answer = re.compile(r'^\s*%sanswer(last|\s+\d+)\s+' % COMMAND_CHARACTER)
+    re_match_dm = re.compile(r'^\s*%sdm\s+' % COMMAND_CHAR_REG, re.I)
+    re_match_answer = re.compile(r'^\s*%sanswer(last|\s+\d+)\s+' % COMMAND_CHAR_REG, re.I)
     @inlineCallbacks
     def command_count(self, rest, channel=None, nick=None, _return_value=False):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
+        limit = " (max 140)" if not self.re_match_dm.match(rest) else ""
         answ = self.re_match_answer.search(rest)
         if answ:
             channel = self.getMasterChan(channel)
@@ -704,7 +706,7 @@ class IRCBot(NamesIRCClient):
 
         if _return_value:
             returnD(res)
-        returnD("%d characters (max 140)" % res)
+        returnD("%d characters%s" % (res, limit))
 
     def command_lastcount(self, rest, channel=None, nick=None):
         """lastcount : Prints the latest "count" command and its result (options from "last" except <N> can apply)."""
