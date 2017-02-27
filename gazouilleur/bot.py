@@ -693,11 +693,12 @@ class IRCBot(NamesIRCClient):
                     returnD("Sorry, no last tweet id found for this chan.")
                 tweet_id = tweet_id[0]["tweet_id"]
             warnings = self._check_answered_accounts(channel, tweet_id, rest)
-            if warnings and (tweet_id != 'last' or _return_value):
+            rest, force = self._match_reg(rest, self.re_force)
+            if warnings and not force and (tweet_id != 'last' or _return_value):
                 if type(warnings) != list:
                     returnD(warnings)
                 else:
-                    self._send_message("[twitter] Characters for @accounts answered to don't count anymore in tweets, you shouldn't include %s in your tweet, except for names actually part of your message in which case they do count as characters (use --force to allow it)" % " & ".join(warnings), channel, nick)
+                    returnD("[twitter] Characters for @accounts answered to don't count anymore in tweets, you shouldn't include %s in your tweet, except for names actually part of your message in which case they do count as characters (use --force to allow it)" % " & ".join(warnings))
 
         res = countchars(rest, self.twitter["url_length"])
 
@@ -744,7 +745,7 @@ class IRCBot(NamesIRCClient):
         return text, quote_tweet
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
-    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
+    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er(last)?|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)
@@ -1415,9 +1416,11 @@ class IRCBot(NamesIRCClient):
             if not self._can_user_do(nick, channel, func):
                 returnD(self._stop_saving_task("I can already tell you that you don't have the rights to use %s%s in this channel." % (COMMAND_CHAR_DEF, command)))
             if self.re_clean_twitter_task.match(task):
-                count = yield self.command_count(rest, channel, nick, _return_value=True)
-                if (count > 140 or count < 30) and "--nolimit" not in task:
-                    returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"),count)))
+                count = yield self.command_count(task, channel, nick, _return_value=True)
+                if type(count) != int:
+                    returnD(self._stop_saving_task("I can already tell you this won't work: %s" % count))
+                elif (count > 140 or count < 30) and "--nolimit" not in task:
+                    returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"), count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
             taskid = reactor.callLater(when, self._send_message, task, target)
