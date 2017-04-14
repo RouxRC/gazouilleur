@@ -1601,16 +1601,17 @@ class IRCBotFactory(protocol.ReconnectingClientFactory):
         channels.append("#gazouilleur")
 
 
-class ClientTLSContext(ssl.ClientContextFactory):
-    isClient = 1
-    def getContext(self):
-        return SSL.Context(SSL.TLSv1_METHOD)
-
+ssl_options = ssl.optionsForClientTLS(hostname=config.HOST.decode("utf-8"))
+#class ClientTLSContext(ssl.ClientContextFactory):
+#    isClient = 1
+#    def getContext(self):
+#        return SSL.Context(SSL.TLSv1_METHOD)
 
 # Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
     if is_ssl(config):
-        reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
+        reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl_options)
+        #reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
     else:
         reactor.connectTCP(config.HOST, config.PORT, IRCBotFactory())
     log.startLogging(sys.stdout)
@@ -1622,7 +1623,8 @@ elif __name__ == '__builtin__':
     filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
     application.setComponent(log.ILogObserver, filelog.emit)
     if is_ssl(config):
-        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ClientTLSContext())
+        ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ssl_options)
+        #ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ClientTLSContext())
     else:
         ircService = internet.TCPClient(config.HOST, config.PORT, IRCBotFactory())
     ircService.setServiceParent(application)
