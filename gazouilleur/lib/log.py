@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
+import sys, traceback
 from twisted.python import log
 from gazouilleur import config
 from .colorize import colorize
@@ -34,7 +34,12 @@ def _context(channel=None, action=None, debug=True):
     return tmp
 
 def logg(text, color=None, channel=None, action=None, error=False, debug=False):
-    return log.msg(_logg(text, color, error), system=_context(channel, action, debug))
+    try:
+        return log.msg(_logg(text, color, error), system=_context(channel, action, debug))
+    except UnicodeDecodeError as e:
+        print "WARNING: weird UnicodeDecodeError detected"
+        traceback.print_stack()
+        return log.msg(text, system=_context(channel, action, debug))
 
 def loggirc(text, chan=None):
     if chan:
