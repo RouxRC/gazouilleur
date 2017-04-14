@@ -52,7 +52,7 @@ b a, b a:visited, small a, small a:visited {
 <h2>Links from user chats</h2>
 <ul>
 {{#links}}
-  <li><a target="_blank" href="{{link}}"><b>{{link}}</b> (from: {{user}})</a></li>
+  <li><a target="_blank" href="{{link}}"><b>{{link}}</b> <i>({{user}}: <small>{{msg}}</small>)</i></a></li>
 {{/links}}
 </ul>
 {{^links}}
