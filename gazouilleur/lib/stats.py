@@ -157,6 +157,7 @@ class Stats(object):
             "t0": clean_date(since),
             "t1": clean_date(now),
             "news": [],
+            "links": [],
             "imgs": [],
             "tweets": []
         }
@@ -221,11 +222,24 @@ class Stats(object):
         data["tweets"] = sorted(links.values(), key=lambda x: "%06d-%s" % (10**6-x['count'], x['link']))
         del(links)
 
+        query["user"] = {"$ne": config.BOTNAME.lower()}
+        query["message"] = re.compile(r'https?://')
+        links = yield SingleMongo('logs', 'find', query, fields=['screenname', 'message'], filter=sortasc('timestamp'))
+        for entry in links:
+            for link in re_links.findall(entry["message"]):
+                data["links"].append({
+                    "user": entry["screenname"],
+                    "msg": entry["message"],
+                    "link": link
+                })
+        del(links)
+
         filename = "%s_%s_%s" % (channel.lstrip("#"), data["t0"].replace(" ", "+"), data["t1"].replace(" ", "+"))
         if not self.render_template("digest.html", filename, data):
             returnValue("Wooops could not generate html for %s..." % filename)
         returnValue("Digest for the last %s hours available at %sdigest_%s.html" % (hours, self.url, filename))
 
+re_links = re.compile(r'(https?://\S+)', re.I)
 re_tweet = re.compile(r'https?://twitter\.com/\S+/statuse?s?/\d+$')
 re_twitmedia = re.compile(r'^https?://twitter\.com/\S+/statuse?s?/(\d+)/(photo|video)/\d+$')
 def clean_date(d):

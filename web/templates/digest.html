@@ -49,6 +49,15 @@ b a, b a:visited, small a, small a:visited {
 {{^news}}
   <p>No news from RSS :(</p>
 {{/news}}
+<h2>Links from user chats</h2>
+<ul>
+{{#links}}
+  <li><a target="_blank" href="{{link}}"><b>{{link}}</b> (from: {{user}})</a></li>
+{{/links}}
+</ul>
+{{^links}}
+  <p>No new links from users on chan :(</p>
+{{/links}}
 <h2>Links from tweets</h2>
 <ul>
 {{#tweets}}
