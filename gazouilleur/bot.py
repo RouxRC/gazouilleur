@@ -1010,13 +1010,36 @@ class IRCBot(NamesIRCClient):
         name = user['screen_name'].encode('utf-8')
         text = tweet['text']
         text, self.cache_urls = yield clean_redir_urls(text.replace('\n', ' '), self.cache_urls)
-        date = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60).strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
+        if "timestampDB" in tweet:
+            ts = tweet["timestampDB"]
+        else:
+            ts = datetime.fromtimestamp(time.mktime(time.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+60*60)
+        date = ts.strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
         extra = u" - %s ♻" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
         extra += u" - %s ♥" % tweet['favorite_count'] if 'favorite_count' in tweet and tweet['favorite_count'] else ""
         if light:
             returnD("%s: %s — https://twitter.com/%s/status/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, extra.encode('utf-8')))
         returnD("%s (%d followers): %s — https://twitter.com/%s/status/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, extra.encode('utf-8')))
+
+    @inlineCallbacks
+    def _show_status_even_deleted(self, twconn, twid, channel, nick):
+        tweet = twconn.show_status(twid)
+        if not isinstance(tweet, dict):
+            localtweet = yield self.db['tweets'].find_one({'id': long(twid)})
+            if localtweet:
+                yield self._send_message("[twitter] Warning: tweet %s was deleted, retrieving an archive from my database" % twid, channel, nick)
+                tweet = {
+                    "id_str": str(twid),
+                    "user": {
+                        "screen_name": localtweet["screenname"],
+                        "followers_count": localtweet["user_followers"]
+                    },
+                    "text": localtweet["message"],
+                    "timestampDB": localtweet["date"],
+                    "source": localtweet["source"]
+                }
+        returnD(tweet)
 
     @inlineCallbacks
     def command_show(self, rest, channel=None, nick=None):
@@ -1028,7 +1051,7 @@ class IRCBot(NamesIRCClient):
         conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
         tweet_id = safeint(rest, twitter=True)
         if tweet_id:
-            tweet = conn.show_status(tweet_id)
+            tweet = yield self._show_status_even_deleted(conn, tweet_id, channel, nick)
             if not isinstance(tweet, dict):
                 returnD(tweet)
             fmtweet = yield self._format_tweet(tweet)
@@ -1063,7 +1086,7 @@ class IRCBot(NamesIRCClient):
             for tw in answers:
                 if tw['id'] not in done + todo:
                     todo.append(tw['id'])
-            tweet = conn.show_status(curid)
+            tweet = yield self._show_status_even_deleted(conn, curid, channel, nick)
             if not isinstance(tweet, dict):
                 continue
             repl = tweet["in_reply_to_status_id_str"]
