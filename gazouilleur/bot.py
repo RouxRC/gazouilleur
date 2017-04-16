@@ -1037,7 +1037,8 @@ class IRCBot(NamesIRCClient):
                     },
                     "text": localtweet["message"],
                     "timestampDB": localtweet["date"],
-                    "source": localtweet["source"]
+                    "source": localtweet["source"],
+                    "in_reply_to_status_id_str": localtweet["in_reply_to_status_id_str"]
                 }
         returnD(tweet)
 
