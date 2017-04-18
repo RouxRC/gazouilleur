@@ -674,7 +674,7 @@ class IRCBot(NamesIRCClient):
         warnings = []
         searchable = text.decode('utf-8').lower()
         for account in tocheck:
-            if "@%s" % account.lower() in searchable:
+            if re.compile(r"(^|\W)@%s\b" % account.lower()).search(searchable):
                 warnings.append("@%s" % account)
         return warnings
 
