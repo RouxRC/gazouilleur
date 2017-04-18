@@ -749,7 +749,7 @@ class IRCBot(NamesIRCClient):
         return text, quote_tweet
 
     re_special_dms = re.compile(r'^\.*(d\.*m?|m)\.*\s', re.I)
-    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(twitt?|answ)(er(last)?|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
+    re_clean_twitter_task = re.compile(r'^(%s(count|identica|(tw(ee|it)t?|answ)(er(last)?|only)*)\s*(\d{14}\d*\s*)?)+' % COMMAND_CHAR_REG, re.I)
     def _send_via_protocol(self, siteprotocol, command, channel, nick, **kwargs):
         channel = self.getMasterChan(channel)
         conf = chanconf(channel)

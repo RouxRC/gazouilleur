@@ -99,7 +99,7 @@ def clean_quote_or_imgs(text):
         return clean_imgs(text)
     return clean_tweets(text)
 
-re_clean_twitter_command = re.compile(r'^\s*(%srunlater[\s\d]+)?((%s(count|identica|(twitt?|answ)(er|only|last)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
+re_clean_twitter_command = re.compile(r'^\s*(%srunlater[\s\d]+)?((%s(count|identica|(tw(ee|it)t?|answ)(er|only|last)*)|\d{14}\d*|%sdm\s+@?[a-z0-9_]*)\s*)+' % (COMMAND_CHAR_REG, COMMAND_CHAR_REG, COMMAND_CHAR_REG), re.I)
 
 re_clean_spaces = re.compile(r'\s\s+')
 clean_spaces = lambda x: re_clean_spaces.sub(" ", x)
