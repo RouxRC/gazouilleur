@@ -58,6 +58,9 @@ class IRCBot(NamesIRCClient):
         self.feeders = {}
         self.colorizer = {"private": chan_color_conf()}
         self.users = {}
+        for extra in config.EXTRA_COMMANDS:
+            setattr(self, "command_%s" % extra['command'], self.__command_get(extra))
+            setattr(self, 'command_set%s' % extra['command'], self.__command_set(extra))
 
     def get_twitter_conf(self):
         for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
@@ -308,7 +311,7 @@ class IRCBot(NamesIRCClient):
         return command.__name__.replace('command_', '')
 
     def _get_command_doc(self, command):
-        if not isinstance(command, types.MethodType):
+        if not callable(command):
             command = self._find_command_function(command)
         return command.__doc__
 
@@ -479,7 +482,7 @@ class IRCBot(NamesIRCClient):
         """help [<command>] : Prints general help or help for specific <command>."""
         rest = rest.lstrip(COMMAND_CHAR_STR).lower()
         conf = chanconf(channel)
-        commands = [c for c in [c.replace('command_', '') for c in dir(IRCBot) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
+        commands = [c for c in [c.replace('command_', '') for c in dir(self) if c.startswith('command_')] if self._can_user_do(nick, channel, c, conf)]
         def_msg = 'Type "%shelp' % COMMAND_CHAR_DEF
         if not discreet:
             def_msg = 'My commands are:  %s%s\n%s <command>" to get more details%s' % (COMMAND_CHAR_DEF, (' ;  %s' % COMMAND_CHAR_DEF).join(commands), def_msg, self.link_commands)
@@ -1553,25 +1556,29 @@ class IRCBot(NamesIRCClient):
         self.silent[channel] = datetime.today()
         return "It's good to be back!"
 
-    re_url_pad = re.compile(r'https?://.*pad', re.I)
-    @inlineCallbacks
-    def command_setpad(self, rest, channel=None, nick=None):
-        """setpad <url> : Defines <url> of the current etherpad./AUTH"""
-        channel = self.getMasterChan(channel)
-        url = rest.strip()
-        if self.re_url_pad.match(url):
-            yield self.db['feeds'].update({'database': 'pad', 'channel': channel}, {'database': 'pad', 'channel': channel, 'query': url, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
-            returnD("Current pad is now set to %s" % rest)
-        returnD("This is not a valid pad url.")
+    def __command_set(self, extra):
+        @inlineCallbacks
+        def _command_set(value, channel=None, nick=None):
+            channel = self.getMasterChan(channel)
+            value = value.strip()
+            if value and extra.get("validation", None):
+                if not re.match(extra["validation"], value, re.I):
+                    returnD(extra['fail'])
+            yield self.db['feeds'].update({'database': 'command_%s' % extra['command'], 'channel': channel}, {'database': 'command_%s' % extra['command'], 'channel': channel, 'query': value, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+            returnD("Current %s is now set to %s" % (extra['command'], value))
+        _command_set.__doc__ = """%s <value> : %s""" % (extra['command'], extra['helpset'])
+        return _command_set
 
-    @inlineCallbacks
-    def command_pad(self, rest, channel=None, *args):
-        """pad : Prints the url of the current etherpad."""
-        channel = self.getMasterChan(channel)
-        res = yield self.db['feeds'].find({'database': 'pad', 'channel': channel}, fields=['query'])
-        if res:
-            returnD("Current pad is available at: %s" % res[0]['query'])
-        returnD("No pad is currently set for this channel.")
+    def __command_get(self, extra):
+        @inlineCallbacks
+        def _command_get(rest, channel=None, *args):
+            channel = self.getMasterChan(channel)
+            res = yield self.db['feeds'].find({'database': 'command_%s' % extra['command'], 'channel': channel}, fields=['query'])
+            if res and res[0]['query']:
+                returnD(extra['return'] % res[0]['query'])
+            returnD(extra['none'])
+        _command_get.__doc__ = """%s : %s""" % (extra['command'], extra['help'])
+        return _command_get
 
     def command_title(self, url, *args):
         """title <url> : Prints the title of the webpage at <url>."""

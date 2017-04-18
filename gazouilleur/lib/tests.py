@@ -31,7 +31,7 @@ except SyntaxError as e:
 from gazouilleur.lib.log import logerr
 
 try:
-    config.BOTNAME, config.BOTPASS, config.HOST, config.PORT, config.MONGODB, config.GLOBAL_USERS, config.BACK_HOURS, config.COMMAND_CHARACTER, config.CHANNELS, config.DEBUG, config.ADMINS
+    config.BOTNAME, config.BOTPASS, config.HOST, config.PORT, config.MONGODB, config.GLOBAL_USERS, config.BACK_HOURS, config.COMMAND_CHARACTER, config.CHANNELS, config.DEBUG, config.ADMINS, config.EXTRA_COMMANDS
     [config.MONGODB[k] for k in ['HOST', 'PORT', 'DATABASE', 'USER', 'PSWD']]
 except AttributeError as e:
     logerr("Some field is missing from `gazouilleur/config.py`.\nERROR: Please edit it to fix the following issue:\nERROR: %s" % str(e).replace("'module' object", 'config'))
@@ -57,6 +57,11 @@ try:
     [c['TWITTER'][k] for k in ['USER', 'DISPLAY_RT', 'KEY', 'SECRET', 'OAUTH_TOKEN', 'OAUTH_SECRET'] for c in config.CHANNELS.values() if "TWITTER" in c]
 except KeyError as e:
     logerr("A field is missing from TWITTER config in `gazouilleur/config.py`: %s." % e)
+    exit(1)
+try:
+    [e[k] for k in ['command', 'help', 'helpset', 'return', 'none'] for e in config.EXTRA_COMMANDS]
+except KeyError as e:
+    logerr("A field is missing from EXTRA_COMMANDS in `gazouilleur/config.py`: %s." % e)
     exit(1)
 
 try:

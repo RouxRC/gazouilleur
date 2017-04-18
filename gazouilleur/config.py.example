@@ -138,6 +138,26 @@ CHANNELS = {
 # 7) Developer's options
 # COLOR_LOGS (True by default) activates colorized logs. Uncomment et set to False to deactivate
 #COLOR_LOGS = True
+
+# EXTRA_COMMANDS lets you add custom simple duos of get/set commands
+# to let users set custom key/values, examples below
+#EXTRA_COMMANDS = [{
+#  'command': 'pad',
+#  'help': 'Prints the url of the current etherpad.',
+#  'helpset': 'Defines <value> as url for the chan\'s etherpad./AUTH',
+#  'return': 'Current pad is available at: %s',
+#  'none': 'No pad is currently set for this channel.',
+#  'validation': 'https?://.*pad',
+#  'fail': 'This is not a valid pad url.'
+#}, {
+#  'command': 'quadrapero',
+#  'help': u'Affiche la date du prochain Quadrapéro.',
+#  'helpset': u'Définit <value> comme date du prochain Quadrapéro.',
+#  'return': u'Le prochain Quadrapéro aura lieu le %s !',
+#  'none': u'Aucun Quadrapéro de programmé.'
+#}]
+EXTRA_COMMANDS = []
+
 # DEBUG mode will make log a lot more verbose and display errors publicly on the channel
 DEBUG = False
 # ADMINS will get in private messages info about errors
