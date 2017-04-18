@@ -679,7 +679,7 @@ class IRCBot(NamesIRCClient):
         return warnings
 
     re_match_dm = re.compile(r'^\s*%sdm\s+' % COMMAND_CHAR_REG, re.I)
-    re_match_answer = re.compile(r'^\s*%sanswer(last|\s+\d+)\s+' % COMMAND_CHAR_REG, re.I)
+    re_match_answer = re.compile(r'^\s*%sanswer(last|\s+(https?://twitter.com/\S+?/)?\d+)\s+' % COMMAND_CHAR_REG, re.I)
     @inlineCallbacks
     def command_count(self, rest, channel=None, nick=None, _return_value=False):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
@@ -687,8 +687,10 @@ class IRCBot(NamesIRCClient):
         answ = self.re_match_answer.search(rest)
         if answ:
             channel = self.getMasterChan(channel)
-            rest = self.re_match_answer.sub('', rest)
-            tweet_id = self.re_twitter_url.sub(r'\1 ', answ.group(1).strip())
+            rest = self.re_match_answer.sub('', rest).strip()
+            tweet_id = answ.group(1).strip()
+            if answ.group(2):
+                tweet_id = tweet_id.replace(answ.group(2), '')
             if tweet_id == 'last' and _return_value:
                 tweet_id = yield self.db['lasttweets'].find({'channel': channel})
                 if not tweet_id:
