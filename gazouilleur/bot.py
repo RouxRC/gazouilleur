@@ -306,7 +306,7 @@ class IRCBot(NamesIRCClient):
         return getattr(self, 'command_' + command.lower(), None)
 
     def _get_command_name(self, command):
-        if not isinstance(command, types.MethodType):
+        if not callable(command):
             return command
         return command.__name__.replace('command_', '')
 
