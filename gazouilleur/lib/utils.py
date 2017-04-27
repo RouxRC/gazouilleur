@@ -205,9 +205,14 @@ def uniq_rt_hash(text):
     text = cleanblanks(text)
     return get_hash(text.encode('utf-8'))
 
+def decode_entity(x):
+    try:
+        return unichr(htmlentitydefs.name2codepoint[x.group(1)])
+    except KeyError:
+        return x.group(0)
 re_entities = re.compile(r'&([^;]{,6});')
 def unescape_html(text):
-    return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), text)
+    return re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else decode_entity(x), text)
 
 def getTopsyFeedUrl(query):
     return 'http://topsy.com/s/%s/tweet?order=date&window=realtime' % query
