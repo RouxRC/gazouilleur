@@ -163,9 +163,9 @@
  * **Exclude regexp :** `'(u?n?f(ollow|ilter)|u?n?monitor|list|newsurl|last(tweet|news)|digest)'`
  * **List :**
 
-  + `follow <name url|text|@user>`
+  + `follow <name rssUrl|text|@user>`
 
-     > Asks me to follow and display elements from a RSS named &lt;name&gt; at &lt;url&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
+     > Asks me to follow and display elements from a RSS named &lt;name&gt; at &lt;rssUrl&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
      > > restricted to /AUTH
 
   + `unfollow <name|text|@user>`
@@ -173,7 +173,7 @@
      > Asks me to stop following and displaying elements from a RSS named &lt;name&gt;, or tweets matching &lt;text&gt; or from &lt;@user&gt;.
      > > restricted to /AUTH
 
-  + `monitor <name>`
+  + `monitor <name> <url>`
 
      > Asks me to regularily check and tell if the webpage at &lt;url&gt; and identified as &lt;name&gt; changes.
      > > restricted to /AUTH
@@ -199,7 +199,7 @@
 
   + `newsurl <name>`
 
-     > Displays the url of a RSS feed saved as &lt;name&gt; for current channel.
+     > Displays the url of a RSS feed or a monitored page saved as &lt;name&gt; for current channel.
 
   + `tweetswith <match>`
 
@@ -279,15 +279,6 @@
 
      > Tells me to start talking again after use of "fuckoff".
      > > restricted to /AUTH
-
-  + `setpad <url>`
-
-     > Defines &lt;url&gt; of the current etherpad.
-     > > restricted to /AUTH
-
-  + `pad`
-
-     > Prints the url of the current etherpad.
 
   + `title <url>`
 

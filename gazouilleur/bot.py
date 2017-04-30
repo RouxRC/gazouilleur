@@ -1151,7 +1151,7 @@ class IRCBot(NamesIRCClient):
     re_url = re.compile(r'\s*(https?://\S+)\s*', re.I)
     @inlineCallbacks
     def command_follow(self, query, channel=None, nick=None, webpages=False):
-        """follow <name url|text|@user> : Asks me to follow and display elements from a RSS named <name> at <url>, or tweets matching <text> or from <@user>./AUTH"""
+        """follow <name rssUrl|text|@user> : Asks me to follow and display elements from a RSS named <name> at <rssUrl>, or tweets matching <text> or from <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         url = self.re_url.search(query)
         if url and url.group(1):
@@ -1195,7 +1195,7 @@ class IRCBot(NamesIRCClient):
         returnD('«%s» query removed from %s database for %s' % (query, database, channel))
 
     def command_monitor(self, query, channel=None, nick=None):
-        """monitor <name> : Asks me to regularily check and tell if the webpage at <url> and identified as <name> changes./AUTH"""
+        """monitor <name> <url> : Asks me to regularily check and tell if the webpage at <url> and identified as <name> changes./AUTH"""
         return self.command_follow(query, channel, nick, webpages=True)
 
     def command_unmonitor(self, query, channel=None, *args):
