@@ -147,8 +147,8 @@ class FeederProtocol(object):
         if not data:
             returnD(False)
         if self.fact.name == "pages":
-            differ = WebMonitor(name)
-            info = differ.check_diff(url, data)
+            differ = WebMonitor(name, url)
+            info = differ.check_new(data)
             if info:
                 self.fact.ircclient._send_message(info, self.fact.channel)
             returnD(True)

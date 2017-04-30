@@ -13,7 +13,7 @@ except:
 class Templater(object):
 
     def __init__(self):
-        self.url = '%s/' % URL_STATS.rstrip('/') if URL_STATS else None
+        self.public_url = '%s/' % URL_STATS.rstrip('/') if URL_STATS else None
         self.templates = os.path.join("web", "templates")
 
     def render_template(self, template, name, data):

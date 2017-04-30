@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, time
+import os, re, time
+from hashlib import sha512
 from gazouilleur.lib.templater import Templater
+
+# TODO:
+# - handle error pages
+# - handle redirects
+# - store screenshot via manet
 
 class WebMonitor(Templater):
 
-    def __init__(self, name):
+    def __init__(self, name, url):
         Templater.__init__(self)
         self.name = name
+        self.url = url
         basedir = os.path.join('web', 'monitor')
         self.path = os.path.join(basedir, name)
         if not os.path.exists(basedir):
@@ -17,31 +24,68 @@ class WebMonitor(Templater):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
             os.chmod(self.path, 0o755)
+        self.versions = self.get_versions()
 
-    def check_diff(self, url, data):
-        # TODO:
-        # - handle error pages
-        # - apply url_rewrite for '<[^>]*=['"]/([^/]|$)' et '<[^>]*=['"](!:http)'
-        # - check if file -last exists
-        # - if so diff md5 current/last
-        # - check if exist and not diff
-        if False:
-            return None
-        for name in ["last", time.strftime("%y%m%d-%H%M")]:
-            fil = os.path.join(self.path, "%s.html" % name)
-            with open(fil, "w") as f:
-                f.write(data)
-            os.chmod(fil, 0o644)
-        msg = "Looks like the webpage %s at %s just changed!" % (self.name, url)
-        if self.url:
-            self.build_diff_page(url)
-            msg += "\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.url, self.name)
-        return msg
+    def get_versions(self):
+        files = os.listdir(os.path.join('web', 'monitor', self.name))
+        versions = [f.replace(".html", "") for f in files if f.endswith(".html")]
+        return sorted(versions)
 
-    def build_diff_page(self, url):
+    def get_last(self):
+        if self.versions:
+            return self.versions[-1]
+        return None
+
+    def get_file(self, version, ftype):
+        return os.path.join(self.path, "%s.%s" % (version, ftype))
+
+    def add_version(self, data):
+        version = time.strftime("%y%m%d-%H%M")
+        for ftype in data:
+            name = self.get_file(version, ftype)
+            with open(name, "w") as f:
+                f.write(data[ftype])
+            os.chmod(name, 0o644)
+        self.versions.append(version)
+
+    def check_new(self, page):
+        new = {
+            "html": page,
+            "links": "\n".join(extract_links(page)),
+            "txt": extract_raw_text(page)
+        }
+        last = self.get_last()
+        if not last:
+            self.add_version(new)
+            return
+        with open(self.get_file(last, "links")) as f:
+            lastlinks = f.read()
+        with open(self.get_file(last, "txt")) as f:
+            lasttext = f.read()
+        if differ(lastlinks, new["links"]) or differ(lasttext, new["txt"]):
+            self.add_version(new)
+            msg = "Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
+            if self.public_url:
+                self.build_diff_page()
+                msg += "\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.public_url, self.name)
+            return msg
+
+    def build_diff_page(self):
         data = {
           "name": self.name,
-          "url": url,
+          "url": self.url,
         }
-        data["versions"] = sorted(os.listdir(os.path.join('web', 'monitor', self.name)), reverse=True)
+        data["versions"] = sorted(self.versions, reverse=True)
         self.render_template("monitor.html", self.name, data)
+
+def extract_raw_text(html):
+    # TODO
+    return html
+
+def extract_links(html):
+    # TODO
+    return []
+
+sha = lambda text: sha512(text).digest()
+differ = lambda old, new: len(old) != len(new) or sha(old) != sha(new)
+

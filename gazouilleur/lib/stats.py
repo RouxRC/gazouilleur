@@ -69,13 +69,13 @@ class Stats(Templater):
             recent = yield find_last_followers(self.user)
             if recent:
                 res.append("Recent follower%s: %s" % ("s include" if len(recent) > 1 else "", format_4_followers(recent)))
-        if self.url and res:
-            res.append("More details: %sstatic_stats_%s.html" % (self.url, self.user))
+        if self.public_url and res:
+            res.append("More details: %sstatic_stats_%s.html" % (self.public_url, self.user))
         returnValue([(True, "[Stats] %s" % m) for m in res])
 
     @inlineCallbacks
     def dump_data(self):
-        if not self.url:
+        if not self.public_url:
             returnValue(False)
         stats = yield find_stats({'user': self.user}, filter=sortasc('timestamp'), timeout=120)
         dates = [s['timestamp'] for s in stats]
@@ -124,7 +124,7 @@ class Stats(Templater):
         except Exception as e:
             loggerr("Could not write images in web/img for %s : %s" % (self.user, e), action="stats")
 
-        data = {'user': self.user, 'url': self.url}
+        data = {'user': self.user, 'url': self.public_url}
         self.render_template("static_stats.html", self.user, data)
         returnValue(True)
 
@@ -219,7 +219,7 @@ class Stats(Templater):
         filename = "%s_%s_%s" % (channel.lstrip("#"), data["t0"].replace(" ", "+"), data["t1"].replace(" ", "+"))
         if not self.render_template("digest.html", filename, data):
             returnValue("Wooops could not generate html for %s..." % filename)
-        returnValue("Digest for the last %s hours available at %sdigest_%s.html" % (hours, self.url, filename))
+        returnValue("Digest for the last %s hours available at %sdigest_%s.html" % (hours, self.public_url, filename))
 
 re_links = re.compile(r'(https?://\S+)', re.I)
 re_tweet = re.compile(r'https?://twitter\.com/\S+/statuse?s?/\d+$')
