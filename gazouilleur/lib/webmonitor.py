@@ -50,7 +50,7 @@ class WebMonitor(Templater):
 
     def check_new(self, page):
         new = {
-            "html": page,
+            "html": absolutize_links(self.url, page),
             "links": "\n".join(extract_links(page)),
             "txt": extract_raw_text(page)
         }
@@ -77,6 +77,29 @@ class WebMonitor(Templater):
         }
         data["versions"] = sorted(self.versions, reverse=True)
         self.render_template("monitor.html", self.name, data)
+
+re_abslink = re.compile(r'(src|href)="((https?:)?//)', re.I)
+re_rootlink = re.compile(r'(src|href)="/', re.I)
+re_rellink = re.compile(r'(src|href)="', re.I)
+def absolutize_link(link, host, folder):
+    if re_abslink.search(link):
+        return link
+    if re_rootlink.search(link):
+        return re_rootlink.sub(r'\1="' + host + '/', link)
+    return re_rellink.sub(r'\1="' + folder + '/', link)
+
+re_host = re.compile(r'^(https?://[^/]+)/?.*$', re.I)
+re_folder = re.compile(r'^(.*?)(/[^/]*)?$', re.I)
+re_css = re.compile(r'<link (?:[^>]*(?:rel="stylesheet"|type="text/css") [^>]*href="[^"]+"|href="[^"]+"[^>]* (?:rel="stylesheet"|type="text/css"))[^>]*>', re.I)
+re_link = re.compile(r'<(?:a|img|script) [^>]*(?:src|href)="[^"]+"[^>]*>', re.I)
+def absolutize_links(url, html):
+    html2 = html
+    host = re_host.sub(r'\1', url)
+    folder = re_folder.sub(r'\1', url)
+    for regexp in re_css, re_link:
+        for link in regexp.findall(html):
+            html2 = html2.replace(link, absolutize_link(link, host, folder))
+    return html2
 
 def extract_raw_text(html):
     # TODO
