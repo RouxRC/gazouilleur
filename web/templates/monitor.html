@@ -19,6 +19,9 @@ h1 {font-size: 18px;}
       <li><b><a target="_blank" href="monitor/{{name}}/{{.}}.html">Saved {{.}}</a></b></li>
     {{/versions}}
     </ul>
+    {{#screenshots}}
+    <div id="screenshots"></div>
+    {{/screenshots}}
     <h2 id="version">Actual version</h2>
     <iframe id="page" src="{{url}}"></iframe>
   <!--

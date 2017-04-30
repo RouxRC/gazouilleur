@@ -133,6 +133,8 @@ CHANNELS = {
 # This url needs to be routed by a webserver to Gazouilleur's "web" directory.
 # For instance if /var/www/ is already served by apache, run `ln -s ##GAZOUILLEURPATH##/web /var/www/twitter-stats`
 #URL_STATS = "http://www.regardscitoyens.org/stats/"
+# URL_MANET is optional to get screenshots of web pages monitored via the bot. Preferably install your own : https://github.com/vbauer/manet
+#URL_MANET = "https://manet.herokuapp.com/"
 
 
 # 7) Developer's options

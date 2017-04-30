@@ -3,13 +3,21 @@
 
 import os, re, time
 from hashlib import sha512
+from urllib import quote_plus
 from w3lib.html import replace_entities
+from twisted.web import client
+from twisted.internet.defer import inlineCallbacks, returnValue as returnD
+from gazouilleur.lib.log import *
 from gazouilleur.lib.templater import Templater
+try:
+    from gazouilleur.config import URL_MANET
+except:
+    URL_MANET = ""
+manet_url = lambda url: "%s/?url=%s&delay=3000&force=true&format=png" % (URL_MANET.rstrip('/'), quote_plus(url))
 
 # TODO:
 # - handle error pages
 # - handle redirects
-# - store screenshot via manet
 
 class WebMonitor(Templater):
 
@@ -40,15 +48,29 @@ class WebMonitor(Templater):
     def get_file(self, version, ftype):
         return os.path.join(self.path, "%s.%s" % (version, ftype))
 
+    @inlineCallbacks
     def add_version(self, data):
         version = time.strftime("%y%m%d-%H%M")
         for ftype in data:
             name = self.get_file(version, ftype)
-            with open(name, "w") as f:
-                f.write(data[ftype])
-            os.chmod(name, 0o644)
+            try:
+                with open(name, "w") as f:
+                    f.write(data[ftype])
+                os.chmod(name, 0o644)
+            except Exception as e:
+                loggerr("%s %s" % (type(e), e), "WebMonitor", self.name)
+        if URL_MANET:
+            name = self.get_file(version, "png")
+            try:
+                img = yield client.getPage(manet_url(self.url))
+                with open(name, "wb") as f:
+                    f.write(img)
+                os.chmod(name, 0o644)
+            except Exception as e:
+                loggerr("%s %s" % (type(e), e), "WebMonitor-shot", self.name)
         self.versions.append(version)
 
+    @inlineCallbacks
     def check_new(self, page):
         page = decode_page(page)
         html = absolutize_links(self.url, page)
@@ -59,24 +81,25 @@ class WebMonitor(Templater):
         }
         last = self.get_last()
         if not last:
-            self.add_version(new)
-            return
+            yield self.add_version(new)
+            returnD(None)
         with open(self.get_file(last, "links")) as f:
             lastlinks = f.read()
         with open(self.get_file(last, "txt")) as f:
             lasttext = f.read()
         if differ(lastlinks, new["links"]) or differ(lasttext, new["txt"]):
-            self.add_version(new)
+            yield self.add_version(new)
             msg = u"Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
             if self.public_url:
                 self.build_diff_page()
                 msg += u"\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.public_url, self.name)
-            return msg.encode("utf-8")
+            returnD(msg.encode("utf-8"))
 
     def build_diff_page(self):
         data = {
           "name": self.name,
           "url": self.url,
+          "screenshots": bool(URL_MANET)
         }
         data["versions"] = sorted(self.versions, reverse=True)
         self.render_template("monitor.html", self.name, data)
