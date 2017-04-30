@@ -7,8 +7,9 @@ from urllib import quote_plus
 from w3lib.html import replace_entities
 from twisted.web import client
 from twisted.internet.defer import inlineCallbacks, returnValue as returnD
-from gazouilleur.lib.log import *
+from gazouilleur.lib.utils import deferredSleep
 from gazouilleur.lib.templater import Templater
+from gazouilleur.lib.log import loggerr
 try:
     from gazouilleur.config import URL_MANET
 except:
@@ -60,15 +61,23 @@ class WebMonitor(Templater):
             except Exception as e:
                 loggerr("%s %s" % (type(e), e), "WebMonitor", self.name)
         if URL_MANET:
-            name = self.get_file(version, "png")
-            try:
-                img = yield client.getPage(manet_url(self.url))
-                with open(name, "wb") as f:
-                    f.write(img)
-                os.chmod(name, 0o644)
-            except Exception as e:
-                loggerr("%s %s" % (type(e), e), "WebMonitor-shot", self.name)
+            yield self.save_screenshot(version)
         self.versions.append(version)
+
+    @inlineCallbacks
+    def save_screenshot(self, version, retries=3):
+        name = self.get_file(version, "png")
+        try:
+            img = yield client.getPage(manet_url(self.url))
+            with open(name, "wb") as f:
+                f.write(img)
+            os.chmod(name, 0o644)
+        except Exception as e:
+            if retries:
+                yield deferredSleep(3)
+                yield self.save_screenshot(version, retries=retries-1)
+            else:
+                loggerr("%s %s" % (type(e), e), "WebMonitor-shot", self.name)
 
     @inlineCallbacks
     def check_new(self, page):
@@ -102,7 +111,7 @@ class WebMonitor(Templater):
           "screenshots": bool(URL_MANET)
         }
         data["versions"] = sorted(self.versions, reverse=True)
-        self.render_template("monitor.html", self.name, data)
+        self.render_template("monitor.html", quote_plus(self.name), data)
 
 
 # Diff long strings
