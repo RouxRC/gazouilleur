@@ -26,7 +26,7 @@ class WebMonitor(Templater):
         self.name = name
         self.url = url
         basedir = os.path.join('web', 'monitor')
-        self.path = os.path.join(basedir, name)
+        self.path = os.path.join(basedir, quote_plus(name))
         if not os.path.exists(basedir):
             os.makedirs(basedir)
             os.chmod(basedir, 0o755)
@@ -36,7 +36,7 @@ class WebMonitor(Templater):
         self.versions = self.get_versions()
 
     def get_versions(self):
-        files = os.listdir(os.path.join('web', 'monitor', self.name))
+        files = os.listdir(self.path)
         versions = [f.replace(".html", "") for f in files if f.endswith(".html")]
         return sorted(versions)
 
