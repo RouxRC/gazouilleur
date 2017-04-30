@@ -54,7 +54,7 @@ class WebMonitor(Templater):
         html = absolutize_links(self.url, page)
         new = {
             "html": html.encode('utf-8'),
-            "links": "\n".join(extract_links(html)).encode('utf-8'),
+            "links": u"\n".join(extract_links(html)).encode('utf-8'),
             "txt": extract_raw_text(page).encode('utf-8')
         }
         last = self.get_last()
@@ -67,11 +67,11 @@ class WebMonitor(Templater):
             lasttext = f.read()
         if differ(lastlinks, new["links"]) or differ(lasttext, new["txt"]):
             self.add_version(new)
-            msg = "Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
+            msg = u"Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
             if self.public_url:
                 self.build_diff_page()
-                msg += "\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.public_url, self.name)
-            return msg
+                msg += u"\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.public_url, self.name)
+            return msg.encode("utf-8")
 
     def build_diff_page(self):
         data = {
@@ -141,7 +141,7 @@ def extract_raw_text(html):
 
 
 # Extract all links from an html document
+re_links = re.compile(r"<a[^>]*href\s*=\s*(\"[^\">]+[\">]|'[^'>]+['>]|[^\s>]+[\s>])", re.DOTALL | re.I)
 def extract_links(html):
-    # TODO
-    return []
+    return [l.strip(u"\t\r\n '\">") for l in re_links.findall(html)]
 
