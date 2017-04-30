@@ -1248,12 +1248,11 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_newsurl(self, name, channel=None, *args):
-        """newsurl <name> : Displays the url of a RSS feed saved as <name> for current channel."""
-        # TODO Handle urls for monitor
+        """newsurl <name> : Displays the url of a RSS feed or a monitored page saved as <name> for current channel."""
         channel = self.getMasterChan(channel)
-        res = yield self.db['feeds'].find({'database': 'news', 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name'], limit=1)
+        res = yield self.db['feeds'].find({'database': {"$in": ['news', 'pages']}, 'channel': channel, 'name': name.lower().strip()}, fields=['query', 'name', 'database'])
         if res:
-            returnD("«%s» : %s" % (res[0]['name'].encode('utf-8'), res[0]['query'].encode('utf-8')))
+            returnD(u"\n".join([u"«%s» (%s) : %s" % (r['name'], r['database'], r['query']) for r in res]).encode('utf-8'))
         returnD("No news feed named «%s» for this channel" % name)
 
     @inlineCallbacks
