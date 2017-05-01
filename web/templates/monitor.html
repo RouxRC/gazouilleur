@@ -79,7 +79,7 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
       p.textContent = textVersion;
       p.onClick = cl;
       versions.append(p);
-      i.src = "monitor/" + ns.name + "/" + version + ".png";
+      i.src = "monitor/" + ns.name + "/" + version + "-small.png";
       i.title = textVersion;
       i.alt = textVersion;
       i.onClick = cl;
@@ -89,7 +89,8 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
 
   ns.setDimensions = function(){
     var winW = $(window).width(),
-      imgW = Math.max(100, Math.min(500, parseInt(winW/ns.versions.length)));
+      imgW = 200;
+      //imgW = Math.max(100, Math.min(350, parseInt(winW/ns.versions.length)));
     $("#selecter_large").width(ns.versions.length * (imgW + 4));
     $("#versions p, #screenshots img").width(imgW);
   };
@@ -103,7 +104,6 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
 })(window.gazouilleur = window.gazouilleur || {});
 /* TODO:
 - show selected in selecter
-- build thumbnails
 - code differ
 - juggle between view and diff modes
 - css

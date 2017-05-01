@@ -12,7 +12,7 @@ except (ImportError, TypeError) as e:
     stderr.write("ERROR: Could not load module colorize.\nERROR: Something obviously wrong here...\n")
     exit(1)
 try:
-    import pymongo, txmongo, txmongo.connection, lxml, twisted, twitter, feedparser, pypump, zope.interface, stevedore, urllib3, cffi, cryptography, OpenSSL
+    import pymongo, txmongo, txmongo.connection, lxml, twisted, twitter, feedparser, pypump, zope.interface, stevedore, urllib3, cffi, cryptography, OpenSSL, w3lib
 except ImportError as e:
     stderr.write(colorize("ERROR: Could not load module%s.\nERROR: Please check your install or run `./bin/update_requirements.sh` to update the dependencies.\n" % str(e).replace('No module named', ''), 'red', style='bold'))
     exit(1)
@@ -63,6 +63,14 @@ try:
 except KeyError as e:
     logerr("A field is missing from EXTRA_COMMANDS in `gazouilleur/config.py`: %s." % e)
     exit(1)
+
+# Check image dependencies if Manet screenshots activated
+if hasattr(config, 'URL_MANET'):
+    try:
+        import magickpy
+    except (NameError, ImportError) as e:
+        logerr("Could not load module%s.\nERROR: This module is required to activate the Manet screenshots set with URL_MANET in `gazouilleur/config.py`: %s\nERROR: Please check your install or run `pip install MagickPy` in gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
+        exit(1)
 
 try:
     from gazouilleur.lib import ircclient_with_names, irccolors, feeds, filelogger, httpget, log, microblog, mongo, resolver, stats, utils, templater, webmonitor

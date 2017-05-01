@@ -3,6 +3,7 @@
 
 import os, re, time
 from hashlib import sha512
+from magickpy import Image
 from urllib import quote_plus
 from w3lib.html import replace_entities
 from twisted.web import client
@@ -10,15 +11,13 @@ from twisted.internet.defer import inlineCallbacks, returnValue as returnD
 from gazouilleur.lib.utils import deferredSleep
 from gazouilleur.lib.templater import Templater
 from gazouilleur.lib.log import loggerr
+
 try:
     from gazouilleur.config import URL_MANET
 except:
     URL_MANET = ""
 manet_url = lambda url: "%s/?url=%s&delay=3000&force=true&format=png" % (URL_MANET.rstrip('/'), quote_plus(url))
 
-# TODO:
-# - handle error pages
-# - handle redirects
 
 class WebMonitor(Templater):
 
@@ -78,6 +77,18 @@ class WebMonitor(Templater):
                 yield self.save_screenshot(version, retries=retries-1)
             else:
                 loggerr("%s %s" % (type(e), e), "WebMonitor-shot", self.name)
+        else:
+            try:
+                i = Image.read(str(name))
+                w = 200.0
+                h = round(i.height * w / i.width)
+                i2 = i.makeResize(long(w), long(h), 5, 1)
+                thumbname = "%s-small.png" % name[:-4]
+                i2.write(str(thumbname))
+                os.chmod(thumbname, 0o644)
+                del img, i, i2
+            except Exception as e:
+                loggerr("%s %s" % (type(e), e), "WebMonitor-resize", self.name)
 
     @inlineCallbacks
     def check_new(self, page):

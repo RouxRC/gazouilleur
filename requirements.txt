@@ -24,3 +24,4 @@ pypump==0.5.0
 # pip install numpy
 # matplotlib
 # pystache
+# MagickPy
