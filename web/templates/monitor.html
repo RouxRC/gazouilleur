@@ -3,24 +3,92 @@
 <html>
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
-    <title>WebMonitor for {{name}} powered by Gazouilleur</title>
+    <title>Gazouilleur's WebMonitor for {{name}}: {{url}}</title>
     <style>
-h1 {font-size: 22px;}
-h2 {font-size: 18px;}
-h3 {font-size: 14px;}
-#selecter {width: 100%; height: 240px; border: 1px solid black; overflow-x: auto; overflow-y: hidden; text-align: center;}
-#versions p {margin: 2px; display: block; float:left; border-bottom: 1px solid black; cursor: pointer; font-size: 12px; font-weight: bold;}
-#screenshots {height:200px; display: table; overflow: auto;}
-#screenshots img {margin: 2px; vertical-align: top; cursor: pointer;}
-iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid black;}
+h1 {
+  font-size: 22px;
+  text-align: center;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 14px;
+}
+#selecter {
+  width: 100%;
+  height: 240px;
+  border: 1px solid black;
+  overflow: auto;
+  text-align: center;
+}
+#versions {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  height: 22px;
+}
+#versions p {
+  margin: 0px 2px;
+  display: block;
+  float:left;
+  border-bottom: 1px solid black;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+.selectcopy {
+  background-color: lightgrey;
+}
+#screenshots {
+  height: 200px;
+  display: table;
+  overflow: auto;
+}
+#screenshots img {
+  margin: 2px;
+  vertical-align: top;
+  cursor: pointer;
+}
+#iframes {
+  margin-top: 10px;
+  width: 100%;
+  height: 475px;
+  border: 1px solid black;
+}
+#copy, #orig {
+  float: left;
+  width: 50%;
+}
+#iframes p {
+  margin: auto;
+  width: 99%;
+  height: 17px;
+  display: block;
+  border-bottom: 1px solid black;
+  text-align: center;
+  font-size: 12px;
+  padding-top: 3px;
+}
+#iframes a {
+  font-size: 10px;
+}
+iframe {
+  margin-top: 2px;
+  width: 100%;
+  height: 450px;
+  margin: 0;
+  border: 0;
+}
+#orig iframe {
+  border-left: 1px solid black;
+}
     </style>
   </head>
   <body>
     <h1>
-      WebMonitor for {{name}} at <a target="_blank" href="{{url}}">{{url}}</a><br/>
-      <small>Powered by <a href="https://github.com/RouxRC/gazouilleur">Gazouilleur</a></small>
+      <a href="https://github.com/RouxRC/gazouilleur">Gazouilleur</a>'s WebMonitor for <a target="_blank" href="{{url}}">{{url}}</a>
     </h1>
-    <h2>Available versions</h2>
     {{#screenshots}}
     <div id="selecter">
       <div id="selecter_large">
@@ -32,9 +100,16 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
     </div>
     {{/screenshots}}
     </ul>
-    <h3 id="version">Actual version</h2>
-    <iframe id="oldpage" src="" sandbox="allow-same-origin allow-scripts"></iframe>
-    <iframe id="newpage" src="{{url}}" sandbox="allow-same-origin allow-scripts"></iframe>
+    <div id="iframes">
+      <div id="copy">
+        <p><span></span> <a target="_blank"></a></p>
+        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+      </div>
+      <div id="orig">
+        <p><span></span> <a target="_blank"></a></p>
+        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+      </div>
+    </div>
   <!--
     <h2>Diff view</h2>
     <span id="old"></span> Vs. <span id="new"></span>
@@ -47,6 +122,7 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
   ns.url = "{{url}}";
   ns.name = "{{name}}";
   ns.versions = "{{versions_str}}".split(",");
+  ns.last = ns.versions[ns.versions.length -1];
 
   ns.buildUrl = function(version, typ){
     return "monitor/"+ns.name+"/"+version+"."+typ;
@@ -57,13 +133,22 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
   };
 
   ns.loadVersion = function(version){
-    $("#version").text(ns.nameVersion(version));
-    $("#oldpage").attr("src", ns.buildUrl(version, "html"));
+    var url = ns.buildUrl(version, "html"),
+      name = ns.nameVersion(version);
+    $(".selectcopy").removeClass('selectcopy');
+    $("#" + version).addClass('selectcopy');
+    $("#copy span").text(name);
+    $("#copy a").text(url)
+                .attr("href", url);
+    $("#copy iframe").attr("src", url);
   };
 
-  ns.loadReal = function(){
-    $("#version").text("Real (iframe)");
-    $("#oldpage").attr("src", ns.url);
+  ns.loadOrig = function(){
+    var url = ns.url || "http://regardscitoyens.org";
+    $("#orig span").text("Real (iframe)");
+    $("#orig a").text(url)
+                .attr("href", url);
+    $("#orig iframe").attr("src", url);
   };
 
   ns.addVersions = function(){
@@ -76,34 +161,36 @@ iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid b
         cl = function(){
           ns.loadVersion(version);
         };
+      p.id = version;
       p.textContent = textVersion;
-      p.onClick = cl;
       versions.append(p);
+      $(p).on('click', cl);
       i.src = "monitor/" + ns.name + "/" + version + "-small.png";
       i.title = textVersion;
       i.alt = textVersion;
-      i.onClick = cl;
       screens.append(i);
+      $(i).on('click', cl);
     });
   };
 
   ns.setDimensions = function(){
-    var winW = $(window).width(),
-      imgW = 200;
-      //imgW = Math.max(100, Math.min(350, parseInt(winW/ns.versions.length)));
+    var winW = $("#selecter").innerWidth(),
+      imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
     $("#selecter_large").width(ns.versions.length * (imgW + 4));
     $("#versions p, #screenshots img").width(imgW);
+    $("#copy, #orig").width((winW - 4) / 2);
   };
 
   $(document).ready(function(){
-    $(window).resize(ns.setResponsive);
     ns.addVersions();
     ns.setDimensions();
-    $("#versions p, #screenshots img").show();
+    $("#selecter").scrollLeft($("#selecter_large").width());
+    ns.loadVersion(ns.last);
+    ns.loadOrig();
+    $(window).resize(ns.setDimensions);
   });
 })(window.gazouilleur = window.gazouilleur || {});
 /* TODO:
-- show selected in selecter
 - code differ
 - juggle between view and diff modes
 - css
