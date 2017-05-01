@@ -38,7 +38,10 @@ h3 {
   font-weight: bold;
 }
 .selectcopy {
-  background-color: lightgrey;
+  background-color: lightpink;
+}
+.selectorig {
+  background-color: lightgreen;
 }
 #screenshots {
   height: 200px;
@@ -60,22 +63,30 @@ h3 {
   float: left;
   width: 50%;
 }
+#iframes input {
+  position: fixed;
+}
+#iframes #copy input {
+  right: 50%;
+}
+#copy p {
+  background-color: lightpink;
+}
+#orig p {
+  background-color: lightgreen;
+}
 #iframes p {
   margin: auto;
-  width: 99%;
-  height: 17px;
+  width: 100%;
+  height: 18px;
   display: block;
   border-bottom: 1px solid black;
   text-align: center;
-  font-size: 12px;
-  padding-top: 3px;
-}
-#iframes a {
-  font-size: 10px;
+  font-size: 13px;
+  padding-top: 4px;
 }
 iframe {
   margin-top: 2px;
-  width: 100%;
   height: 450px;
   margin: 0;
   border: 0;
@@ -102,11 +113,13 @@ iframe {
     </ul>
     <div id="iframes">
       <div id="copy">
-        <p><span></span> <a target="_blank"></a></p>
+        <input type="radio" name="curwin" value="copy" checked />
+        <p><a target="_blank"></a></p>
         <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
       <div id="orig">
-        <p><span></span> <a target="_blank"></a></p>
+        <input type="radio" name="curwin" value="orig" />
+        <p><a target="_blank"></a></p>
         <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
     </div>
@@ -123,6 +136,9 @@ iframe {
   ns.name = "{{name}}";
   ns.versions = "{{versions_str}}".split(",");
   ns.last = ns.versions[ns.versions.length -1];
+  ns.currentwin = "copy";
+  ns.currentcopy = "";
+  ns.currentorig = "";
 
   ns.buildUrl = function(version, typ){
     return "monitor/"+ns.name+"/"+version+"."+typ;
@@ -135,60 +151,68 @@ iframe {
   ns.loadVersion = function(version){
     var url = ns.buildUrl(version, "html"),
       name = ns.nameVersion(version);
-    $(".selectcopy").removeClass('selectcopy');
-    $("#" + version).addClass('selectcopy');
-    $("#copy span").text(name);
-    $("#copy a").text(url)
-                .attr("href", url);
-    $("#copy iframe").attr("src", url);
+    $(".select" + ns.currentwin).removeClass('select' + ns.currentwin);
+    $("#" + version).addClass('select' + ns.currentwin);
+    $("#" + ns.currentwin + " a").text(name)
+                              .attr("href", url);
+    $("#" + ns.currentwin + " iframe").attr("src", url);
+    ns['current' + ns.currentwin] = version;
   };
 
-  ns.loadOrig = function(){
+  ns.loadReal = function(){
     var url = ns.url || "http://regardscitoyens.org";
-    $("#orig span").text("Real (iframe)");
-    $("#orig a").text(url)
+    $(".selectorig").removeClass('selectorig');
+    $("#orig a").text("real (iframe) " + url)
                 .attr("href", url);
     $("#orig iframe").attr("src", url);
+    ns.currentorig = "real";
   };
 
-  ns.addVersions = function(){
-    var versions = $("#versions"),
-      screens = $("#screenshots");
-    ns.versions.forEach(function(version){
-      var textVersion = ns.nameVersion(version),
-        p = document.createElement('p'),
-        i = document.createElement('img'),
-        cl = function(){
-          ns.loadVersion(version);
-        };
-      p.id = version;
-      p.textContent = textVersion;
-      versions.append(p);
-      $(p).on('click', cl);
-      i.src = "monitor/" + ns.name + "/" + version + "-small.png";
-      i.title = textVersion;
-      i.alt = textVersion;
-      screens.append(i);
-      $(i).on('click', cl);
-    });
-  };
+  ns.toggleCurrentWindow = function(){
+    console.log(ns.currentwin);
+    if (ns.currentwin === "orig"){
+      ns.currentwin = "copy";
+    } else {
+      ns.currentwin = "orig";
+    }
+  }
 
   ns.setDimensions = function(){
     var winW = $("#selecter").innerWidth(),
       imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
     $("#selecter_large").width(ns.versions.length * (imgW + 4));
     $("#versions p, #screenshots img").width(imgW);
-    $("#copy, #orig").width((winW - 4) / 2);
+    $("#copy iframe, #orig iframe").width((winW - 3) / 2);
   };
 
   $(document).ready(function(){
-    ns.addVersions();
+    var versions = $("#versions"),
+      screens = $("#screenshots");
+    ns.versions.forEach(function(version){
+      var textVersion = ns.nameVersion(version),
+        p = document.createElement('p'),
+        i = document.createElement('img'),
+        onclic = function(){
+          ns.loadVersion(version);
+        };
+      p.id = version;
+      p.textContent = textVersion;
+      i.src = "monitor/" + ns.name + "/" + version + "-small.png";
+      i.title = textVersion;
+      i.alt = textVersion;
+      versions.append(p);
+      screens.append(i);
+      $(p).click(onclic);
+      $(i).click(onclic);
+    });
     ns.setDimensions();
     $("#selecter").scrollLeft($("#selecter_large").width());
     ns.loadVersion(ns.last);
-    ns.loadOrig();
+    ns.loadReal();
+    $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
     $(window).resize(ns.setDimensions);
   });
+
 })(window.gazouilleur = window.gazouilleur || {});
 /* TODO:
 - code differ
