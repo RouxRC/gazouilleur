@@ -108,9 +108,10 @@ class WebMonitor(Templater):
         data = {
           "name": self.name,
           "url": self.url,
+          "versions": self.versions,
+          "versions_str": ",".join(self.versions),
           "screenshots": bool(URL_MANET)
         }
-        data["versions"] = sorted(self.versions, reverse=True)
         self.render_template("monitor.html", quote_plus(self.name), data)
 
 

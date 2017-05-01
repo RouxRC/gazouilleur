@@ -4,35 +4,109 @@
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
     <title>WebMonitor for {{name}} powered by Gazouilleur</title>
-<!-- TODO: stylify everything-->
     <style>
-h1 {font-size: 18px;}
-#page {width: 100%; height: 800px;}
+h1 {font-size: 22px;}
+h2 {font-size: 18px;}
+h3 {font-size: 14px;}
+#selecter {width: 100%; height: 240px; border: 1px solid black; overflow-x: auto; overflow-y: hidden; text-align: center;}
+#versions p {margin: 2px; display: block; float:left; border-bottom: 1px solid black; cursor: pointer; font-size: 12px; font-weight: bold;}
+#screenshots {height:200px; display: table; overflow: auto;}
+#screenshots img {margin: 2px; vertical-align: top; cursor: pointer;}
+iframe {width: 49.5%; height: 450px; float: left; margin: 0; border: 1px solid black;}
     </style>
   </head>
   <body>
-    <h1>WebMonitor for {{name}} at <a target="_blank" href="{{url}}">{{url}}</a> <small>Powered by <a href="https://github.com/RouxRC/gazouilleur">Gazouilleur</a></small></h1>
+    <h1>
+      WebMonitor for {{name}} at <a target="_blank" href="{{url}}">{{url}}</a><br/>
+      <small>Powered by <a href="https://github.com/RouxRC/gazouilleur">Gazouilleur</a></small>
+    </h1>
     <h2>Available versions</h2>
-    <ul>
-      <li><b><a target="_blank" href="{{url}}">Actual</a></b></li>
-    {{#versions}}
-      <li><b><a target="_blank" href="monitor/{{name}}/{{.}}.html">Saved {{.}}</a></b></li>
-    {{/versions}}
-    </ul>
     {{#screenshots}}
-    <div id="screenshots"></div>
+    <div id="selecter">
+      <div id="selecter_large">
+        <div id="versions">
+        </div>
+        <div id="screenshots">
+        </div>
+      </div>
+    </div>
     {{/screenshots}}
-    <h2 id="version">Actual version</h2>
-    <iframe id="page" src="{{url}}"></iframe>
+    </ul>
+    <h3 id="version">Actual version</h2>
+    <iframe id="oldpage" src="" sandbox="allow-same-origin allow-scripts"></iframe>
+    <iframe id="newpage" src="{{url}}" sandbox="allow-same-origin allow-scripts"></iframe>
   <!--
     <h2>Diff view</h2>
     <span id="old"></span> Vs. <span id="new"></span>
     <div id="diff"></div>
   -->
   </body>
+<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
 <script type="text/javascript">
-// TODO: load page in iframe on click + set name in version
-// TODO: code differ
-// TODO: juggle between view and diff modes
+(function(ns){
+  ns.url = "{{url}}";
+  ns.name = "{{name}}";
+  ns.versions = "{{versions_str}}".split(",");
+
+  ns.buildUrl = function(version, typ){
+    return "monitor/"+ns.name+"/"+version+"."+typ;
+  };
+
+  ns.nameVersion = function(version){
+    return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
+  };
+
+  ns.loadVersion = function(version){
+    $("#version").text(ns.nameVersion(version));
+    $("#oldpage").attr("src", ns.buildUrl(version, "html"));
+  };
+
+  ns.loadReal = function(){
+    $("#version").text("Real (iframe)");
+    $("#oldpage").attr("src", ns.url);
+  };
+
+  ns.addVersions = function(){
+    var versions = $("#versions"),
+      screens = $("#screenshots");
+    ns.versions.forEach(function(version){
+      var textVersion = ns.nameVersion(version),
+        p = document.createElement('p'),
+        i = document.createElement('img'),
+        cl = function(){
+          ns.loadVersion(version);
+        };
+      p.textContent = textVersion;
+      p.onClick = cl;
+      versions.append(p);
+      i.src = "monitor/" + ns.name + "/" + version + ".png";
+      i.title = textVersion;
+      i.alt = textVersion;
+      i.onClick = cl;
+      screens.append(i);
+    });
+  };
+
+  ns.setDimensions = function(){
+    var winW = $(window).width(),
+      imgW = Math.max(100, Math.min(500, parseInt(winW/ns.versions.length)));
+    $("#selecter_large").width(ns.versions.length * (imgW + 4));
+    $("#versions p, #screenshots img").width(imgW);
+  };
+
+  $(document).ready(function(){
+    $(window).resize(ns.setResponsive);
+    ns.addVersions();
+    ns.setDimensions();
+    $("#versions p, #screenshots img").show();
+  });
+})(window.gazouilleur = window.gazouilleur || {});
+/* TODO:
+- show selected in selecter
+- build thumbnails
+- code differ
+- juggle between view and diff modes
+- css
+*/
 </script>
 </html>
