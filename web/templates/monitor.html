@@ -9,12 +9,6 @@ h1 {
   font-size: 22px;
   text-align: center;
 }
-h2 {
-  font-size: 18px;
-}
-h3 {
-  font-size: 14px;
-}
 #selecter {
   width: 100%;
   height: 240px;
@@ -56,29 +50,23 @@ h3 {
   vertical-align: top;
   cursor: pointer;
 }
-#iframes {
+#differ {
   margin-top: 10px;
   width: 100%;
-  height: 475px;
+  height: 625px;
   border: 1px solid black;
 }
 #copy, #orig {
   float: left;
   width: 50%;
 }
-#iframes input {
-  position: fixed;
+#differ input {
+  position: absolute;
 }
-#iframes #copy input {
+#differ #copy input {
   right: 50%;
 }
-#copy p {
-  background-color: lightpink;
-}
-#orig p {
-  background-color: lightgreen;
-}
-#iframes p {
+#differ .version {
   margin: auto;
   width: 100%;
   height: 18px;
@@ -88,14 +76,35 @@ h3 {
   font-size: 13px;
   padding-top: 4px;
 }
-iframe {
-  margin-top: 2px;
-  height: 450px;
+#copy .version {
+  background-color: lightpink;
+}
+#orig .version {
+  background-color: lightgreen;
+}
+.links, .text, iframe {
+  height: 200px;
   margin: 0;
   border: 0;
 }
-#orig iframe {
+#orig iframe, #orig .links, #orig .text {
   border-left: 1px solid black;
+}
+.links, .text {
+  overflow: auto;
+  border-bottom: 1px solid black;
+}
+.links {
+  background-color: #F5FFFF;
+}
+.text {
+  background-color: #F5F5FF;
+}
+.content {
+  padding: 5px;
+  font-family: monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
 }
     </style>
   </head>
@@ -114,23 +123,22 @@ iframe {
     </div>
     {{/screenshots}}
     </ul>
-    <div id="iframes">
+    <div id="differ">
       <div id="copy">
         <input type="radio" name="curwin" value="copy" checked />
-        <p><a target="_blank"></a></p>
+        <p class="version"><a target="_blank"></a></p>
+        <div class="links"><div class="content"></div></div>
+        <div class="text"><div class="content"></div></div>
         <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
       <div id="orig">
         <input type="radio" name="curwin" value="orig" />
-        <p><a target="_blank"></a></p>
+        <p class="version"><a target="_blank"></a></p>
+        <div class="links"><div class="content"></div></div>
+        <div class="text"><div class="content"></div></div>
         <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
     </div>
-  <!--
-    <h2>Diff view</h2>
-    <span id="old"></span> Vs. <span id="new"></span>
-    <div id="diff"></div>
-  -->
   </body>
 <script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
 <script type="text/javascript">
@@ -139,6 +147,7 @@ iframe {
   ns.name = "{{name}}";
   ns.versions = "{{versions_str}}".split(",");
   ns.last = ns.versions[ns.versions.length -1];
+  ns.previous = ns.versions[ns.versions.length -2];
   ns.currentwin = "copy";
   ns.currentcopy = "";
   ns.currentorig = "";
@@ -151,41 +160,48 @@ iframe {
     return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
   };
 
-  ns.loadVersion = function(version){
+  ns.loadVersion = function(version, curwin){
     var url = ns.buildUrl(version, "html"),
       name = ns.nameVersion(version);
-    $(".select" + ns.currentwin).removeClass('select' + ns.currentwin);
-    $("#" + version).addClass('select' + ns.currentwin);
-    $("#" + ns.currentwin + " a").text(name)
+    curwin = curwin || ns.currentwin;
+    $(".select" + curwin).removeClass('select' + curwin);
+    $("#" + version).addClass('select' + curwin);
+    $("#" + curwin + " a").text(name)
                               .attr("href", url);
-    $("#" + ns.currentwin + " iframe").attr("src", url);
-    ns['current' + ns.currentwin] = version;
+    $("#" + curwin + " iframe").attr("src", url);
+    ["links", "text"].forEach(function(typ){
+      $.ajax({
+        url: ns.buildUrl(version, typ.replace('e', '')),
+        dataType: "text",
+        success: function(result){
+          $("#" + curwin + " ." + typ + " .content").text(result);
+        }
+      });
+    });
+    ns['current' + curwin] = version;
   };
 
   ns.loadReal = function(){
     var url = ns.url || "http://regardscitoyens.org";
     $(".selectorig").removeClass('selectorig');
-    $("#orig a").text("real (iframe) " + url)
+    $("#real").addClass('selectorig');
+    $("#orig a").text("live web " + url)
                 .attr("href", url);
+    $("#orig .content").empty();
     $("#orig iframe").attr("src", url);
     ns.currentorig = "real";
   };
 
   ns.toggleCurrentWindow = function(){
-    console.log(ns.currentwin);
-    if (ns.currentwin === "orig"){
-      ns.currentwin = "copy";
-    } else {
-      ns.currentwin = "orig";
-    }
+    ns.currentwin = (ns.currentwin === "orig" ? "copy" : "orig");
   }
 
   ns.setDimensions = function(){
     var winW = $("#selecter").innerWidth(),
       imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
-    $("#selecter_large").width(ns.versions.length * (imgW + 4));
+    $("#selecter_large").width((ns.versions.length + 1) * (imgW + 4));
     $("#versions p, #screenshots img").width(imgW);
-    $("#copy iframe, #orig iframe").width((winW - 3) / 2);
+    $("#copy iframe, #orig iframe, .links, .text").width((winW - 3) / 2);
   };
 
   $(document).ready(function(){
@@ -208,10 +224,16 @@ iframe {
       $(p).click(onclic);
       $(i).click(onclic);
     });
+    var p = document.createElement('p');
+    p.id = "real";
+    p.textContent = "live web";
+    $(p).click(ns.loadReal);
+    versions.append(p);
     ns.setDimensions();
     $("#selecter").scrollLeft($("#selecter_large").width());
-    ns.loadVersion(ns.last);
-    ns.loadReal();
+    ns.loadVersion(ns.previous);
+    ns.loadVersion(ns.last, "orig");
+    //ns.loadReal();
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
     $(window).resize(ns.setDimensions);
   });
