@@ -1,12 +1,14 @@
 h1 {
-  font-size: 22px;
+  margin: 10px;
+  font-size: 20px;
   text-align: center;
 }
 #selecter {
   width: 100%;
   height: 240px;
   border: 1px solid black;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: overlay;
   text-align: center;
 }
 #versions {
@@ -16,7 +18,7 @@ h1 {
   height: 22px;
 }
 #versions p {
-  margin: 0px 2px;
+  margin: 0px 1px;
   display: block;
   float:left;
   border-bottom: 1px solid black;
@@ -36,10 +38,9 @@ h1 {
 #screenshots {
   height: 200px;
   display: table;
-  overflow: auto;
 }
 #screenshots img {
-  margin: 2px;
+  margin: 1px;
   vertical-align: top;
   cursor: pointer;
 }
@@ -99,21 +100,26 @@ h1 {
 .mergely-canvas {
   background-color: #eafaff;
 }
-.mergely.a.rhs {
-  background-color: #bcf7bc;
-}
-.mergely.ch.a.rhs {
-  font-weight: bold;
-  background-color: lightgreen;
-}
 .mergely.d.lhs {
-  background-color: #ffccd3;
+  background-color: lightpink;
+}
+.mergely.ch.d.lhs {
+  font-weight: bold;
+  text-decoration: none;
+  background-color: lightpink;
 }
 .mergely.c.lhs {
   background-color: #ffe9e9;
 }
 .mergely.c.rhs {
-  background-color: #bcf7bc;
+  background-color: #dcf7dc;
+}
+.mergely.a.rhs {
+  background-color: lightgreen;
+}
+.mergely.ch.a.rhs {
+  font-weight: bold;
+  background-color: lightgreen;
 }
 .orig iframe {
   border-left: 1px solid black;

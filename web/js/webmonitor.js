@@ -6,8 +6,8 @@
 - css
 */
 (function(ns){
-  ns.last = ns.versions[ns.versions.length -1];
-  ns.previous = ns.versions[ns.versions.length -2];
+  ns.last = ns.versions[ns.versions.length - 1];
+  ns.previous = ns.versions[ns.versions.length - 2];
   ns.currentwin = "copy";
   ns.currentcopy = "";
   ns.currentorig = "";
@@ -96,7 +96,7 @@
   ns.setDimensions = function(){
     var winW = $("#selecter").width(),
       imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
-    $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 4) + 1);
+    $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 2) + 1);
     $("#versions p, #screenshots img").width(imgW);
     $(".copy iframe, .orig iframe").width((winW - 3) / 2);
     $(".differ").width(winW - 17);
