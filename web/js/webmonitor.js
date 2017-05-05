@@ -5,7 +5,6 @@
 - juggle between view and diff modes
 - slider/calendar picker
 - css full height + accordeon
-- trim strings in python
 */
 (function(ns){
   ns.last = ns.versions[ns.versions.length - 1];

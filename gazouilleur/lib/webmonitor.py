@@ -177,7 +177,7 @@ re_clean_javascript = re.compile(ur'<script[^>]*/?>.*?</script>', re.I|re.DOTALL
 re_clean_style = re.compile(ur'<style[^>]*/?>.*?</style>', re.I|re.DOTALL)
 re_clean_balises = re.compile(ur'<[/!?]?\[?[a-z0-9\-]+[^>]*>', re.I|re.DOTALL)
 re_clean_blanks = re.compile(ur'[ \t\f\v]+')
-re_clean_multiCR = re.compile(ur'( ?[\n\r]+)+',re.M)
+re_clean_multiCR = re.compile(ur'(\s?[\n\r]+)+\s*',re.M)
 def extract_raw_text(html):
     text = replace_entities(html)
     text = re_clean_blanks.sub(u' ', text)
@@ -186,7 +186,7 @@ def extract_raw_text(html):
     text = re_clean_style.sub(u' ', text)
     text = re_clean_balises.sub(u' ', text)
     text = re_clean_blanks.sub(u' ', text).strip()
-    text = re_clean_multiCR.sub(u'\n\r', text)
+    text = re_clean_multiCR.sub(u'\n', text)
     return text
 
 
