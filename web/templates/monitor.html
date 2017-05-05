@@ -162,6 +162,7 @@ h1 {
   ns.currentwin = "copy";
   ns.currentcopy = "";
   ns.currentorig = "";
+  ns.codemirror = {};
 
   ns.buildUrl = function(version, typ){
     return "monitor/"+ns.name+"/"+version+"."+typ;
@@ -169,6 +170,23 @@ h1 {
 
   ns.nameVersion = function(version){
     return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
+  };
+
+  ns.addCodeMirror = function(typ){
+    if (!ns["copy_" + typ] || !ns["orig_" + typ]) return;
+    var diff = document.getElementById("CM-diff" + typ);
+    diff.innerHTML = "";
+    ns.codemirror[typ] = CodeMirror.MergeView(diff, {
+      origLeft: ns["copy_" + typ],
+      value: ns["orig_" + typ],
+      lineNumbers: true,
+      mode: "text/html",
+      ignoreWhitespace: true,
+      highlightDifferences: true,
+      connect: null, //"align",
+      collapseIdentical: true,
+      revertButtons: false
+    });
   };
 
   ns.loadVersion = function(version, curwin){
@@ -186,22 +204,7 @@ h1 {
         dataType: "text",
         success: function(result){
           ns[curwin + "_" + typ] = result;
-          ns["codemirror_" + typ] = null;
-          var diff = document.getElementById("CM-diff" + typ);
-          diff.innerHTML = "";
-          ns["codemirror_" + typ] = CodeMirror.MergeView(diff, {
-            value: ns["copy_" + typ],
-            origRight: ns["orig_" + typ],
-            lineNumbers: true,
-            mode: "text/html",
-            highlightDifferences: true,
-            connect: null, //"align",
-            collapseIdentical: true,
-            revertButtons: false
-          });
-          var d = document.createElement("div");
-          d.style.cssText = "width: 50px; margin: 7px; height: 14px";
-          ns["codemirror_" + typ].editor().addLineWidget(57, d);
+          ns.addCodeMirror(typ);
         }
       });
     });
