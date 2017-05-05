@@ -231,7 +231,7 @@ h1 {
     versions.append(p);
     ns.setDimensions();
     $("#selecter").scrollLeft($("#selecter_large").width());
-    ns.loadVersion(ns.previous);
+    ns.loadVersion(ns.previous, "copy");
     ns.loadVersion(ns.last, "orig");
     //ns.loadReal();
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
@@ -241,7 +241,14 @@ h1 {
 })(window.gazouilleur = window.gazouilleur || {});
 /* TODO:
 - code differ
+ + http://mergely.com/doc http://mergely.com/editor
+ + http://codemirror.net/doc/manual.html http://codemirror.net/demo/merge.html
+ + https://code.google.com/p/google-diff-match-patch/ https://neil.fraser.name/software/diff_match_patch/svn/trunk/demos/demo_diff.html
+ + https://github.com/cemerick/jsdifflib http://cemerick.github.io/jsdifflib/demo.html
+ + https://github.com/Slava/diff.js https://rawgit.com/Slava/diff.js/master/demo/byline.html
+- buttons to switch to fullscreen
 - juggle between view and diff modes
+- slider/calendar picker
 - css
 */
 </script>
