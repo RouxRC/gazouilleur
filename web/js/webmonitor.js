@@ -99,6 +99,7 @@
     $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 4) + 1);
     $("#versions p, #screenshots img").width(imgW);
     $(".copy iframe, .orig iframe").width((winW - 3) / 2);
+    $(".differ").width(winW - 17);
   };
 
   $(document).ready(function(){

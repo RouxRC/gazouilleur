@@ -85,9 +85,8 @@ h1 {
   overflow: hidden;
   border-bottom: 1px solid black;
 }
-.mergely {
+.differ {
   height: 248px;
-  width: 99%;
 }
 .mergely-canvas {
   background-color: #eafaff;
