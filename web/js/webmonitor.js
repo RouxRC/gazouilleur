@@ -1,9 +1,11 @@
 /* TODO:
 - link buttons
+- sources/links
 - buttons to switch to fullscreen
 - juggle between view and diff modes
 - slider/calendar picker
-- css
+- css full height + accordeon
+- trim strings in python
 */
 (function(ns){
   ns.last = ns.versions[ns.versions.length - 1];
@@ -16,7 +18,7 @@
   ns.mergely = {"links": null, "text": null};
 
   ns.buildUrl = function(version, typ){
-    return "monitor/"+ns.name+"/"+version+"."+typ;
+    return ["monitor", ns.channel, ns.name, version+"."+typ].join("/");
   };
 
   ns.nameVersion = function(version){
@@ -114,7 +116,7 @@
         };
       p.id = version;
       p.textContent = textVersion;
-      i.src = "monitor/" + ns.name + "/" + version + "-small.png";
+      i.src = ns.buildUrl(version, "png").replace(/.png$/, "-small.png");
       i.title = textVersion;
       i.alt = textVersion;
       versions.append(p);

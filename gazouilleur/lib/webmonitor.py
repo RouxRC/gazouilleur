@@ -21,12 +21,17 @@ manet_url = lambda url: "%s/?url=%s&delay=3000&force=true&format=png" % (URL_MAN
 
 class WebMonitor(Templater):
 
-    def __init__(self, name, url):
+    def __init__(self, name, url, channel):
         Templater.__init__(self)
         self.name = name
         self.url = url
-        basedir = os.path.join('web', 'monitor')
+        self.channel = channel.lower().lstrip('#')
+        rootdir = os.path.join('web', 'monitor')
+        basedir = os.path.join(rootdir, self.channel)
         self.path = os.path.join(basedir, quote_plus(name))
+        if not os.path.exists(rootdir):
+            os.makedirs(rootdir)
+            os.chmod(basedir, 0o755)
         if not os.path.exists(basedir):
             os.makedirs(basedir)
             os.chmod(basedir, 0o755)
@@ -58,7 +63,7 @@ class WebMonitor(Templater):
                     f.write(data[ftype])
                 os.chmod(name, 0o644)
             except Exception as e:
-                loggerr("%s %s" % (type(e), e), "WebMonitor", self.name)
+                loggerr("%s: %s %s" % (self.name, type(e), e), self.channel, "WebMonitor")
         if URL_MANET:
             yield self.save_screenshot(version)
         self.versions.append(version)
@@ -76,7 +81,7 @@ class WebMonitor(Templater):
                 yield deferredSleep(3)
                 yield self.save_screenshot(version, retries=retries-1)
             else:
-                loggerr("%s %s" % (type(e), e), "WebMonitor-shot", self.name)
+                loggerr("%s: %s %s" % (self.name, type(e), e), self.channel, "WebMonitor-shot")
         else:
             try:
                 i = Image.read(str(name))
@@ -88,7 +93,7 @@ class WebMonitor(Templater):
                 os.chmod(thumbname, 0o644)
                 del img, i, i2
             except Exception as e:
-                loggerr("%s %s" % (type(e), e), "WebMonitor-resize", self.name)
+                loggerr("%s: %s %s" % (self.name, type(e), e), self.channel, "WebMonitor-resize")
 
     @inlineCallbacks
     def check_new(self, page):
@@ -112,18 +117,19 @@ class WebMonitor(Templater):
             msg = u"Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
             if self.public_url:
                 self.build_diff_page()
-                msg += u"\nYou can check the different versions and diffs at %smonitor_%s.html" % (self.public_url, self.name)
+                msg += u"\nYou can check the different versions and diffs at %smonitor_%s_%s.html" % (self.public_url, self.channel, quote_plus(self.name))
             returnD(msg.encode("utf-8"))
 
     def build_diff_page(self):
         data = {
           "name": self.name,
           "url": self.url,
+          "channel": self.channel,
           "versions": self.versions,
           "versions_str": ",".join(self.versions),
           "screenshots": bool(URL_MANET)
         }
-        self.render_template("monitor.html", quote_plus(self.name), data)
+        self.render_template("monitor.html", "%s_%s" % (self.channel, quote_plus(self.name)), data)
 
 
 # Diff long strings

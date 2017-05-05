@@ -9,9 +9,13 @@ while true; do
   if diff /tmp/diffctrl{,2} | grep .; then
     echo "rebuilding..."
     mv -f /tmp/diffctrl{2,}
-    ls web/monitor | sed 's/+/ /g' | while read page; do
-      python -c 'from gazouilleur.lib.webmonitor import WebMonitor as wm; wm("'"$page"'", "").build_diff_page()'
-      echo "...$page done"
+    ls web/monitor | while read chan; do
+      echo "- $chan"
+      ls "web/monitor/$chan" | sed 's/+/ /g' | while read page; do
+        echo " -> $page"
+        python -c 'from gazouilleur.lib.webmonitor import WebMonitor as wm; wm("'"$page"'", "", "'"$chan"'").build_diff_page()'
+        echo "...$page done"
+      done
     done
     echo
   fi
