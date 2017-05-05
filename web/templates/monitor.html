@@ -4,109 +4,9 @@
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
     <title>Gazouilleur's WebMonitor for {{name}}: {{url}}</title>
-    <style>
-h1 {
-  font-size: 22px;
-  text-align: center;
-}
-#selecter {
-  width: 100%;
-  height: 240px;
-  border: 1px solid black;
-  overflow: auto;
-  text-align: center;
-}
-#versions {
-  position: sticky;
-  top: 0;
-  background-color: white;
-  height: 22px;
-}
-#versions p {
-  margin: 0px 2px;
-  display: block;
-  float:left;
-  border-bottom: 1px solid black;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: bold;
-}
-.selectcopy {
-  background-color: lightpink;
-}
-.selectorig {
-  background-color: lightgreen;
-}
-.selectcopy.selectorig {
-  background: linear-gradient(to right, lightpink, lightgreen);
-}
-#screenshots {
-  height: 200px;
-  display: table;
-  overflow: auto;
-}
-#screenshots img {
-  margin: 2px;
-  vertical-align: top;
-  cursor: pointer;
-}
-#differ {
-  margin-top: 10px;
-  width: 100%;
-  height: 625px;
-  border: 1px solid black;
-}
-#copy, #orig {
-  float: left;
-  width: 50%;
-}
-#differ input {
-  position: absolute;
-}
-#differ #copy input {
-  right: 50%;
-}
-#differ .version {
-  margin: auto;
-  width: 100%;
-  height: 18px;
-  display: block;
-  border-bottom: 1px solid black;
-  text-align: center;
-  font-size: 13px;
-  padding-top: 4px;
-}
-#copy .version {
-  background-color: lightpink;
-}
-#orig .version {
-  background-color: lightgreen;
-}
-.links, .text, iframe {
-  height: 200px;
-  margin: 0;
-  border: 0;
-}
-#orig iframe, #orig .links, #orig .text {
-  border-left: 1px solid black;
-}
-.links, .text {
-  overflow: auto;
-  border-bottom: 1px solid black;
-}
-.links {
-  background-color: #F5FFFF;
-}
-.text {
-  background-color: #F5F5FF;
-}
-.content {
-  padding: 5px;
-  font-family: monospace;
-  font-size: 11px;
-  white-space: pre-wrap;
-}
-    </style>
+    <link type="text/css" rel="stylesheet" href="css/codemirror.css" />
+    <link type="text/css" rel="stylesheet" href="css/mergely.css" />
+    <link rel=stylesheet href="css/webmonitor.css" />
   </head>
   <body>
     <h1>
@@ -124,132 +24,33 @@ h1 {
     {{/screenshots}}
     </ul>
     <div id="differ">
-      <div id="copy">
+      <div class="copy">
         <input type="radio" name="curwin" value="copy" checked />
         <p class="version"><a target="_blank"></a></p>
-        <div class="links"><div class="content"></div></div>
-        <div class="text"><div class="content"></div></div>
-        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
-      <div id="orig">
+      <div class="orig">
         <input type="radio" name="curwin" value="orig" />
         <p class="version"><a target="_blank"></a></p>
-        <div class="links"><div class="content"></div></div>
-        <div class="text"><div class="content"></div></div>
+      </div>
+      <div id="difftext"><div class="mergely"><div id="mergely-text"></div></div></div>
+      <div id="difflinks"><div class="mergely"><div id="mergely-links"></div></div></div>
+      <div class="copy">
+        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+      </div>
+      <div class="orig">
         <iframe sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
     </div>
   </body>
-<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
-<script type="text/javascript">
+  <script type="text/javascript" src="js/jquery-1.9.0.min.js"></script>
+  <script type="text/javascript" src="js/codemirror.min.js"></script>
+  <script type="text/javascript" src="js/mergely.min.js"></script>
+  <script>
 (function(ns){
   ns.url = "{{url}}";
   ns.name = "{{name}}";
   ns.versions = "{{versions_str}}".split(",");
-  ns.last = ns.versions[ns.versions.length -1];
-  ns.previous = ns.versions[ns.versions.length -2];
-  ns.currentwin = "copy";
-  ns.currentcopy = "";
-  ns.currentorig = "";
-
-  ns.buildUrl = function(version, typ){
-    return "monitor/"+ns.name+"/"+version+"."+typ;
-  };
-
-  ns.nameVersion = function(version){
-    return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
-  };
-
-  ns.loadVersion = function(version, curwin){
-    var url = ns.buildUrl(version, "html"),
-      name = ns.nameVersion(version);
-    curwin = curwin || ns.currentwin;
-    $(".select" + curwin).removeClass('select' + curwin);
-    $("#" + version).addClass('select' + curwin);
-    $("#" + curwin + " a").text(name)
-                              .attr("href", url);
-    $("#" + curwin + " iframe").attr("src", url);
-    ["links", "text"].forEach(function(typ){
-      $.ajax({
-        url: ns.buildUrl(version, typ.replace('e', '')),
-        dataType: "text",
-        success: function(result){
-          $("#" + curwin + " ." + typ + " .content").text(result);
-        }
-      });
-    });
-    ns['current' + curwin] = version;
-  };
-
-  ns.loadReal = function(){
-    var url = ns.url || "http://regardscitoyens.org";
-    $(".selectorig").removeClass('selectorig');
-    $("#real").addClass('selectorig');
-    $("#orig a").text("live web " + url)
-                .attr("href", url);
-    $("#orig .content").empty();
-    $("#orig iframe").attr("src", url);
-    ns.currentorig = "real";
-  };
-
-  ns.toggleCurrentWindow = function(){
-    ns.currentwin = (ns.currentwin === "orig" ? "copy" : "orig");
-  }
-
-  ns.setDimensions = function(){
-    var winW = $("#selecter").innerWidth(),
-      imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
-    $("#selecter_large").width((ns.versions.length + 1) * (imgW + 4));
-    $("#versions p, #screenshots img").width(imgW);
-    $("#copy iframe, #orig iframe, .links, .text").width((winW - 3) / 2);
-  };
-
-  $(document).ready(function(){
-    var versions = $("#versions"),
-      screens = $("#screenshots");
-    ns.versions.forEach(function(version){
-      var textVersion = ns.nameVersion(version),
-        p = document.createElement('p'),
-        i = document.createElement('img'),
-        onclic = function(){
-          ns.loadVersion(version);
-        };
-      p.id = version;
-      p.textContent = textVersion;
-      i.src = "monitor/" + ns.name + "/" + version + "-small.png";
-      i.title = textVersion;
-      i.alt = textVersion;
-      versions.append(p);
-      screens.append(i);
-      $(p).click(onclic);
-      $(i).click(onclic);
-    });
-    var p = document.createElement('p');
-    p.id = "real";
-    p.textContent = "live web";
-    $(p).click(ns.loadReal);
-    versions.append(p);
-    ns.setDimensions();
-    $("#selecter").scrollLeft($("#selecter_large").width());
-    ns.loadVersion(ns.previous, "copy");
-    ns.loadVersion(ns.last, "orig");
-    //ns.loadReal();
-    $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
-    $(window).resize(ns.setDimensions);
-  });
-
 })(window.gazouilleur = window.gazouilleur || {});
-/* TODO:
-- code differ
- + http://mergely.com/doc http://mergely.com/editor
- + http://codemirror.net/doc/manual.html http://codemirror.net/demo/merge.html
- + https://code.google.com/p/google-diff-match-patch/ https://neil.fraser.name/software/diff_match_patch/svn/trunk/demos/demo_diff.html
- + https://github.com/cemerick/jsdifflib http://cemerick.github.io/jsdifflib/demo.html
- + https://github.com/Slava/diff.js https://rawgit.com/Slava/diff.js/master/demo/byline.html
-- buttons to switch to fullscreen
-- juggle between view and diff modes
-- slider/calendar picker
-- css
-*/
-</script>
+  </script>
+  <script type="text/javascript" src="js/webmonitor.js"></script>
 </html>
