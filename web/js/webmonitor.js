@@ -1,5 +1,5 @@
 /* TODO:
-- section titles
+- link buttons
 - buttons to switch to fullscreen
 - juggle between view and diff modes
 - slider/calendar picker

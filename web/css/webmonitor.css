@@ -46,7 +46,7 @@ h1 {
 #differ {
   margin-top: 10px;
   width: 100%;
-  height: 775px;
+  height: 835px;
   border: 1px solid black;
 }
 .copy, .orig {
@@ -59,7 +59,7 @@ h1 {
 #differ .copy input {
   right: 50%;
 }
-#differ .version {
+#differ .version, .title p {
   margin: auto;
   width: 100%;
   height: 18px;
@@ -67,7 +67,15 @@ h1 {
   border-bottom: 1px solid black;
   text-align: center;
   font-size: 13px;
+  font-weight: bold;
   padding-top: 4px;
+}
+.title {
+  clear: both;
+  background-color: #eafaff;
+}
+.title p {
+  border-bottom: none;
 }
 .copy .version {
   background-color: lightpink;
