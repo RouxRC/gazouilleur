@@ -4,6 +4,7 @@
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
     <title>Gazouilleur's WebMonitor for {{name}}: {{url}}</title>
+    <link type="text/css" rel="stylesheet" href="css/bootstrap.min.css">
     <link type="text/css" rel="stylesheet" href="css/codemirror.css" />
     <link type="text/css" rel="stylesheet" href="css/mergely.css" />
     <link rel=stylesheet href="css/webmonitor.css" />
@@ -26,11 +27,17 @@
     <div id="differ">
       <div class="copy">
         <input type="radio" name="curwin" value="copy" checked />
-        <p class="version"><a target="_blank"></a></p>
+        <p class="version">
+          <span class="text"></span>
+          <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
+        </p>
       </div>
       <div class="orig">
         <input type="radio" name="curwin" value="orig" />
-        <p class="version"><a target="_blank"></a></p>
+        <p class="version">
+          <span class="text"></span>
+          <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
+        </p>
       </div>
       <div class="title"><p>RAW TEXT</p></div>
       <div id="difftext"><div class="differ"><div id="mergely-text"></div></div></div>

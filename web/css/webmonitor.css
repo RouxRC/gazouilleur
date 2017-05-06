@@ -56,6 +56,7 @@ h1 {
 }
 #differ input {
   position: absolute;
+  margin: 2px;
 }
 #differ .copy input {
   right: 50%;
@@ -69,7 +70,9 @@ h1 {
   text-align: center;
   font-size: 13px;
   font-weight: bold;
-  padding-top: 4px;
+}
+#differ .version a span {
+  font-size: 11px;
 }
 .title {
   clear: both;
@@ -97,6 +100,9 @@ h1 {
 .differ {
   height: 248px;
 }
+.differ .CodeMirror-lines {
+  background-color: #F5FFFF;
+}
 .mergely-canvas {
   background-color: #eafaff;
 }
@@ -123,16 +129,4 @@ h1 {
 }
 .orig iframe {
   border-left: 1px solid black;
-}
-.links {
-  background-color: #F5FFFF;
-}
-.text {
-  background-color: #F5F5FF;
-}
-.content {
-  padding: 5px;
-  font-family: monospace;
-  font-size: 11px;
-  white-space: pre-wrap;
 }

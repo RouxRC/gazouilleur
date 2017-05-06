@@ -59,8 +59,8 @@
     curwin = curwin || ns.currentwin;
     $(".select" + curwin).removeClass('select' + curwin);
     $("#" + version).addClass('select' + curwin);
-    $("." + curwin + " a").text(name)
-                          .attr("href", url);
+    $("." + curwin + " .text").text(name)
+    $("." + curwin + " a").attr("href", url);
     $("." + curwin + " iframe").attr("src", url);
     ["links", "text"].forEach(function(typ){
       ns.mergely[typ].mergely('scrollTo', 'l', 0);
