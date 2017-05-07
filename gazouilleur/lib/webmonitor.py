@@ -3,7 +3,7 @@
 
 import os, re, time
 from hashlib import sha512
-from magickpy import Image
+from wand.image import Image
 from urllib import quote_plus
 from w3lib.html import replace_entities
 from twisted.web import client
@@ -84,12 +84,14 @@ class WebMonitor(Templater):
                 loggerr("%s: %s %s" % (self.name, type(e), e), self.channel, "WebMonitor-shot")
         else:
             try:
-                i = Image.read(str(name))
                 w = 200.0
-                h = round(i.height * w / i.width)
-                i2 = i.makeResize(long(w), long(h), 5, 1)
                 thumbname = "%s-small.png" % name[:-4]
-                i2.write(str(thumbname))
+                with Image(filename=name) as i:
+                    iW, iH = i.size
+                    h = round(iH * w / iW)
+                    with i.clone() as i2:
+                        i2.resize(int(w), int(h))
+                        i2.save(filename=thumbname)
                 os.chmod(thumbname, 0o644)
                 del img, i, i2
             except Exception as e:

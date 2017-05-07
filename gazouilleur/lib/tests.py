@@ -67,9 +67,9 @@ except KeyError as e:
 # Check image dependencies if Manet screenshots activated
 if hasattr(config, 'URL_MANET'):
     try:
-        import magickpy
+        import wand
     except (NameError, ImportError) as e:
-        logerr("Could not load module%s.\nERROR: This module is required to activate the Manet screenshots set with URL_MANET in `gazouilleur/config.py`: %s\nERROR: Please check your install or run `pip install MagickPy` in gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
+        logerr("Could not load module%s.\nERROR: This module is required to activate the Manet screenshots set with URL_MANET in `gazouilleur/config.py`: %s\nERROR: Please check your install or run `pip install Wand` in gazouilleur's virtualenv.\n" % (str(e).replace('No module named', ''), config.URL_STATS))
         exit(1)
 
 try:
