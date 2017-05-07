@@ -21,7 +21,7 @@
         <div id="screenshots">
         </div>
       </div>
-      <div class="expand" onclick="gazouilleur.toggleExpandSelecter()" title="Expand">
+      <div class="expand" title="Expand">
         <span class="glyphicon glyphicon-resize-full"></span>
       </div>
     </div>
@@ -44,26 +44,33 @@
       </div>
       <div id="text" class="title">
         <p>RAW TEXT</p>
-        <div class="expand" onclick="gazouilleur.toggleExpandDiff('text')" title="Expand">
+        <div class="expand" title="Expand">
           <span class="glyphicon glyphicon-resize-full"></span>
         </div>
       </div>
       <div id="difftext"><div class="differ"><div id="mergely-text"></div></div></div>
       <div id="links" class="title">
         <p>LINKS</p>
-        <div class="expand" onclick="gazouilleur.toggleExpandDiff('links')" title="Expand">
+        <div class="expand" title="Expand">
           <span class="glyphicon glyphicon-resize-full"></span>
         </div>
       </div>
       <div id="difflinks"><div class="differ"><div id="mergely-links"></div></div></div>
       <div id="visual" class="title">
-        <p>VISUAL</p>
-        <!--
-        <input type="radio" name="visual" value="iframe" />
-        <input type="radio" name="visual" value="screen" />
-        -->
-        <div class="expand" onclick="gazouilleur.toggleExpandDiff('visual')" title="Expand">
+        <p>VISUAL
+          <span>
+            <input type="radio" name="visual" value="iframe" checked /> iframe
+            <input type="radio" name="visual" value="screen" /> screenshots
+          </span>
+        </p>
+        <div class="expand" title="Expand">
           <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+        <div id="fullshots">
+          <div>
+            <img id="screencopy"/>
+            <img id="screenorig"/>
+          </div>
         </div>
         <div class="copy">
           <iframe sandbox="allow-same-origin allow-scripts"></iframe>

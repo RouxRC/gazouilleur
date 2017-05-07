@@ -1,6 +1,5 @@
 /* TODO:
 - sources/links
-- juggle between view and diff modes
 - slider/calendar picker
 */
 (function(ns){
@@ -8,6 +7,7 @@
   ns.transitions = 400;
   ns.selecterHeight = 200;
   ns.selectedExpanded = false;
+  ns.selectedVisual = "iframe";
   ns.diffExpanded = null;
   ns.currentwin = "copy";
 
@@ -71,6 +71,7 @@
     $("." + curwin + " .name").text(name)
     $("." + curwin + " a").attr("href", url);
     $("." + curwin + " iframe").attr("src", url);
+    $("#screen" + curwin).attr("src", ns.buildUrl(version, "png"));
     ["links", "text"].forEach(function(typ){
       ns.mergely[typ].mergely('scrollTo', 'l', 0);
       ns.mergely[typ].mergely('scrollTo', 'r', 0);
@@ -125,6 +126,7 @@
   ns.expandDiff = function(typ){
     if (typ === "visual") {
       $("#visual .orig, #visual .copy, iframe").animate({height: 3 * ns.pieceHeight}, ns.transitions);
+      $("#fullshots").animate({height: 3 * ns.pieceHeight}, ns.transitions);
     } else {
       $("#diff" + typ).animate({height: 3 * ns.pieceHeight+ 2}, ns.transitions);
       $("#diff" + typ + " .differ").height(3 * ns.pieceHeight + 2);
@@ -135,6 +137,7 @@
   ns.reduceDiff = function(typ){
     if (typ === "visual") {
       $("#visual .orig, #visual .copy, iframe").animate({height: 0}, ns.transitions);
+      $("#fullshots").animate({height: 0}, ns.transitions);
     } else {
       $("#diff" + typ).animate({height: 0}, ns.transitions);
       $("#diff" + typ + " .differ").height(0);
@@ -157,8 +160,19 @@
     }
   };
 
+  ns.toggleVisual = function(){
+    ns.selectedVisual = $("input[name=visual]:checked").val();
+    if (ns.selectedVisual === "screen") {
+      $("#fullshots").show();
+      $("#visual .orig, #visual .copy").hide();
+    } else {
+      $("#fullshots").hide();
+      $("#visual .orig, #visual .copy").show();
+    }
+  };
+
   ns.resetDiffHeights = function(animate){
-    $("#visual .orig, #visual .copy, #difflinks, #difftext, iframe").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
+    $("#difflinks, #difftext, #fullshots, iframe").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
     $(".differ").height(ns.pieceHeight - 1);
     if (animate) {
       ["links", "text"].forEach(function(typ){
@@ -178,7 +192,7 @@
     ns.selecterMaxHeight = winH - 40;
     ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3 - 1;
     $(".differ").width(winW - 10);
-    $(".copy iframe, .orig iframe").width((winW - 3) / 2);
+    $(".copy iframe, .orig iframe, #fullshots img").width((winW - 3) / 2);
     $("#diff").height(ns.diffHeight);
     ns.resetDiffHeights();
   };
@@ -216,6 +230,13 @@
     ns.loadVersion(ns.last, "orig");
     //ns.loadReal();
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
+    $("#selecter .expand").click(ns.toggleExpandSelecter);
+    ["links", "text", "visual"].forEach(function(typ){
+      $("#" + typ + " .expand").click(function(){
+        ns.toggleExpandDiff(typ)
+      });
+    });
+    $("input[type=radio][name=visual]").change(ns.toggleVisual);
     $(window).resize(ns.setDimensions);
   });
 
