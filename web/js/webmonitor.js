@@ -1,17 +1,19 @@
 /* TODO:
-- link buttons
 - sources/links
-- buttons to switch to fullscreen
 - juggle between view and diff modes
 - slider/calendar picker
-- css full height + accordeon
 */
 (function(ns){
+  // config
+  ns.transitions = 400;
+  ns.selecterHeight = 200;
+  ns.selectedExpanded = false;
+  ns.diffExpanded = null;
+  ns.currentwin = "copy";
+
+  // internal
   ns.last = ns.versions[ns.versions.length - 1];
   ns.previous = ns.versions[ns.versions.length - 2];
-  ns.currentwin = "copy";
-  ns.currentcopy = "";
-  ns.currentorig = "";
   ns.links = {"orig": null, "copy": null};
   ns.text = {"orig": null, "copy": null};
   ns.mergely = {"links": null, "text": null};
@@ -20,12 +22,15 @@
     return ["monitor", ns.channel, ns.name, version+"."+typ].join("/");
   };
 
-  ns.nameVersion = function(version){
+  ns.nameVersion = function(version, clean){
+    if (clean)
+      return new Date(version.replace(/^(..)(..)(..)-(..)(..)$/, "20$1-$2-$3 $4:$5")).toUTCString().replace(/:00 GMT/, "");
     return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
   };
 
   ns.addDiffer = function(typ){
     ns.mergely[typ] = $("#mergely-" + typ)
+    ns.mergely[typ].width($("#mergely-" + typ).width() + 1);
     ns.mergely[typ].mergely({
       width: 'auto',
       height: 'auto',
@@ -38,8 +43,12 @@
       ignorews: true,
       viewport: true,
       bgcolor: "#ddeeff",
+      fgcolor: {
+        a: "lightgreen",
+        c: "lightblue",
+        d: "lightpink"
+      }
     });
-    ns.mergely[typ].width($("#mergely-" + typ).width() + 1);
   };
 
   ns.updateDiffer = function(typ, curwin, version){
@@ -55,11 +64,11 @@
 
   ns.loadVersion = function(version, curwin){
     var url = ns.buildUrl(version, "html"),
-      name = ns.nameVersion(version);
+      name = ns.nameVersion(version, true);
     curwin = curwin || ns.currentwin;
     $(".select" + curwin).removeClass('select' + curwin);
     $("#" + version).addClass('select' + curwin);
-    $("." + curwin + " .text").text(name)
+    $("." + curwin + " .name").text(name)
     $("." + curwin + " a").attr("href", url);
     $("." + curwin + " iframe").attr("src", url);
     ["links", "text"].forEach(function(typ){
@@ -76,7 +85,6 @@
         }
       });
     });
-    ns['current' + curwin] = version;
   };
 
   ns.loadReal = function(){
@@ -87,20 +95,92 @@
                 .attr("href", url);
     $(".orig .content").empty();
     $(".orig iframe").attr("src", url);
-    ns.currentorig = "real";
   };
 
   ns.toggleCurrentWindow = function(){
     ns.currentwin = (ns.currentwin === "orig" ? "copy" : "orig");
-  }
+  };
+
+  ns.toggleExpandButton = function(sel, reduce){
+    $("#" + sel + " .expand").attr("title", reduce ? "Reduce" : "Expand");
+    $("#" + sel + " .expand .glyphicon")
+      .removeClass("glyphicon-resize-" + (reduce ? "full" : "small"))
+      .addClass("glyphicon-resize-" + (reduce ? "small" : "full"));
+  };
+
+  ns.toggleExpandSelecter = function(){
+    ns.selectedExpanded = !ns.selectedExpanded;
+    ns.toggleExpandButton("selecter", ns.selectedExpanded);
+    if (ns.selectedExpanded) {
+      $("#diff").hide();
+      $("#selecter").animate({height: ns.selecterMaxHeight}, ns.transitions);
+    } else {
+      setTimeout(function(){
+        $("#diff").show();
+      }, ns.transitions);
+      $("#selecter").animate({height: ns.selecterHeight - 2}, ns.transitions);
+    }
+  };
+
+  ns.expandDiff = function(typ){
+    if (typ === "visual") {
+      $("#visual .orig, #visual .copy, iframe").animate({height: 3 * ns.pieceHeight}, ns.transitions);
+    } else {
+      $("#diff" + typ).animate({height: 3 * ns.pieceHeight+ 2}, ns.transitions);
+      $("#diff" + typ + " .differ").height(3 * ns.pieceHeight + 2);
+      ns.mergely[typ].mergely('resize');
+    }
+  };
+
+  ns.reduceDiff = function(typ){
+    if (typ === "visual") {
+      $("#visual .orig, #visual .copy, iframe").animate({height: 0}, ns.transitions);
+    } else {
+      $("#diff" + typ).animate({height: 0}, ns.transitions);
+      $("#diff" + typ + " .differ").height(0);
+    }
+  };
+
+  ns.toggleExpandDiff = function(typ){
+    if (ns.diffExpanded === typ) {
+      ns.toggleExpandButton(typ);
+      ns.resetDiffHeights(true);
+      ns.diffExpanded = null;
+    } else {
+      ns.toggleExpandButton(ns.diffExpanded);
+      ns.toggleExpandButton(typ, true);
+      ns.expandDiff(typ);
+      ["links", "text", "visual"].filter(function(a){
+        return a !== typ;
+      }).forEach(ns.reduceDiff);
+      ns.diffExpanded = typ;
+    }
+  };
+
+  ns.resetDiffHeights = function(animate){
+    $("#visual .orig, #visual .copy, #difflinks, #difftext, iframe").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
+    $(".differ").height(ns.pieceHeight - 1);
+    if (animate) {
+      ["links", "text"].forEach(function(typ){
+        ns.mergely[typ].mergely('resize');
+      });
+    }
+  };
 
   ns.setDimensions = function(){
     var winW = $("#selecter").width(),
+      winH = $(window).innerHeight(),
       imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
+    $("#selecter").height(ns.selecterHeight - 2);
     $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 2) + 1);
     $("#versions p, #screenshots img").width(imgW);
+    ns.diffHeight = winH - ns.selecterHeight - 42;
+    ns.selecterMaxHeight = winH - 40;
+    ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3 - 1;
+    $(".differ").width(winW - 10);
     $(".copy iframe, .orig iframe").width((winW - 3) / 2);
-    $(".differ").width(winW - 17);
+    $("#diff").height(ns.diffHeight);
+    ns.resetDiffHeights();
   };
 
   $(document).ready(function(){

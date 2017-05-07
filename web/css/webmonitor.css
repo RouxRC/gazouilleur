@@ -1,15 +1,22 @@
+body {
+  margin: 5px;
+  overflow: hidden;
+}
 h1 {
-  margin: 10px;
+  margin: 5px;
   font-size: 20px;
+  line-height: 1;
   text-align: center;
 }
 #selecter {
   width: 100%;
-  height: 240px;
-  border: 1px solid black;
+  height: 100px;
+  border: 1px solid darkgrey;
+  border-radius: 1px;
   overflow-x: auto;
   overflow-y: overlay;
   text-align: center;
+  margin-bottom: 5px;
 }
 #versions {
   position: sticky;
@@ -21,7 +28,7 @@ h1 {
   margin: 0px 1px;
   display: block;
   float:left;
-  border-bottom: 1px solid black;
+  border-bottom: 1px solid darkgrey;
   cursor: pointer;
   font-size: 12px;
   font-weight: bold;
@@ -35,73 +42,88 @@ h1 {
 .selectcopy.selectorig {
   background: linear-gradient(to right, lightpink, lightgreen);
 }
-#screenshots {
-  height: 200px;
-  display: table;
-}
 #screenshots img {
   margin: 1px;
   vertical-align: top;
   cursor: pointer;
 }
-#differ {
-  margin-top: 10px;
+.expand {
+  position: fixed;
+  right: 6px;
+  width: 18px;
+  background-color: #f9f999;
+  font-size: 12px;
+  border-left: 1px solid darkgrey;
+  border-bottom: 1px solid darkgrey;
+  cursor: pointer;
+  display: block;
+}
+#selecter .expand .glyphicon {
+  top: 2px;
+}
+#selecter .expand {
+  top: 31px;
+}
+#diff {
   width: 100%;
-  height: 835px;
-  border: 1px solid black;
+  border: 1px solid darkgrey;
+  border-radius: 1px;
 }
 .copy, .orig {
   float: left;
   width: 50%;
 }
-#differ input {
+#diff input {
   position: absolute;
   margin: 2px;
 }
-#differ .copy input {
+#diff .copy input {
   right: 50%;
 }
-#differ .version, .title p {
+#diff .version, .title p {
   margin: auto;
   width: 100%;
   height: 18px;
   display: block;
-  border-bottom: 1px solid black;
+  border-bottom: 1px solid darkgrey;
   text-align: center;
   font-size: 13px;
   font-weight: bold;
+  float: left;
+  background-color: #eafaff;
 }
-#differ .version a span {
+#diff .version a span {
   font-size: 11px;
 }
 .title {
   clear: both;
-  background-color: #eafaff;
 }
 .title p {
   border-bottom: none;
 }
-.copy .version {
+#diff .copy .version {
   background-color: lightpink;
 }
-.orig .version {
+#diff .orig .version {
   background-color: lightgreen;
 }
 #difflinks, #difftext, iframe {
-  height: 250px;
   margin: 0;
   border: 0;
   clear: both;
 }
+#diff .expand .glyphicon {
+  top: 2px;
+  left: 2px;
+}
+#diff .expand {
+}
 #difflinks, #difftext {
   overflow: hidden;
-  border-bottom: 1px solid black;
+  border-bottom: 1px solid darkgrey;
 }
 .differ {
   height: 248px;
-}
-.differ .CodeMirror-lines {
-  background-color: #F5FFFF;
 }
 .mergely-canvas {
   background-color: #eafaff;
@@ -128,5 +150,5 @@ h1 {
   background-color: lightgreen;
 }
 .orig iframe {
-  border-left: 1px solid black;
+  border-left: 1px solid darkgrey;
 }

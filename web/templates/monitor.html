@@ -21,40 +21,56 @@
         <div id="screenshots">
         </div>
       </div>
+      <div class="expand" onclick="gazouilleur.toggleExpandSelecter()" title="Expand">
+        <span class="glyphicon glyphicon-resize-full"></span>
+      </div>
     </div>
     {{/screenshots}}
     </ul>
-    <div id="differ">
+    <div id="diff">
       <div class="copy">
         <input type="radio" name="curwin" value="copy" checked />
         <p class="version">
-          <span class="text"></span>
+          <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
         </p>
       </div>
       <div class="orig">
         <input type="radio" name="curwin" value="orig" />
         <p class="version">
-          <span class="text"></span>
+          <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
         </p>
       </div>
-      <div class="title"><p>RAW TEXT</p></div>
+      <div id="text" class="title">
+        <p>RAW TEXT</p>
+        <div class="expand" onclick="gazouilleur.toggleExpandDiff('text')" title="Expand">
+          <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+      </div>
       <div id="difftext"><div class="differ"><div id="mergely-text"></div></div></div>
-      <div class="title"><p>LINKS</p></div>
+      <div id="links" class="title">
+        <p>LINKS</p>
+        <div class="expand" onclick="gazouilleur.toggleExpandDiff('links')" title="Expand">
+          <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+      </div>
       <div id="difflinks"><div class="differ"><div id="mergely-links"></div></div></div>
-      <div class="title">
+      <div id="visual" class="title">
         <p>VISUAL</p>
         <!--
         <input type="radio" name="visual" value="iframe" />
         <input type="radio" name="visual" value="screen" />
         -->
-      </div>
-      <div class="copy">
-        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
-      </div>
-      <div class="orig">
-        <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+        <div class="expand" onclick="gazouilleur.toggleExpandDiff('visual')" title="Expand">
+          <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+        <div class="copy">
+          <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+        <div class="orig">
+          <iframe sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
       </div>
     </div>
   </body>
