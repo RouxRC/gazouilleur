@@ -292,8 +292,9 @@ class IRCBot(NamesIRCClient):
     def userRenamed(self, oldnick, newnick):
         chans = yield self._get_user_channels(oldnick)
         for c in chans:
-            self.users[c.lower()].add(newnick.lower())
-            yield self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
+            if chan != "#gazouilleur":
+                self.users[c.lower()].add(newnick.lower())
+                yield self.log("[%s changed nickname to %s]" % (oldnick, newnick), oldnick, c)
 
     def getMasterChan(self, channel):
         if channel == self.nickname:
