@@ -225,7 +225,8 @@ class FeederProtocol(object):
                 if i.get('created_at', '') == "now":
                     date = datetime.now()
                 else:
-                    date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+                    #date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+                    date = parse_date(i.get('created_at', ''))
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
@@ -359,7 +360,8 @@ class FeederProtocol(object):
             returnD(False)
         for i in listdms:
             try:
-                date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+                #date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+                date = parse_date(i.get('created_at', ''))
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
             except Exception as e:

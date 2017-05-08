@@ -1021,7 +1021,8 @@ class IRCBot(NamesIRCClient):
         if "timestampDB" in tweet:
             ts = tweet["timestampDB"]
         else:
-            ts = datetime.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+            #ts = datetime.strptime(tweet.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
+            ts = parse_date(tweet.get('created_at', ''))
         date = ts.strftime('%Y-%m-%d %H:%M:%S').encode('utf-8')
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
         extra = u" - %s ♻" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""

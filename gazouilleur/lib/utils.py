@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re, urllib, hashlib, exceptions
-from datetime import timedelta
+from datetime import datetime, timedelta
 import htmlentitydefs
 from twisted.internet import defer, reactor
 from twisted.internet.error import DNSLookupError
@@ -428,6 +428,12 @@ def has_user_rights_in_doc(nick, channel, command, command_doc, conf=None):
     return True
 
 timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=date.second, microseconds=date.microsecond)
+
+re_datetime = re.compile(r'^\S+ (\S+) (\d+) (\d+):(\d+):(\d+) \+(\d+) (\d+)$')
+monthes = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+def parse_date(str):
+    els = re_datetime.search(str).groups()
+    return datetime(int(els[6]), monthes[els[0]], int(els[1]), int(els[2]), int(els[3]), int(els[4])) + timedelta(hours=int(els[5]))
 
 def is_ssl(conf):
     return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"
