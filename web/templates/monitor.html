@@ -29,15 +29,17 @@
     </ul>
     <div id="diff">
       <div class="copy">
-        <input type="radio" name="curwin" value="copy" checked />
         <p class="version">
           <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
+          <input id="curwin-c" type="radio" name="curwin" value="copy" checked />
+          <label for="curwin-c"></label>
         </p>
       </div>
       <div class="orig">
-        <input type="radio" name="curwin" value="orig" />
         <p class="version">
+          <input id="curwin-o" type="radio" name="curwin" value="orig" />
+          <label for="curwin-o"></label>
           <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
         </p>
@@ -45,8 +47,10 @@
       <div id="visual" class="title">
         <p>
           <span>VISUAL
-            <input type="radio" name="visual" value="screen" checked /> screenshots
-            <input type="radio" name="visual" value="iframe" /> iframe
+            <input id="visual-s" type="radio" name="visual" value="screen" checked />
+            <label for="visual-s">screenshots</label>
+            <input id="visual-i" type="radio" name="visual" value="iframe" />
+            <label for="visual-i">iframe</label>
           </span>
         </p>
         <div class="expand" title="Expand">
@@ -54,10 +58,8 @@
         </div>
       </div>
       <div id="fullshots">
-        <div>
-          <img id="screencopy"/>
-          <img id="screenorig"/>
-        </div>
+        <img id="screencopy"/>
+        <img id="screenorig"/>
       </div>
       <div id="iframes">
         <div class="copy">

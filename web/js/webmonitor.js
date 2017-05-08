@@ -194,9 +194,9 @@
     $("#screenshots img").width(imgW - 8);
     ns.diffHeight = winH - ns.selecterHeight - 57;
     ns.selecterMaxHeight = winH - 50;
-    ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3;
+    ns.pieceHeight = (ns.diffHeight - 22 * 4) / 3;
     $(".differ").width(winW - 10);
-    $(".copy iframe, .orig iframe, #fullshots img").width((winW - 3) / 2);
+    $(".copy iframe, .orig iframe").width((winW - 3) / 2);
     $("#diff").height(ns.diffHeight);
     ns.resetDiffHeights();
   };
