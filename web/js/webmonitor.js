@@ -29,7 +29,7 @@
   };
 
   ns.addDiffer = function(typ){
-    ns.mergely[typ] = $("#mergely-" + typ)
+    ns.mergely[typ] = $("#mergely-" + typ);
     ns.mergely[typ].width($("#mergely-" + typ).width() + 1);
     ns.mergely[typ].mergely({
       width: 'auto',
