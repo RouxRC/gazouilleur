@@ -67,7 +67,7 @@
       name = ns.nameVersion(version, true);
     curwin = curwin || ns.currentwin;
     $(".select" + curwin).removeClass('select' + curwin);
-    $("#" + version).addClass('select' + curwin);
+    $("." + version).addClass('select' + curwin);
     $("." + curwin + " .name").text(name)
     $("." + curwin + " a").attr("href", url);
     $("." + curwin + " iframe").attr("src", url);
@@ -91,7 +91,7 @@
   ns.loadReal = function(){
     var url = ns.url || "http://regardscitoyens.org";
     $(".selectorig").removeClass('selectorig');
-    $("#real").addClass('selectorig');
+    $(".real").addClass('selectorig');
     $(".orig a").text("live web " + url)
                 .attr("href", url);
     $(".orig .content").empty();
@@ -130,6 +130,7 @@
     } else {
       $("#diff" + typ).animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
       $("#diff" + typ + " .differ").height(3 * ns.pieceHeight - 2);
+      $(".differ").width($("#selecter").width() + 6);
       ns.mergely[typ].mergely('resize');
     }
   };
@@ -189,9 +190,10 @@
       imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
     $("#selecter").height(ns.selecterHeight - 2);
     $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 2) + 1);
-    $("#versions p, #screenshots img").width(imgW);
-    ns.diffHeight = winH - ns.selecterHeight - 42;
-    ns.selecterMaxHeight = winH - 40;
+    $("#versions p").width(imgW);
+    $("#screenshots img").width(imgW - 8);
+    ns.diffHeight = winH - ns.selecterHeight - 57;
+    ns.selecterMaxHeight = winH - 50;
     ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3;
     $(".differ").width(winW - 10);
     $(".copy iframe, .orig iframe, #fullshots img").width((winW - 3) / 2);
@@ -209,8 +211,9 @@
         onclic = function(){
           ns.loadVersion(version);
         };
-      p.id = version;
+      p.className = version;
       p.textContent = textVersion;
+      i.className = version;
       i.src = ns.buildUrl(version, "png").replace(/.png$/, "-small.png");
       i.title = textVersion;
       i.alt = textVersion;

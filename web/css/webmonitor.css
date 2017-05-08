@@ -1,5 +1,5 @@
 body {
-  margin: 5px;
+  margin: 10px;
   overflow: hidden;
 }
 h1 {
@@ -15,13 +15,13 @@ h1 {
   overflow-x: auto;
   overflow-y: overlay;
   text-align: center;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
 }
 #versions {
   position: sticky;
   top: 0;
   background-color: white;
-  height: 22px;
+  height: 18px;
 }
 #versions p {
   margin: 0px 1px;
@@ -42,15 +42,18 @@ h1 {
   background: linear-gradient(to right, lightpink, lightgreen);
 }
 #screenshots img {
-  margin: 1px;
+  margin-right: 2px;
+  padding: 3px;
   vertical-align: top;
   cursor: pointer;
+  border: 1px dotted lightblue;
+  border-top: 0;
 }
 .expand {
   position: fixed;
-  right: 6px;
+  right: 11px;
   width: 18px;
-  background-color: #f9f999;
+  background-color: #ebd9fb;
   font-size: 12px;
   border-left: 1px solid darkgrey;
   border-bottom: 1px solid darkgrey;
@@ -61,7 +64,7 @@ h1 {
   top: 2px;
 }
 #selecter .expand {
-  top: 31px;
+  top: 36px;
 }
 #diff {
   width: 100%;
