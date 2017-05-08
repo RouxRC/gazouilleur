@@ -4,10 +4,10 @@
 */
 (function(ns){
   // config
-  ns.transitions = 400;
+  ns.transitions = 600;
   ns.selecterHeight = 200;
   ns.selectedExpanded = false;
-  ns.selectedVisual = "iframe";
+  ns.selectedVisual = "screen";
   ns.diffExpanded = null;
   ns.currentwin = "copy";
 
@@ -125,18 +125,18 @@
 
   ns.expandDiff = function(typ){
     if (typ === "visual") {
-      $("#visual .orig, #visual .copy, iframe").animate({height: 3 * ns.pieceHeight}, ns.transitions);
-      $("#fullshots").animate({height: 3 * ns.pieceHeight}, ns.transitions);
+      $("#fullshots, #iframes .orig, #iframes .copy").animate({height: 3 * ns.pieceHeight - 1}, ns.transitions);
+      $("iframe").animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
     } else {
-      $("#diff" + typ).animate({height: 3 * ns.pieceHeight+ 2}, ns.transitions);
-      $("#diff" + typ + " .differ").height(3 * ns.pieceHeight + 2);
+      $("#diff" + typ).animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
+      $("#diff" + typ + " .differ").height(3 * ns.pieceHeight - 2);
       ns.mergely[typ].mergely('resize');
     }
   };
 
   ns.reduceDiff = function(typ){
     if (typ === "visual") {
-      $("#visual .orig, #visual .copy, iframe").animate({height: 0}, ns.transitions);
+      $("#iframes .orig, #iframes .copy, iframe").animate({height: 0}, ns.transitions);
       $("#fullshots").animate({height: 0}, ns.transitions);
     } else {
       $("#diff" + typ).animate({height: 0}, ns.transitions);
@@ -164,16 +164,18 @@
     ns.selectedVisual = $("input[name=visual]:checked").val();
     if (ns.selectedVisual === "screen") {
       $("#fullshots").show();
-      $("#visual .orig, #visual .copy").hide();
+      $("#iframes .orig, #iframes .copy").hide();
     } else {
       $("#fullshots").hide();
-      $("#visual .orig, #visual .copy").show();
+      $("#iframes .orig, #iframes .copy").show();
     }
   };
 
   ns.resetDiffHeights = function(animate){
-    $("#difflinks, #difftext, #fullshots, iframe").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
-    $(".differ").height(ns.pieceHeight - 1);
+    $("#difflinks, #difftext").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
+    $("#fullshots, #iframes .orig, #iframes .copy").animate({'height': ns.pieceHeight - 1}, (animate ? ns.transitions : 0));
+    $("iframe").animate({'height': ns.pieceHeight - 2}, (animate ? ns.transitions : 0));
+    $(".differ").height(ns.pieceHeight);
     if (animate) {
       ["links", "text"].forEach(function(typ){
         ns.mergely[typ].mergely('resize');
@@ -190,7 +192,7 @@
     $("#versions p, #screenshots img").width(imgW);
     ns.diffHeight = winH - ns.selecterHeight - 42;
     ns.selecterMaxHeight = winH - 40;
-    ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3 - 1;
+    ns.pieceHeight = (ns.diffHeight - 18 * 4) / 3;
     $(".differ").width(winW - 10);
     $(".copy iframe, .orig iframe, #fullshots img").width((winW - 3) / 2);
     $("#diff").height(ns.diffHeight);

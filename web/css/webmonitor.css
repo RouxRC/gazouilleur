@@ -72,54 +72,72 @@ h1 {
   float: left;
   width: 50%;
 }
-#diff input[name=curwin] {
-  position: absolute;
-  margin: 2px;
+.copy .version {
+  background-color: lightpink;
 }
-#diff .copy input[name=curwin] {
-  right: 50%;
+.orig .version {
+  background-color: lightgreen;
 }
-#diff .version, .title p {
+.version, .title p {
   margin: auto;
   width: 100%;
   height: 18px;
   display: block;
-  border-bottom: 1px solid darkgrey;
   text-align: center;
   font-size: 13px;
   font-weight: bold;
   float: left;
   background-color: #eafaff;
 }
-#diff .version a span {
+.version {
+  border-bottom: 1px solid darkgrey;
+}
+.version a span {
   font-size: 11px;
 }
+input[name=curwin] {
+  position: absolute;
+  margin: 2px;
+}
+.copy input[name=curwin] {
+  right: 50%;
+}
 .title {
-  clear: both;
-}
-.title p {
-  border-bottom: none;
-}
-#diff .copy .version {
-  background-color: lightpink;
-}
-#diff .orig .version {
-  background-color: lightgreen;
-}
-#difflinks, #difftext, iframe {
-  margin: 0;
-  border: 0;
   clear: both;
 }
 #diff .expand .glyphicon {
   top: 2px;
   left: 2px;
 }
-#diff .expand {
+#visual p span {
+  display: inline-flex;
+}
+#visual p input {
+  margin: 2px 2px 2px 8px;
+}
+#fullshots {
+  overflow: overlay;
+  clear: both;
+}
+#fullshots img {
+  float: left;
+}
+#iframes .orig, #iframes .copy {
+  display: none;
+}
+.orig iframe {
+  border-left: 1px solid darkgrey;
+}
+iframe, #difflinks, #difftext {
+  margin: 0;
+  border: 0;
+  clear: both;
+}
+#fullshots, #iframes div, #difftext {
+  border-bottom: 1px solid darkgrey;
 }
 #difflinks, #difftext {
   overflow: hidden;
-  border-bottom: 1px solid darkgrey;
 }
 .differ {
   height: 248px;
@@ -147,15 +165,4 @@ h1 {
 .mergely.ch.a.rhs {
   font-weight: bold;
   background-color: lightgreen;
-}
-#fullshots {
-  display: none;
-  overflow: overlay;
-  clear: both;
-}
-#fullshots img {
-  float: left;
-}
-.orig iframe {
-  border-left: 1px solid darkgrey;
 }

@@ -42,42 +42,48 @@
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
         </p>
       </div>
-      <div id="text" class="title">
-        <p>RAW TEXT</p>
-        <div class="expand" title="Expand">
-          <span class="glyphicon glyphicon-resize-full"></span>
-        </div>
-      </div>
-      <div id="difftext"><div class="differ"><div id="mergely-text"></div></div></div>
-      <div id="links" class="title">
-        <p>LINKS</p>
-        <div class="expand" title="Expand">
-          <span class="glyphicon glyphicon-resize-full"></span>
-        </div>
-      </div>
-      <div id="difflinks"><div class="differ"><div id="mergely-links"></div></div></div>
       <div id="visual" class="title">
-        <p>VISUAL
-          <span>
-            <input type="radio" name="visual" value="iframe" checked /> iframe
-            <input type="radio" name="visual" value="screen" /> screenshots
+        <p>
+          <span>VISUAL
+            <input type="radio" name="visual" value="screen" checked /> screenshots
+            <input type="radio" name="visual" value="iframe" /> iframe
           </span>
         </p>
         <div class="expand" title="Expand">
           <span class="glyphicon glyphicon-resize-full"></span>
         </div>
-        <div id="fullshots">
-          <div>
-            <img id="screencopy"/>
-            <img id="screenorig"/>
-          </div>
+      </div>
+      <div id="fullshots">
+        <div>
+          <img id="screencopy"/>
+          <img id="screenorig"/>
         </div>
+      </div>
+      <div id="iframes">
         <div class="copy">
           <iframe sandbox="allow-same-origin allow-scripts"></iframe>
         </div>
         <div class="orig">
           <iframe sandbox="allow-same-origin allow-scripts"></iframe>
         </div>
+      </div>
+      <div id="text" class="title">
+        <p>RAW TEXT</p>
+        <div class="expand" title="Expand">
+          <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+      </div>
+      <div id="difftext">
+        <div class="differ"><div id="mergely-text"></div></div>
+      </div>
+      <div id="links" class="title">
+        <p>LINKS</p>
+        <div class="expand" title="Expand">
+          <span class="glyphicon glyphicon-resize-full"></span>
+        </div>
+      </div>
+      <div id="difflinks">
+        <div class="differ"><div id="mergely-links"></div></div>
       </div>
     </div>
   </body>
