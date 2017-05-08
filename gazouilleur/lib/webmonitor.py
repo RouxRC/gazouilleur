@@ -26,18 +26,12 @@ class WebMonitor(Templater):
         self.name = name
         self.url = url
         self.channel = channel.lower().lstrip('#')
-        rootdir = os.path.join('web', 'monitor')
-        basedir = os.path.join(rootdir, self.channel)
-        self.path = os.path.join(basedir, quote_plus(name))
-        if not os.path.exists(rootdir):
-            os.makedirs(rootdir)
-            os.chmod(basedir, 0o755)
-        if not os.path.exists(basedir):
-            os.makedirs(basedir)
-            os.chmod(basedir, 0o755)
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-            os.chmod(self.path, 0o755)
+        self.path = 'web'
+        for path in ['monitor', self.channel, quote_plus(name)]:
+            self.path = os.path.join(self.path, path)
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
+                os.chmod(self.path, 0o755)
         self.versions = self.get_versions()
 
     def get_versions(self):
