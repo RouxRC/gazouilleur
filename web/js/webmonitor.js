@@ -23,9 +23,12 @@
   };
 
   ns.nameVersion = function(version, clean){
-    if (clean)
-      return new Date(version.replace(/^(..)(..)(..)-(..)(..)$/, "20$1-$2-$3 $4:$5")).toUTCString().replace(/:00 GMT/, "");
-    return version.replace(/^(..)(..)(..)-(..)(..)$/, "$3/$2/$1 $4:$5");
+    var dat = new Date(version.replace(/^(..)(..)(..)-(..)(..)$/, "20$1-$2-$3 $4:$5"));
+    if (clean) {
+      dat.setTime(dat.getTime() - dat.getTimezoneOffset()*60*1000);
+      return dat.toGMTString().replace(/:00 GMT/, "");
+    }
+    return dat.toLocaleString().replace(/:00$/, "");
   };
 
   ns.addDiffer = function(typ){
