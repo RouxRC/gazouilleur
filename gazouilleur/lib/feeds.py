@@ -220,13 +220,12 @@ class FeederProtocol(object):
         fresh = True
         for i in elements:
             try:
-                time_tweet = time.mktime(i.get('published_parsed', '')) - 4*60*60
+                date = datetime.fromtimestamp(time.mktime(i.get('published_parsed', '')) - 4*60*60)
             except:
                 if i.get('created_at', '') == "now":
-                    time_tweet = time.time()
+                    date = datetime.now()
                 else:
-                    time_tweet = time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y')) + 2*60*60
-            date = datetime.fromtimestamp(time_tweet)
+                    date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
             if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                 fresh = False
                 break
@@ -360,11 +359,11 @@ class FeederProtocol(object):
             returnD(False)
         for i in listdms:
             try:
-                date = datetime.fromtimestamp(time.mktime(time.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y'))+2*60*60)
+                date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
-            except:
-                self.log("processing DM %s: %s" % (i, listdms), error=True)
+            except Exception as e:
+                self.log("processing DM %s: %s %s" % (i.get('created_at'), type(e), e), error=True)
                 continue
             tid = long(i.get('id', ''))
             if tid:
