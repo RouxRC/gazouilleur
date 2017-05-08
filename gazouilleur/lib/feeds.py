@@ -131,7 +131,7 @@ class FeederProtocol(object):
 
     def get_data_from_page(self, page_content, url):
         if not page_content:
-            self.log("No content found at %s" % url, error=True)
+            # empty result from ConditionalGetPage when Last-Modified header not changed
             return
         self.fact.cache[url] = time.time()
         if self.fact.name == "pages":
