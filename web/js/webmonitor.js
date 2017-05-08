@@ -125,11 +125,12 @@
 
   ns.expandDiff = function(typ){
     if (typ === "visual") {
-      $("#fullshots, #iframes .orig, #iframes .copy").animate({height: 3 * ns.pieceHeight - 1}, ns.transitions);
-      $("iframe").animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
+      $("#fullshots, #iframes .orig, #iframes .copy").animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
+      $("iframe").animate({height: 3 * ns.pieceHeight - 4}, ns.transitions);
     } else {
-      $("#diff" + typ).animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
-      $("#diff" + typ + " .differ").height(3 * ns.pieceHeight - 2);
+      var gap = 3 * ns.pieceHeight - (typ === "text" ? 2 : 5);
+      $("#diff" + typ).animate({height: gap}, ns.transitions);
+      $("#diff" + typ + " .differ").height(gap);
       $(".differ").width($("#selecter").width() + 6);
       ns.mergely[typ].mergely('resize');
     }
@@ -192,11 +193,11 @@
     $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 2) + 1);
     $("#versions p").width(imgW);
     $("#screenshots img").width(imgW - 8);
-    ns.diffHeight = winH - ns.selecterHeight - 57;
+    ns.diffHeight = winH - ns.selecterHeight - 62;
     ns.selecterMaxHeight = winH - 50;
     ns.pieceHeight = (ns.diffHeight - 22 * 4) / 3;
-    $(".differ").width(winW - 10);
-    $(".copy iframe, .orig iframe").width((winW - 3) / 2);
+    $(".differ").width(winW - 20);
+    //$(".copy iframe, .orig iframe").width((winW - 3) / 2);
     $("#diff").height(ns.diffHeight);
     ns.resetDiffHeights();
   };

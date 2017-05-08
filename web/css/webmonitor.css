@@ -10,8 +10,8 @@ h1 {
 }
 #selecter {
   width: 100%;
-  border: 1px solid darkgrey;
-  border-radius: 1px;
+  border: 2px solid darkgrey;
+  border-radius: 2px;
   overflow-x: auto;
   overflow-y: overlay;
   text-align: center;
@@ -28,19 +28,19 @@ h1 {
   display: block;
   float:left;
   border-bottom: 1px solid darkgrey;
-  border-radius: 1px;
   cursor: pointer;
   font-size: 12px;
   font-weight: bold;
+  background-color: #f1f7ff;
 }
 .selectcopy {
-  background-color: lightpink;
+  background-color: #ffe9e9 !important;
 }
 .selectorig {
-  background-color: lightgreen;
+  background-color: #dcf7dc !important;
 }
 .selectcopy.selectorig {
-  background: linear-gradient(to right, lightpink, lightgreen);
+  background: linear-gradient(to right, #ffe9e9, #dcf7dc);
 }
 #screenshots img {
   margin-right: 2px;
@@ -52,40 +52,35 @@ h1 {
 }
 .expand {
   position: fixed;
-  right: 11px;
-  width: 20px;
-  background-color: #ebd9fb;
-  font-size: 15px;
+  right: 12px;
+  width: 22px;
+  background-color: #f9f7d3;
+  font-size: 14px;
   border-left: 1px solid darkgrey;
   border-bottom: 1px solid darkgrey;
   border-radius: 10%;
   cursor: pointer;
   display: block;
+  color: #e20808;
+  padding: 1px;
 }
 #selecter .expand {
-  font-size: 12px;
-  width: 17px;
-}
-#selecter .expand .glyphicon {
-  top: 2px;
-}
-#selecter .expand {
-  top: 36px;
+  top: 37px;
 }
 #diff {
   width: 100%;
-  border: 1px solid darkgrey;
-  border-radius: 1px;
+  border: 2px solid darkgrey;
+  border-radius: 2px;
 }
 .copy, .orig {
   float: left;
   width: 50%;
 }
 .copy .version {
-  background-color: lightpink;
+  background-color: #ffe9e9;
 }
 .orig .version {
-  background-color: lightgreen;
+  background-color: #dcf7dc;
 }
 .version, .title p {
   margin: auto;
@@ -97,10 +92,10 @@ h1 {
   font-weight: bold;
   line-height: 1.8;
   float: left;
-  background-color: #eafaff;
+  background-color: #f1f7ff;
 }
 .version {
-  border-bottom: 1px solid darkgrey;
+  border-bottom: 2px solid darkgrey;
 }
 .version a span {
   font-size: 12px;
@@ -168,25 +163,37 @@ label:after {
 #fullshots {
   overflow: auto;
   clear: both;
+  background-color: #f1f7ff;
 }
 #fullshots img {
   float: left;
-  width: 50%;
-  border: 3px solid lightgrey;
+  width: 48%;
+  border: 1px solid lightgrey;
+  margin-left: 1.5%;
+  margin-right: 0.5%;
+  background-color: white;
 }
 #iframes .orig, #iframes .copy {
   display: none;
-}
-.orig iframe {
-  border-left: 1px solid darkgrey;
+  background-color: #f1f7ff;
 }
 iframe, #difflinks, #difftext {
   margin: 0;
   border: 0;
   clear: both;
 }
+iframe {
+  border-top: 1px solid lightgrey;
+  width: 98%;
+}
+.copy iframe {
+  margin-right: 2%;
+}
+.orig iframe {
+  margin-left: 2%;
+}
 #fullshots, #iframes div, #difftext {
-  border-bottom: 1px solid darkgrey;
+  border-bottom: 2px solid darkgrey;
 }
 #difflinks, #difftext {
   overflow: hidden;
@@ -195,7 +202,7 @@ iframe, #difflinks, #difftext {
   height: 248px;
 }
 .mergely-canvas {
-  background-color: #eafaff;
+  background-color: #f1f7ff;
 }
 .mergely.d.lhs {
   background-color: lightpink;
