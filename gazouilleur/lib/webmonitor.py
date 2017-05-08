@@ -16,7 +16,11 @@ try:
     from gazouilleur.config import URL_MANET
 except:
     URL_MANET = ""
-manet_url = lambda url: "%s/?url=%s&delay=3000&force=true&format=png" % (URL_MANET.rstrip('/'), quote_plus(url))
+manet_url = lambda url, options: "%s/?url=%s%s" % (
+  URL_MANET.rstrip('/'),
+  quote_plus(url),
+  "&delay=3000&force=true&format=png" if options else ""
+)
 
 
 class WebMonitor(Templater):
@@ -66,7 +70,7 @@ class WebMonitor(Templater):
     def save_screenshot(self, version, retries=3):
         name = self.get_file(version, "png")
         try:
-            img = yield client.getPage(manet_url(self.url))
+            img = yield client.getPage(manet_url(self.url, retries > 1))
             with open(name, "wb") as f:
                 f.write(img)
             os.chmod(name, 0o644)
@@ -75,7 +79,7 @@ class WebMonitor(Templater):
                 yield deferredSleep(3)
                 yield self.save_screenshot(version, retries=retries-1)
             else:
-                loggerr("%s: %s %s" % (self.name, type(e), e), self.channel, "WebMonitor-shot")
+                loggerr("%s: %s %s %s" % (self.name, type(e), e, self.url), self.channel, "WebMonitor-shot")
         else:
             try:
                 w = 200.0
