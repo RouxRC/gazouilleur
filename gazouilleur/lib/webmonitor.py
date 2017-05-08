@@ -114,10 +114,10 @@ class WebMonitor(Templater):
             lasttext = f.read()
         if differ(lastlinks, new["links"]) or differ(lasttext, new["txt"]):
             yield self.add_version(new)
-            msg = u"Looks like the monitored page %s at %s just changed!" % (self.name, self.url)
+            msg = u"[WebMonitor %s] Looks like %s just changed!" % (self.name, self.url)
             if self.public_url:
                 self.build_diff_page()
-                msg += u"\nYou can check the different versions and diffs at %smonitor_%s_%s.html" % (self.public_url, self.channel, quote_plus(self.name))
+                msg += u"\n[WebMonitor %s] You can check the different versions and diffs at %smonitor_%s_%s.html" % (self.name, self.public_url, self.channel, quote_plus(self.name))
             returnD(msg.encode("utf-8"))
 
     def build_diff_page(self):
