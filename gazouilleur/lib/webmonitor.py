@@ -97,6 +97,7 @@ class WebMonitor(Templater):
 
     @inlineCallbacks
     def check_new(self, page):
+        msg = None
         page = decode_page(page)
         html = absolutize_links(self.url, page)
         new = {
@@ -107,7 +108,10 @@ class WebMonitor(Templater):
         last = self.get_last()
         if not last:
             yield self.add_version(new)
-            returnD(None)
+            if self.public_url:
+                self.build_diff_page()
+                msg = (u"[WebMonitor %s] First version stored at %smonitor_%s_%s.html" % (self.name, self.public_url, self.channel, quote_plus(self.name))).encode("utf-8")
+            returnD(msg)
         with open(self.get_file(last, "links")) as f:
             lastlinks = f.read()
         with open(self.get_file(last, "txt")) as f:
