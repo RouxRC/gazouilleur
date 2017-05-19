@@ -56,6 +56,7 @@ class FeederProtocol(object):
                 error_message = getattr(traceback, 'message')
             except:
                 error_message = trace_str
+        error_message = error_message.replace(details, '')
         if not (msg.startswith("downloading") and ("503 " in trace_str or "307 Temporary" in trace_str or "406 Not Acceptable" in trace_str or "was closed cleanly" in trace_str or "User timeout caused" in trace_str)):
             self.log("while %s %s : %s" % (msg, details, error_message.replace('\n', '')), error=True)
         if trace_str and not (msg.startswith("downloading") or "status 503" in trace_str or "ERROR 503" in trace_str or "ERROR 500" in trace_str or "ERROR 111: Network difficulties" in trace_str or '111] Connection refused' in trace_str):
