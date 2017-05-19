@@ -235,7 +235,9 @@
     $("#selecter").scrollLeft($("#selecter_large").width());
     ns.addDiffer("links");
     ns.addDiffer("text");
-    ns.loadVersion(ns.previous, "copy");
+    if (ns.previous) {
+      ns.loadVersion(ns.previous, "copy");
+    }
     ns.loadVersion(ns.last, "orig");
     //ns.loadReal();
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
