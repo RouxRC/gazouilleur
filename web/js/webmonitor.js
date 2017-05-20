@@ -11,8 +11,8 @@
 
   // internal
   ns.imgW;
-  ns.prev;
   ns.last;
+  ns.prev;
   ns.transitions = 600;
   ns.selecterHeight = 200;
   ns.links = {"prev": null, "last": null};
@@ -26,30 +26,43 @@
   ns.currentwin = "prev";
 
   ns.readURLParams = function(){
-    ns.setDimensions();
     var last = ns.versions[ns.versions.length - 1],
-      prev = ns.versions[ns.versions.length - 2];
+      prev = ns.versions[ns.versions.length - 2],
+      selectedExpanded = false,
+      selectedVisual = "screen",
+      diffExpanded = null,
+      currentwin = "prev";
     window.location.hash.replace(/^#/, "")
     .split(/&/)
     .forEach(function(opt){
       if (opt === "ls") {
-        ns.toggleCurrentWindow("last");
+        currentwin = last;
       } else if (opt === "if") {
-        ns.toggleVisual("iframe");
+        selectedVisual = "iframe";
       } else if (opt === "fs") {
-        ns.toggleExpandSelecter();
+        selectedExpanded = true;
       } else if (/(visual|links|text)/.test(opt)) {
-        ns.toggleExpandDiff(opt);
-        $("#" + opt + " .expand").click();
+        diffExpanded = opt;
       } else if (/^prev=/.test(opt)) {
         prev = opt.replace(/^prev=/, "");
       } else if (/^last=/.test(opt)) {
         last = opt.replace(/^last=/, "");
       }
     });
-    $("#selecter").scrollLeft(ns.imgW * (ns.versions.indexOf(last)-2));
-    ns.loadVersion(prev, "prev");
-    ns.loadVersion(last, "last");
+    ns.setDimensions();
+    if (currentwin !== ns.currentwin)
+      ns.toggleCurrentWindow(currentwin);
+    if (selectedVisual !== ns.selectedVisual)
+      ns.toggleVisual(selectedVisual);
+    if (selectedExpanded !== ns.selectedExpanded)
+      ns.toggleExpandSelecter();
+    if (diffExpanded !== ns.diffExpanded)
+      ns.toggleExpandDiff(diffExpanded);
+    if (prev !== ns.prev)
+      ns.loadVersion(prev, "prev");
+    if (last !== ns.last)
+      ns.loadVersion(last, "last");
+    $("#selecter").scrollLeft((ns.imgW + 2) * (ns.versions.indexOf(last)-2));
   };
 
   ns.updateURLParams = function(){
@@ -241,7 +254,8 @@
     var winW = $("#selecter").width(),
       winH = $(window).innerHeight();
     ns.imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
-    $("#selecter").height(ns.selecterHeight - 2);
+    if (!ns.selectedExpanded)
+      $("#selecter").height(ns.selecterHeight - 2);
     $("#selecter_large, #screenshots").width((ns.versions.length) * (ns.imgW + 2) + 1);
     $("#versions p").width(ns.imgW);
     $("#screenshots img").width(ns.imgW - 8);
@@ -250,7 +264,8 @@
     ns.pieceHeight = (ns.diffHeight - 22 * 4) / 3;
     $(".differ").width(winW - 20);
     $("#diff").height(ns.diffHeight);
-    ns.resetDiffHeights();
+    if (!ns.diffExpanded)
+      ns.resetDiffHeights(true);
   };
 
   ns.loadVersions = function(){
@@ -286,8 +301,8 @@
     ns.readURLParams();
 
     // Set events
-//    window.onhashchange = ns.readURLParams;
-    window.onresize = ns.setDimensions;
+    //window.onhashchange = ns.readURLParams;
+    window.onresize = ns.readURLParams;
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
     $("input[type=radio][name=visual]").change(ns.toggleVisual);
     $("#selecter .expand").click(ns.toggleExpandSelecter);
