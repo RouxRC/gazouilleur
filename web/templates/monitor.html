@@ -28,18 +28,18 @@
     {{/screenshots}}
     </ul>
     <div id="diff">
-      <div class="copy">
+      <div class="prev">
         <p class="version">
           <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
-          <input id="curwin-c" type="radio" name="curwin" value="copy" checked />
-          <label for="curwin-c" title="Select to change"></label>
+          <input id="curwin-p" type="radio" name="curwin" value="prev" checked />
+          <label for="curwin-p" title="Select to change"></label>
         </p>
       </div>
-      <div class="orig">
+      <div class="last">
         <p class="version">
-          <input id="curwin-o" type="radio" name="curwin" value="orig" />
-          <label for="curwin-o" title="Select to change"></label>
+          <input id="curwin-l" type="radio" name="curwin" value="last" />
+          <label for="curwin-l" title="Select to change"></label>
           <span class="name"></span>
           <a target="_blank"><span class="glyphicon glyphicon-link"></span></a>
         </p>
@@ -58,14 +58,14 @@
         </div>
       </div>
       <div id="fullshots">
-        <img id="screencopy"/>
-        <img id="screenorig"/>
+        <img id="screenprev"/>
+        <img id="screenlast"/>
       </div>
       <div id="iframes">
-        <div class="copy">
+        <div class="prev">
           <iframe sandbox="allow-same-origin allow-scripts"></iframe>
         </div>
-        <div class="orig">
+        <div class="last">
           <iframe sandbox="allow-same-origin allow-scripts"></iframe>
         </div>
       </div>

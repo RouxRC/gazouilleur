@@ -33,13 +33,13 @@ h1 {
   font-weight: bold;
   background-color: #f1f7ff;
 }
-.selectcopy {
-  background-color: #ffe9e9 !important;
-}
-.selectorig {
+.selectlast {
   background-color: #dcf7dc !important;
 }
-.selectcopy.selectorig {
+.selectprev {
+  background-color: #ffe9e9 !important;
+}
+.selectlast.selectprev {
   background: linear-gradient(to right, #ffe9e9, #dcf7dc);
 }
 #screenshots img {
@@ -72,15 +72,15 @@ h1 {
   border: 2px solid darkgrey;
   border-radius: 2px;
 }
-.copy, .orig {
+.last, .prev {
   float: left;
   width: 50%;
 }
-.copy .version {
-  background-color: #ffe9e9;
-}
-.orig .version {
+.last .version {
   background-color: #dcf7dc;
+}
+.prev .version {
+  background-color: #ffe9e9;
 }
 .version, .title p {
   margin: auto;
@@ -140,10 +140,10 @@ label:after {
   height: 6px;
   width: 6px;
 }
-.copy label {
+.prev label {
   float: right;
 }
-.orig label {
+.last label {
   float: left;
   left: -4px;
 }
@@ -173,7 +173,7 @@ label:after {
   margin-right: 0.5%;
   background-color: white;
 }
-#iframes .orig, #iframes .copy {
+#iframes .prev, #iframes .last {
   display: none;
   background-color: #f1f7ff;
 }
@@ -186,11 +186,11 @@ iframe {
   border-top: 1px solid lightgrey;
   width: 98%;
 }
-.copy iframe {
-  margin-right: 2%;
-}
-.orig iframe {
+.last iframe {
   margin-left: 2%;
+}
+.prev iframe {
+  margin-right: 2%;
 }
 #fullshots, #iframes div, #difftext {
   border-bottom: 2px solid darkgrey;

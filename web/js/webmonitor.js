@@ -3,20 +3,66 @@
 - slider/calendar picker
 */
 (function(ns){
-  // config
+  // vars inherited from template
+  ns.url;
+  ns.name;
+  ns.channel;
+  ns.versions;
+
+  // internal
+  ns.imgW;
+  ns.prev;
+  ns.last;
   ns.transitions = 600;
   ns.selecterHeight = 200;
+  ns.links = {"prev": null, "last": null};
+  ns.text = {"prev": null, "last": null};
+  ns.mergely = {"links": null, "text": null};
+
+  // config
   ns.selectedExpanded = false;
   ns.selectedVisual = "screen";
   ns.diffExpanded = null;
-  ns.currentwin = "copy";
+  ns.currentwin = "prev";
 
-  // internal
-  ns.last = ns.versions[ns.versions.length - 1];
-  ns.previous = ns.versions[ns.versions.length - 2];
-  ns.links = {"orig": null, "copy": null};
-  ns.text = {"orig": null, "copy": null};
-  ns.mergely = {"links": null, "text": null};
+  ns.readURLParams = function(){
+    ns.setDimensions();
+    var last = ns.versions[ns.versions.length - 1],
+      prev = ns.versions[ns.versions.length - 2];
+    window.location.hash.replace(/^#/, "")
+    .split(/&/)
+    .forEach(function(opt){
+      if (opt === "ls") {
+        ns.toggleCurrentWindow("last");
+      } else if (opt === "if") {
+        ns.toggleVisual("iframe");
+      } else if (opt === "fs") {
+        ns.toggleExpandSelecter();
+      } else if (/(visual|links|text)/.test(opt)) {
+        ns.toggleExpandDiff(opt);
+        $("#" + opt + " .expand").click();
+      } else if (/^prev=/.test(opt)) {
+        prev = opt.replace(/^prev=/, "");
+      } else if (/^last=/.test(opt)) {
+        last = opt.replace(/^last=/, "");
+      }
+    });
+    $("#selecter").scrollLeft(ns.imgW * (ns.versions.indexOf(last)-2));
+    ns.loadVersion(prev, "prev");
+    ns.loadVersion(last, "last");
+  };
+
+  ns.updateURLParams = function(){
+    window.location.hash = [
+      ns.currentwin === "last" ? "ls" : null,
+      ns.selectedVisual === "iframe" ? "if" : null,
+      ns.selectedExpanded ? "fs" : null,
+      ns.diffExpanded ? ns.diffExpanded : null,
+      ns.prev && ns.prev !== ns.versions[ns.versions.length - 2] ? "prev=" + ns.prev : null,
+      ns.last && ns.last !== ns.versions[ns.versions.length - 1] ? "last=" + ns.last : null
+    ].filter(function(e){return e})
+    .join("&");
+  };
 
   ns.buildUrl = function(version, typ){
     return ["monitor", ns.channel, ns.name, version+"."+typ].join("/");
@@ -57,18 +103,21 @@
   ns.updateDiffer = function(typ, curwin, version){
     ns[typ][curwin] = ns[typ][version];
     ns.mergely[typ].mergely(
-      (curwin === "copy" ? 'l' : 'r') + 'hs',
+      (curwin === "last" ? 'l' : 'r') + 'hs',
       ns[typ][version]
     );
-    if (ns[typ]["orig"] && ns[typ]["copy"]) {
+    if (ns[typ]["prev"] && ns[typ]["last"]) {
       ns.mergely[typ].mergely('scrollToDiff', 'next');
     }
+    ns.updateURLParams();
   };
 
   ns.loadVersion = function(version, curwin){
+    curwin = curwin || ns.currentwin;
+    if (!version || ns[curwin] === version) return;
+    ns[curwin] = version;
     var url = ns.buildUrl(version, "html"),
       name = ns.nameVersion(version, true);
-    curwin = curwin || ns.currentwin;
     $(".select" + curwin).removeClass('select' + curwin);
     $("." + version).addClass('select' + curwin);
     $("." + curwin + " .name").text(name)
@@ -91,18 +140,12 @@
     });
   };
 
-  ns.loadReal = function(){
-    var url = ns.url || "http://regardscitoyens.org";
-    $(".selectorig").removeClass('selectorig');
-    $(".real").addClass('selectorig');
-    $(".orig a").text("live web " + url)
-                .attr("href", url);
-    $(".orig .content").empty();
-    $(".orig iframe").attr("src", url);
-  };
-
-  ns.toggleCurrentWindow = function(){
-    ns.currentwin = (ns.currentwin === "orig" ? "copy" : "orig");
+  ns.toggleCurrentWindow = function(val){
+    if (typeof(val) === "string") {
+      ns.currentwin = val;
+      $("#curwin-" + val[0]).attr("checked", "checked");
+    } else ns.currentwin = $("input[name=curwin]:checked").val();
+    ns.updateURLParams();
   };
 
   ns.toggleExpandButton = function(sel, reduce){
@@ -124,11 +167,12 @@
       }, ns.transitions);
       $("#selecter").animate({height: ns.selecterHeight - 2}, ns.transitions);
     }
+    ns.updateURLParams();
   };
 
   ns.expandDiff = function(typ){
     if (typ === "visual") {
-      $("#fullshots, #iframes .orig, #iframes .copy").animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
+      $("#fullshots, #iframes .prev, #iframes .last").animate({height: 3 * ns.pieceHeight - 2}, ns.transitions);
       $("iframe").animate({height: 3 * ns.pieceHeight - 4}, ns.transitions);
     } else {
       var gap = 3 * ns.pieceHeight - (typ === "text" ? 2 : 5);
@@ -141,7 +185,7 @@
 
   ns.reduceDiff = function(typ){
     if (typ === "visual") {
-      $("#iframes .orig, #iframes .copy, iframe").animate({height: 0}, ns.transitions);
+      $("#iframes .prev, #iframes .last, iframe").animate({height: 0}, ns.transitions);
       $("#fullshots").animate({height: 0}, ns.transitions);
     } else {
       $("#diff" + typ).animate({height: 0}, ns.transitions);
@@ -163,22 +207,27 @@
       }).forEach(ns.reduceDiff);
       ns.diffExpanded = typ;
     }
+    ns.updateURLParams();
   };
 
-  ns.toggleVisual = function(){
-    ns.selectedVisual = $("input[name=visual]:checked").val();
+  ns.toggleVisual = function(val){
+    if (typeof(val) === "string") {
+      ns.selectedVisual = val;
+      $("#visual-" + val[0]).attr("checked", "checked");
+    } else ns.selectedVisual = $("input[name=visual]:checked").val();
     if (ns.selectedVisual === "screen") {
       $("#fullshots").show();
-      $("#iframes .orig, #iframes .copy").hide();
+      $("#iframes .prev, #iframes .last").hide();
     } else {
       $("#fullshots").hide();
-      $("#iframes .orig, #iframes .copy").show();
+      $("#iframes .prev, #iframes .last").show();
     }
+    ns.updateURLParams();
   };
 
   ns.resetDiffHeights = function(animate){
     $("#difflinks, #difftext").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
-    $("#fullshots, #iframes .orig, #iframes .copy").animate({'height': ns.pieceHeight - 1}, (animate ? ns.transitions : 0));
+    $("#fullshots, #iframes .prev, #iframes .last").animate({'height': ns.pieceHeight - 1}, (animate ? ns.transitions : 0));
     $("iframe").animate({'height': ns.pieceHeight - 2}, (animate ? ns.transitions : 0));
     $(".differ").height(ns.pieceHeight);
     if (animate) {
@@ -190,22 +239,21 @@
 
   ns.setDimensions = function(){
     var winW = $("#selecter").width(),
-      winH = $(window).innerHeight(),
-      imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
+      winH = $(window).innerHeight();
+    ns.imgW = Math.max(200, Math.min(350, parseInt(winW/ns.versions.length)));
     $("#selecter").height(ns.selecterHeight - 2);
-    $("#selecter_large, #screenshots").width((ns.versions.length) * (imgW + 2) + 1);
-    $("#versions p").width(imgW);
-    $("#screenshots img").width(imgW - 8);
+    $("#selecter_large, #screenshots").width((ns.versions.length) * (ns.imgW + 2) + 1);
+    $("#versions p").width(ns.imgW);
+    $("#screenshots img").width(ns.imgW - 8);
     ns.diffHeight = winH - ns.selecterHeight - 62;
     ns.selecterMaxHeight = winH - 50;
     ns.pieceHeight = (ns.diffHeight - 22 * 4) / 3;
     $(".differ").width(winW - 20);
-    //$(".copy iframe, .orig iframe").width((winW - 3) / 2);
     $("#diff").height(ns.diffHeight);
     ns.resetDiffHeights();
   };
 
-  $(document).ready(function(){
+  ns.loadVersions = function(){
     var versions = $("#versions"),
       screens = $("#screenshots");
     ns.versions.forEach(function(version){
@@ -226,29 +274,28 @@
       $(p).click(onclic);
       $(i).click(onclic);
     });
-    /*var p = document.createElement('p');
-    p.id = "real";
-    p.textContent = "live web";
-    $(p).click(ns.loadReal);
-    versions.append(p);*/
-    ns.setDimensions();
-    $("#selecter").scrollLeft($("#selecter_large").width());
+  };
+
+  $(document).ready(function(){
+    // Prepare Mergelys
     ns.addDiffer("links");
     ns.addDiffer("text");
-    if (ns.previous) {
-      ns.loadVersion(ns.previous, "copy");
-    }
-    ns.loadVersion(ns.last, "orig");
-    //ns.loadReal();
+
+    // Load list of versions and current config
+    ns.loadVersions();
+    ns.readURLParams();
+
+    // Set events
+//    window.onhashchange = ns.readURLParams;
+    window.onresize = ns.setDimensions;
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
+    $("input[type=radio][name=visual]").change(ns.toggleVisual);
     $("#selecter .expand").click(ns.toggleExpandSelecter);
     ["links", "text", "visual"].forEach(function(typ){
       $("#" + typ + " .expand").click(function(){
-        ns.toggleExpandDiff(typ)
+        ns.toggleExpandDiff(typ);
       });
     });
-    $("input[type=radio][name=visual]").change(ns.toggleVisual);
-    $(window).resize(ns.setDimensions);
   });
 
 })(window.gazouilleur = window.gazouilleur || {});
