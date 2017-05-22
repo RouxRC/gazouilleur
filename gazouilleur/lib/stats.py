@@ -102,6 +102,7 @@ class Stats(Templater):
             jsondir = os.path.join('web', 'data')
             if not os.path.exists(jsondir):
                 os.makedirs(jsondir)
+                os.chmod(jsondir, 0o755)
             with open(os.path.join(jsondir, 'stats_%s.json' % self.user), 'w') as outfile:
                 write_json(jsondata, outfile)
         except IOError as e:
@@ -112,6 +113,7 @@ class Stats(Templater):
             imgdir = os.path.join('web', 'img')
             if not os.path.exists(imgdir):
                 os.makedirs(imgdir)
+                os.chmod(imgdir, 0o755)
             CumulativeCurve(dates, tweets, 'Total tweets', imgdir, 'tweets_%s' % self.user)
             CumulativeCurve(dates, followers, 'Total followers', imgdir, 'followers_%s' % self.user)
             CumulativeCurve(dates, rts, 'Total RTs since %s' % dates[0], imgdir, 'rts_%s' % self.user)
