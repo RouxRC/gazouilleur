@@ -35,19 +35,18 @@
     window.location.hash.replace(/^#/, "")
     .split(/&/)
     .forEach(function(opt){
-      if (opt === "ls") {
+      if (opt === "ls")
         currentwin = "last";
-      } else if (opt === "if") {
+      else if (opt === "if")
         selectedVisual = "iframe";
-      } else if (opt === "fs") {
+      else if (opt === "fs")
         selectedExpanded = true;
-      } else if (/(visual|links|text)/.test(opt)) {
+      else if (/(visual|links|text)/.test(opt))
         diffExpanded = opt;
-      } else if (/^prev=/.test(opt)) {
+      else if (/^prev=/.test(opt))
         prev = opt.replace(/^prev=/, "");
-      } else if (/^last=/.test(opt)) {
+      else if (/^last=/.test(opt))
         last = opt.replace(/^last=/, "");
-      }
     });
     ns.setDimensions();
     if (prev !== ns.prev)
@@ -114,14 +113,17 @@
   };
 
   ns.updateDiffer = function(typ, curwin, version){
+    if (ns[typ]["prev"])
+      ns.mergely[typ].mergely('scrollTo', 'l', 0);
+    if (ns[typ]["last"])
+      ns.mergely[typ].mergely('scrollTo', 'r', 0);
     ns[typ][curwin] = ns[typ][version];
     ns.mergely[typ].mergely(
-      (curwin === "last" ? 'l' : 'r') + 'hs',
+      (curwin === "last" ? 'r' : 'l') + 'hs',
       ns[typ][version]
     );
-    if (ns[typ]["prev"] && ns[typ]["last"]) {
+    if (ns[typ]["prev"] && ns[typ]["last"])
       ns.mergely[typ].mergely('scrollToDiff', 'next');
-    }
     ns.updateURLParams();
   };
 
@@ -138,11 +140,9 @@
     $("." + curwin + " iframe").attr("src", url);
     $("#screen" + curwin).attr("src", ns.buildUrl(version, "png"));
     ["links", "text"].forEach(function(typ){
-      ns.mergely[typ].mergely('scrollTo', 'l', 0);
-      ns.mergely[typ].mergely('scrollTo', 'r', 0);
-      if (ns[typ][version]) {
+      if (ns[typ][version])
         ns.updateDiffer(typ, curwin, version);
-      } else $.ajax({
+      else $.ajax({
         url: ns.buildUrl(version, typ.replace('e', '')),
         dataType: "text",
         success: function(result){
@@ -158,6 +158,23 @@
       $("#curwin-" + val[0]).click();
     ns.currentwin = $("input[name=curwin]:checked").val();
     ns.updateURLParams();
+  };
+
+  ns.toggleVisual = function(val){
+    if (typeof(val) === "string") {
+      ns.selectedVisual = val;
+      $("#visual-" + val[0]).click();
+    } else {
+      ns.selectedVisual = $("input[name=visual]:checked").val();
+      ns.updateURLParams();
+    }
+    if (ns.selectedVisual === "screen") {
+      $("#fullshots").show();
+      $("#iframes .prev, #iframes .last").hide();
+    } else {
+      $("#fullshots").hide();
+      $("#iframes .prev, #iframes .last").show();
+    }
   };
 
   ns.toggleExpandButton = function(sel, reduce){
@@ -222,33 +239,15 @@
     ns.updateURLParams();
   };
 
-  ns.toggleVisual = function(val){
-    if (typeof(val) === "string") {
-      ns.selectedVisual = val;
-      $("#visual-" + val[0]).click();
-    } else {
-      ns.selectedVisual = $("input[name=visual]:checked").val();
-      ns.updateURLParams();
-    }
-    if (ns.selectedVisual === "screen") {
-      $("#fullshots").show();
-      $("#iframes .prev, #iframes .last").hide();
-    } else {
-      $("#fullshots").hide();
-      $("#iframes .prev, #iframes .last").show();
-    }
-  };
-
   ns.resetDiffHeights = function(animate){
     $("#difflinks, #difftext").animate({'height': ns.pieceHeight}, (animate ? ns.transitions : 0));
     $("#fullshots, #iframes .prev, #iframes .last").animate({'height': ns.pieceHeight - 1}, (animate ? ns.transitions : 0));
     $("iframe").animate({'height': ns.pieceHeight - 2}, (animate ? ns.transitions : 0));
     $(".differ").height(ns.pieceHeight);
-    if (animate) {
+    if (animate)
       ["links", "text"].forEach(function(typ){
         ns.mergely[typ].mergely('resize');
       });
-    }
   };
 
   ns.setDimensions = function(){
