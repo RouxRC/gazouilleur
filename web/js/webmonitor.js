@@ -36,7 +36,7 @@
     .split(/&/)
     .forEach(function(opt){
       if (opt === "ls") {
-        currentwin = last;
+        currentwin = "last";
       } else if (opt === "if") {
         selectedVisual = "iframe";
       } else if (opt === "fs") {
@@ -50,18 +50,18 @@
       }
     });
     ns.setDimensions();
-    if (currentwin !== ns.currentwin)
-      ns.toggleCurrentWindow(currentwin);
-    if (selectedVisual !== ns.selectedVisual)
-      ns.toggleVisual(selectedVisual);
-    if (selectedExpanded !== ns.selectedExpanded)
-      ns.toggleExpandSelecter();
-    if (diffExpanded !== ns.diffExpanded)
-      ns.toggleExpandDiff(diffExpanded);
     if (prev !== ns.prev)
       ns.loadVersion(prev, "prev");
     if (last !== ns.last)
       ns.loadVersion(last, "last");
+    if (currentwin !== ns.currentwin)
+      ns.toggleCurrentWindow(currentwin);
+    if (selectedVisual !== ns.selectedVisual)
+      ns.toggleVisual(selectedVisual);
+    if (diffExpanded !== ns.diffExpanded)
+      ns.toggleExpandDiff(diffExpanded, true);
+    if (selectedExpanded !== ns.selectedExpanded)
+      ns.toggleExpandSelecter();
     $("#selecter").scrollLeft((ns.imgW + 2) * (ns.versions.indexOf(last)-2));
   };
 
@@ -154,10 +154,9 @@
   };
 
   ns.toggleCurrentWindow = function(val){
-    if (typeof(val) === "string") {
-      ns.currentwin = val;
-      $("#curwin-" + val[0]).attr("checked", "checked");
-    } else ns.currentwin = $("input[name=curwin]:checked").val();
+    if (typeof(val) === "string")
+      $("#curwin-" + val[0]).click();
+    ns.currentwin = $("input[name=curwin]:checked").val();
     ns.updateURLParams();
   };
 
@@ -206,9 +205,9 @@
     }
   };
 
-  ns.toggleExpandDiff = function(typ){
-    if (ns.diffExpanded === typ) {
-      ns.toggleExpandButton(typ);
+  ns.toggleExpandDiff = function(typ, force){
+    if (!typ || (!force && ns.diffExpanded === typ)) {
+      ns.toggleExpandButton(ns.diffExpanded);
       ns.resetDiffHeights(true);
       ns.diffExpanded = null;
     } else {
@@ -226,8 +225,11 @@
   ns.toggleVisual = function(val){
     if (typeof(val) === "string") {
       ns.selectedVisual = val;
-      $("#visual-" + val[0]).attr("checked", "checked");
-    } else ns.selectedVisual = $("input[name=visual]:checked").val();
+      $("#visual-" + val[0]).click();
+    } else {
+      ns.selectedVisual = $("input[name=visual]:checked").val();
+      ns.updateURLParams();
+    }
     if (ns.selectedVisual === "screen") {
       $("#fullshots").show();
       $("#iframes .prev, #iframes .last").hide();
@@ -235,7 +237,6 @@
       $("#fullshots").hide();
       $("#iframes .prev, #iframes .last").show();
     }
-    ns.updateURLParams();
   };
 
   ns.resetDiffHeights = function(animate){
@@ -262,6 +263,7 @@
     ns.diffHeight = winH - ns.selecterHeight - 62;
     ns.selecterMaxHeight = winH - 50;
     ns.pieceHeight = (ns.diffHeight - 22 * 4) / 3;
+    $("#fullshots img").width(winW/2 - 45);
     $(".differ").width(winW - 20);
     $("#diff").height(ns.diffHeight);
     if (!ns.diffExpanded)
@@ -301,7 +303,7 @@
     ns.readURLParams();
 
     // Set events
-    //window.onhashchange = ns.readURLParams;
+    window.onhashchange = ns.readURLParams;
     window.onresize = ns.readURLParams;
     $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
     $("input[type=radio][name=visual]").change(ns.toggleVisual);

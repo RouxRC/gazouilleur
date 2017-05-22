@@ -167,10 +167,9 @@ label:after {
 }
 #fullshots img {
   float: left;
-  width: 48%;
   border: 1px solid lightgrey;
-  margin-left: 1.5%;
-  margin-right: 0.5%;
+  margin-left: 20px;
+  margin-right: 5px;
   background-color: white;
 }
 #iframes .prev, #iframes .last {
