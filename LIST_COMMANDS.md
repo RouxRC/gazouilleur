@@ -94,9 +94,9 @@
      > Posts &lt;text&gt; as a status on Identi.ca and on Twitter. Include up to 4 images with img:&lt;url&gt; at no character cost. --nolimit overrides the minimum 30 characters rule. --force overrides the restriction to mentions users I couldn't find on Twitter or already included in the conversation for answers.
      > > restricted to /TWITTER
 
-  + `answer <tweet_id> [--nolimit] [--force] [img:<url>]`
+  + `answer <tweet_id> <text> [--nolimit] [--force] [img:<url>]`
 
-     > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; must not include anymore the @author of the tweet answered (see twitter command's help for other options).
+     > Posts &lt;text&gt; as a status on Identi.ca and as a response to &lt;tweet_id&gt; on Twitter. &lt;text&gt; should not include anymore the @author of the tweet answered (see twitter command's help for other options).
      > > restricted to /TWITTER
 
   + `answerlast <text> [--nolimit] [--force] [img:<url>]`

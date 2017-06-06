@@ -866,7 +866,7 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def command_answer(self, rest, channel=None, nick=None):
-        """answer <tweet_id> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> must not include anymore the @author of the tweet answered (see twitter command's help for other options)./TWITTER"""
+        """answer <tweet_id> <text> [--nolimit] [--force] [img:<url>] : Posts <text> as a status on Identi.ca and as a response to <tweet_id> on Twitter. <text> should not include anymore the @author of the tweet answered (see twitter command's help for other options)./TWITTER"""
         channel = self.getMasterChan(channel)
         rest = self.re_twitter_url.sub(r'\1 ', rest)
         tweet_id, text = self._extract_digit(rest)
