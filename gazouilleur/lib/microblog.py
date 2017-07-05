@@ -375,7 +375,7 @@ def reformat_extended_tweets(tweet):
     if "extended_tweet" in tweet:
         for field in tweet["extended_tweet"]:
             tweet[field] = tweet["extended_tweet"][field]
-    tweet['text'] = tweet.get('full_text', tweet.get('text', '')).replace('&amp;', '&')
+    tweet['text'] = move_mentions(tweet.get('full_text', tweet.get('text', '')).replace('&amp;', '&'))
 
     if 'entities' in tweet or 'extended_entities' in tweet:
         for entity in tweet.get('extended_entities', tweet['entities']).get('media', []) + tweet.get('entities', {}).get('urls', []):
