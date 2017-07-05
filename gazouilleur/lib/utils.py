@@ -456,7 +456,7 @@ def format_4_followers(users):
     return ", ".join([format_follower(user) for user in users[:4]])
 
 re_mentions = re.compile(r'^(@%s\s+)+' % TWITTER_ACCOUNT)
-def move_mentions(text, threshold=3, format='%(text)s (mentions: %(mentions)s'):
+def move_mentions(text, threshold=3, format='%(text)s (mentions: %(mentions)s)'):
     match = re_mentions.search(text)
     if match:
         mentions_part = match.group()
