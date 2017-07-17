@@ -454,3 +454,16 @@ def safe_invert(x):
 def format_4_followers(users):
     users = sorted(users, key=lambda x: -x["followers_count"] if x["verified"] else safe_invert(x["followers_count"]))
     return ", ".join([format_follower(user) for user in users[:4]])
+
+re_mentions = re.compile(r'^(@%s\s+)+' % TWITTER_ACCOUNT)
+def move_mentions(text, threshold=3, format='%(text)s (in reply to: %(mentions)s)'):
+    match = re_mentions.search(text)
+    if match:
+        mentions_part = match.group()
+        mentions = re.split(r'\s+', mentions_part.strip())
+        if len(mentions) >= threshold:
+            return format % {
+                'text': text[len(mentions_part):],
+                'mentions': ' '.join(mentions)
+            }
+    return text
