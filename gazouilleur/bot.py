@@ -90,10 +90,10 @@ class IRCBot(NamesIRCClient):
             else:
                 user = nick
             host = self.nicks[lowchan][nick]
-            yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
+            yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': lowchan, 'user': nick.lower(), 'screenname': nick, 'host': host, 'message': message, 'filtered': filtered})
             if nick+" changed nickname to " in message:
                 oldnick = message[1:-1].replace(nick+" changed nickname to ", '')
-                yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': channel, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
+                yield self.db['logs'].insert({'timestamp': datetime.today(), 'channel': lowchan, 'user': oldnick.lower(), 'screenname': oldnick, 'host': host, 'message': message})
             message = "%s: %s" % (user, message)
         if not (message.startswith('%s: PING ' % self.nickname) and lowchan == self.nickname.lower()) and lowchan in self.logger:
             self.logger[lowchan].log(message, filtered)
@@ -136,9 +136,8 @@ class IRCBot(NamesIRCClient):
 
     @inlineCallbacks
     def _get_chan_known_users(self, channel):
-        re_chan = re.compile(r'^%s$' % channel, re.I)
         re_joined = re.compile(r'^\[.* joined\]$')
-        past_users = yield self.db['logs'].aggregate([{'$match': {'channel': re_chan, 'message': re_joined}}, {'$group': {'_id': '$user'}}])
+        past_users = yield self.db['logs'].aggregate([{'$match': {'channel': channel.lower(), 'message': re_joined}}, {'$group': {'_id': '$user'}}])
         cur_users = yield self._names(channel)
         returnD(set([u['_id'].lower() for u in past_users] + [u.lower().lstrip('@') for u in cur_users]))
 
@@ -155,7 +154,7 @@ class IRCBot(NamesIRCClient):
         if lowchan == "#gazouilleur":
             returnD(None)
         self.lastqueries[lowchan] = {'n': 1, 'skip': 0}
-        filters = yield self.db['filters'].find({'channel': re.compile("^%s$" % lowchan, re.I)}, fields=['keyword'])
+        filters = yield self.db['filters'].find({'channel': lowchan}, fields=['keyword'])
         self.filters[lowchan] = [keyword['keyword'].encode('utf-8') for keyword in filters]
         self.silent[lowchan] = datetime.today()
         self.feeders[lowchan] = {}
@@ -299,7 +298,7 @@ class IRCBot(NamesIRCClient):
     def getMasterChan(self, channel):
         if channel == self.nickname:
             channel = get_master_chan()
-        return channel
+        return channel.lower()
 
   # -------------------
   # Command controller
@@ -506,7 +505,7 @@ class IRCBot(NamesIRCClient):
 
     def command_chans(self, rest, channel=None, *args):
         """chans : Prints the list of all the channels I'm in."""
-        chans = [chan for chan in self.factory.channels if chan.lower() != channel.lower()]
+        chans = [chan for chan in self.factory.channels if chan != channel.lower()]
         if not len(chans):
             return "I'm only hanging out here."
         return "I'm currently hanging out in %s. Come visit!" % " ; ".join(chans)
@@ -546,7 +545,7 @@ class IRCBot(NamesIRCClient):
             channel = master
             def_nb = 10
         re_nick = re.compile(r'^\[[^\[]*'+nick, re.I)
-        query = {'channel': re.compile(r'^%s$' % channel, re.I), '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+COMMAND_CHAR_REG+'|\[\d))')}}]}
+        query = {'channel': channel.lower(), '$and': [{'filtered': {'$ne': True}}, {'message': {'$not': self.re_lastcommand}}, {'message': {'$not': re_nick}}], '$or': [{'user': {'$ne': self.nickname.lower()}}, {'message': {'$not': re.compile(r'^('+self.nickname+' —— )?('+nick+': \D|[^\s:]+: ('+COMMAND_CHAR_REG+'|\[\d))')}}]}
         st = 0
         current = ""
         allchans = False
@@ -567,8 +566,8 @@ class IRCBot(NamesIRCClient):
                 chan = '#'+arg.lower().lstrip('#')
                 if 'channel' not in query:
                     returnD("Either use --allchans or --chan <channel> but both is just stupid :p")
-                if chan.lower() in self.factory.channels:
-                    query['channel'] = re.compile(r'^%s$' % chan, re.I)
+                if chan in self.factory.channels:
+                    query['channel'] = chan
                 else:
                     returnD("I do not follow this channel.")
                 current = ""
@@ -613,17 +612,18 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def command_lastmore(self, rest, channel=None, nick=None):
         """lastmore [<N>] : Prints 1 or <N> more result(s) (max 5) from previous "last" "lastwith" "lastfrom" or "lastcount" command (options from "last" except --skip can apply; --from and --with will reset --skip to 0)."""
+        channel = channel.lower()
         master = get_master_chan(self.nickname)
-        if channel == self.nickname and master != self.nickname:
-            truechannel = master.lower()
+        if channel == self.nickname.lower() and master != self.nickname:
+            lowchan = master.lower()
         else:
-            truechannel = channel.lower()
+            lowchan = channel
         if not rest:
-            nb = self.lastqueries[truechannel]['n']
+            nb = self.lastqueries[lowchan]['n']
         else:
             nb, rest = self._extract_digit(rest)
         tmprest = rest
-        st = self.lastqueries[truechannel]['skip']
+        st = self.lastqueries[lowchan]['skip']
         last = yield self.db['logs'].find({'channel': channel, 'message': self.re_lastcommand, 'user': nick.lower()}, fields=['message'], filter=sortdesc('timestamp'), skip=1)
         for m in last:
             command, _, text = m['message'].encode('utf-8').lstrip(COMMAND_CHAR_STR).partition(' ')
@@ -1211,7 +1211,7 @@ class IRCBot(NamesIRCClient):
         keyword = keyword.lower().strip()
         if keyword == "":
             returnD("Please specify what you want to follow (%shelp follow for more info)." % COMMAND_CHAR_DEF)
-        yield self.db['filters'].update({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
+        yield self.db['filters'].update({'channel': channel, 'keyword': keyword}, {'channel': channel, 'keyword': keyword, 'user': nick, 'timestamp': datetime.today()}, upsert=True)
         self.filters[channel.lower()].append(keyword)
         returnD('«%s» filter added for tweets displays on %s' % (keyword, channel))
 
@@ -1220,7 +1220,7 @@ class IRCBot(NamesIRCClient):
         """unfilter <word|@user> : Removes a tweets display filter for <word> or <@user>./AUTH"""
         channel = self.getMasterChan(channel)
         keyword = keyword.lower().strip()
-        res = yield self.db['filters'].remove({'channel': re.compile("^%s$" % channel, re.I), 'keyword': keyword}, safe=True)
+        res = yield self.db['filters'].remove({'channel': channel, 'keyword': keyword}, safe=True)
         if not res or not res['n']:
             returnD("I could not find such filter in my database")
         self.filters[channel.lower()].remove(keyword)
@@ -1531,7 +1531,7 @@ class IRCBot(NamesIRCClient):
             if task['channel'] != channel.lower():
                 returnD("Task #%s is not scheduled for this channel." % task_id)
             task['id'].cancel()
-            yield self.db['tasks'].update({"channel": channel.lower(), "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, multi=True)
+            yield self.db['tasks'].update({"channel": channel, "rank": task_id, "created": task["created"]}, {"$set": {"canceled": True}}, multi=True)
             self.tasks[task_id]['canceled'] = True
             returnD("#%s [%s] CANCELED: %s" % (task_id, task['scheduled'], task['command']))
         except exceptions.IndexError:
