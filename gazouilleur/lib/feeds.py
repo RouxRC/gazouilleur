@@ -557,10 +557,10 @@ class FeederProtocol(object):
         todo = []
         while self.pile and len(todo) < 35:
             todo.append(self.pile.pop())
-        if len(self.pile) > 1000:
+        if len(self.pile) > 1500:
             self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. Dumping the data to the trash now... You should still use %sfuckoff and %sunfollow to clean the guilty query." % (self.fact.channel, len(self.pile), COMMAND_CHAR_DEF, COMMAND_CHAR_DEF))), self.fact.channel, admins=True)
             del self.pile[:]
-        elif len(self.pile) > 300:
+        elif len(self.pile) > 500:
             self.fact.ircclient._show_error(failure.Failure(Exception("Warning, stream on %s has %d tweets late to display. You should use %sfuckoff and %sunfollow the guilty query or at least restart." % (self.fact.channel, len(self.pile), COMMAND_CHAR_DEF, COMMAND_CHAR_DEF))), self.fact.channel, admins=True)
         if config.DEBUG:
             self.log("Flush %s tweets%s." % (len(todo), " (%s left to do)" % len(self.pile) if len(self.pile) else ""), hint=True)
