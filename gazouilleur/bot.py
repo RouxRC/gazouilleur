@@ -165,7 +165,7 @@ class IRCBot(NamesIRCClient):
         # Follow RSS Feeds matching url queries set for this channel with !follow
         self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
         # Monitor webpages set for this channel with !monitor
-        self.feeders[lowchan]['pages'] = FeederFactory(self, channel, 'pages', 299, timeout=900, pagetimeout=95)
+        self.feeders[lowchan]['pages'] = FeederFactory(self, channel, 'pages', 301, timeout=900, pagetimeout=95)
         twuser = get_chan_twitter_user(channel, conf)
         if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
