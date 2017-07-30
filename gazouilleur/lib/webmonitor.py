@@ -117,6 +117,24 @@ class WebMonitor(Templater):
         with open(self.get_file(last, "txt")) as f:
             lasttext = f.read()
         if differ(lastlinks, new["links"]) or differ(lasttext, new["txt"]):
+            # Ignore repetive loops of modif between 2 versions
+            try:
+                beforelast = self.versions[-2]
+                with open(self.get_file(beforelast, "links")) as f:
+                    blastlinks = f.read()
+                with open(self.get_file(beforelast, "txt")) as f:
+                    blasttext = f.read()
+                if not differ(blastlinks, new["links"]) and not differ(blasttext, new["txt"]):
+                    antelast = self.versions[-3]
+                    with open(self.get_file(antelast, "links")) as f:
+                        alastlinks = f.read()
+                    with open(self.get_file(antelast, "txt")) as f:
+                        alasttext = f.read()
+                    if not differ(lastlinks, alastlinks) and not differ(lasttext, alasttext):
+                        returnD(None)
+            except:
+                pass
+
             yield self.add_version(new)
             msg = u"[WebMonitor %s] Looks like %s just changed!" % (self.name, self.url)
             if self.public_url:
