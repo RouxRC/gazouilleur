@@ -1,7 +1,3 @@
-/* TODO:
-- sources/links
-- slider/calendar picker
-*/
 (function(ns){
   // vars inherited from template
   ns.url;
