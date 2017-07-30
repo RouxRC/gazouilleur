@@ -23,21 +23,17 @@
   ns.selectedExpanded = false;
   ns.selectedVisual = "screen";
   ns.diffExpanded = null;
-  ns.currentwin = "prev";
 
   ns.readURLParams = function(){
     var last = ns.versions[ns.versions.length - 1],
       prev = ns.versions[ns.versions.length - 2],
       selectedExpanded = false,
       selectedVisual = "screen",
-      diffExpanded = null,
-      currentwin = "prev";
+      diffExpanded = null;
     window.location.hash.replace(/^#/, "")
     .split(/&/)
     .forEach(function(opt){
-      if (opt === "ls")
-        currentwin = "last";
-      else if (opt === "if")
+      if (opt === "if")
         selectedVisual = "iframe";
       else if (opt === "fs")
         selectedExpanded = true;
@@ -53,20 +49,17 @@
       ns.loadVersion(prev, "prev");
     if (last !== ns.last)
       ns.loadVersion(last, "last");
-    if (currentwin !== ns.currentwin)
-      ns.toggleCurrentWindow(currentwin);
     if (selectedVisual !== ns.selectedVisual)
       ns.toggleVisual(selectedVisual);
     if (diffExpanded !== ns.diffExpanded)
       ns.toggleExpandDiff(diffExpanded, true);
     if (selectedExpanded !== ns.selectedExpanded)
       ns.toggleExpandSelecter();
-    $("#selecter").scrollLeft((ns.imgW + 2) * (ns.versions.indexOf(last)-2));
+    $("#selecter").scrollLeft((ns.imgW + 2) * (ns.versions.indexOf(last) - 2));
   };
 
   ns.updateURLParams = function(){
     window.location.hash = [
-      ns.currentwin === "last" ? "ls" : null,
       ns.selectedVisual === "iframe" ? "if" : null,
       ns.selectedExpanded ? "fs" : null,
       ns.diffExpanded ? ns.diffExpanded : null,
@@ -128,8 +121,7 @@
   };
 
   ns.loadVersion = function(version, curwin){
-    curwin = curwin || ns.currentwin;
-    if (!version || ns[curwin] === version) return;
+    if (!curwin || ns[curwin] === version) return;
     ns[curwin] = version;
     var url = ns.buildUrl(version, "html"),
       name = ns.nameVersion(version, true);
@@ -151,13 +143,6 @@
         }
       });
     });
-  };
-
-  ns.toggleCurrentWindow = function(val){
-    if (typeof(val) === "string")
-      $("#curwin-" + val[0]).click();
-    ns.currentwin = $("input[name=curwin]:checked").val();
-    ns.updateURLParams();
   };
 
   ns.toggleVisual = function(val){
@@ -258,6 +243,7 @@
       $("#selecter").height(ns.selecterHeight - 2);
     $("#selecter_large, #screenshots").width((ns.versions.length) * (ns.imgW + 2) + 1);
     $("#versions p").width(ns.imgW);
+    $(".clickright, .clickleft").width(ns.imgW/2 + 1).height($("#screenshots").height() + 20);
     $("#screenshots img").width(ns.imgW - 8);
     ns.diffHeight = winH - ns.selecterHeight - 62;
     ns.selecterMaxHeight = winH - 50;
@@ -271,25 +257,36 @@
 
   ns.loadVersions = function(){
     var versions = $("#versions"),
-      screens = $("#screenshots");
+      screens = $("#screenshots"),
+      selecter = $("#clickers");
     ns.versions.forEach(function(version){
       var textVersion = ns.nameVersion(version),
         p = document.createElement('p'),
         i = document.createElement('img'),
-        onclic = function(){
-          ns.loadVersion(version);
-        };
+        dl = document.createElement('div'),
+        dr = document.createElement('div');
       p.className = version;
       p.textContent = textVersion;
       i.className = version;
       i.src = ns.buildUrl(version, "png").replace(/.png$/, "-small.png");
       i.title = textVersion;
       i.alt = textVersion;
+      dl.className = "clickleft";
+      dr.className = "clickright";
       versions.append(p);
       screens.append(i);
-      $(p).click(onclic);
-      $(i).click(onclic);
+      selecter.append(dl);
+      selecter.append(dr);
+      $(dl).click(function(){
+        ns.loadVersion(version, "prev");
+      });
+      $(dr).click(function(){
+        ns.loadVersion(version, "last");
+      });
     });
+    setTimeout(function(){
+      $(".clickright, .clickleft").height($("#screenshots").height() + 20);
+    }, 2000);
   };
 
   $(document).ready(function(){
@@ -304,7 +301,6 @@
     // Set events
     window.onhashchange = ns.readURLParams;
     window.onresize = ns.readURLParams;
-    $("input[type=radio][name=curwin]").change(ns.toggleCurrentWindow);
     $("input[type=radio][name=visual]").change(ns.toggleVisual);
     $("#selecter .expand").click(ns.toggleExpandSelecter);
     ["links", "text", "visual"].forEach(function(typ){

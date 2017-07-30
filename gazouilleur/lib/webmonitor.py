@@ -121,7 +121,7 @@ class WebMonitor(Templater):
             msg = u"[WebMonitor %s] Looks like %s just changed!" % (self.name, self.url)
             if self.public_url:
                 self.build_diff_page()
-                msg += u"\n[WebMonitor %s] You can check the different versions and diffs at %smonitor_%s_%s.html" % (self.name, self.public_url, self.channel, quote_plus(self.name))
+                msg += u"\n[WebMonitor %s] You can check the different versions and diffs at %smonitor_%s_%s.html#prev=%s&last=%s" % (self.name, self.public_url, self.channel, quote_plus(self.name), self.versions[-2], self.versions[-1])
             returnD(msg.encode("utf-8"))
 
     def build_diff_page(self):
