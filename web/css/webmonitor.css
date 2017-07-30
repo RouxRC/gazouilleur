@@ -98,6 +98,22 @@ h1 {
 .clickright:hover {
   background-color: #dcf7dc !important;
 }
+.previousdiff, .nextdiff {
+  position: relative;
+  top: 35%;
+  left: 48.5%;
+  width: 20px;
+  background-color: #f9f7d3;
+  font-size: 14px;
+  border: 1px solid darkgrey;
+  border-radius: 10%;
+  cursor: pointer;
+  display: block;
+  color: #e20808;
+  padding: 1px;
+  z-index: 10;
+  margin-bottom: 10px;
+}
 #diff {
   width: 100%;
   border: 2px solid darkgrey;
@@ -227,9 +243,12 @@ iframe {
 }
 #difflinks, #difftext {
   overflow: hidden;
+  position: relative;
 }
 .differ {
   height: 248px;
+  position: absolute;
+  top: 0;
 }
 .mergely-canvas {
   background-color: #f1f7ff;
