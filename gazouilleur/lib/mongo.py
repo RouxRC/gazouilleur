@@ -59,9 +59,6 @@ def ensure_indexes(db, retry=True):
         yield db['feeds'].ensure_index(sortasc('channel') + sortasc('database') + sortdesc('timestamp'), background=True)
         yield db['filters'].ensure_index(sortasc('channel'), background=True)
         yield db['filters'].ensure_index(sortasc('channel') + sortasc('keyword') + sortdesc('timestamp'), background=True)
-        yield db['pages'].ensure_index(sortdesc('_id') + sortasc('channel'), background=True)
-        yield db['pages'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
-        yield db['pages'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
         yield db['news'].ensure_index(sortdesc('_id') + sortasc('channel'), background=True)
         yield db['news'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
         yield db['news'].ensure_index(sortasc('channel') + sortasc('source') + sortdesc('timestamp'), background=True)
@@ -69,6 +66,7 @@ def ensure_indexes(db, retry=True):
         yield db['tweets'].ensure_index(sortasc('id'), background=True)
         yield db['tweets'].ensure_index(sortasc('in_reply_to_status_id_str'), background=True)
         yield db['tweets'].ensure_index(sortasc('channel') + sortdesc('id'), background=True)
+        yield db['tweets'].ensure_index(sortasc('channel') + sortdesc('timestamp'), background=True)
         yield db['tweets'].ensure_index(sortasc('channel') + sortasc('id') + sortdesc('timestamp'), background=True)
         yield db['tweets'].ensure_index(sortasc('channel') + sortasc('user') + sortdesc('timestamp'), background=True)
         yield db['tweets'].ensure_index(sortdesc('id') + sortasc('channel') + sortasc('uniq_rt_hash'), background=True)
@@ -77,7 +75,7 @@ def ensure_indexes(db, retry=True):
     except OperationFailure as e:
         # catch and destroy old indices built with older pymongo versions
         if retry:
-            for coll in ["logs", "tasks", "feeds", "filters", "news", "dms", "tweets", "pages", "stats", "lasttweets"]:
+            for coll in ["logs", "tasks", "feeds", "filters", "news", "dms", "tweets", "stats", "lasttweets"]:
                 yield db[coll].drop_indexes()
             yield ensure_indexes(db, retry=False)
         else:
