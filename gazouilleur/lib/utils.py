@@ -249,7 +249,7 @@ def formatQuery(query, add_url=None):
 @defer.inlineCallbacks
 def getFeeds(db, channel, database, url_format=True, add_url=None, randorder=None):
     urls = []
-    queries = yield db['feeds'].find({'database': database, 'channel': re.compile("^%s$" % channel, re.I)}, fields=['name', 'query'], filter=sortasc('timestamp'))
+    queries = yield db['feeds'].find({'database': database, 'channel': channel.lower()}, fields=['name', 'query'], filter=sortasc('timestamp'))
     if database == "tweets":
         # create combined queries on Icerocket/Topsy or the Twitter API from search words retrieved in db
         query = ""

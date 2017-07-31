@@ -576,7 +576,7 @@ class FeederFactory(protocol.ClientFactory):
         self.db = ircclient.db
         self.cache = {}
         self.cache_urls = ircclient.cache_urls
-        self.channel = channel
+        self.channel = channel.lower()
         self.name = name
         self.delay = delay
         self.pagetimeout = pagetimeout
