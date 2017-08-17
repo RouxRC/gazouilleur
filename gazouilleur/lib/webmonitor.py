@@ -3,7 +3,6 @@
 
 import os, re, time
 from hashlib import sha512
-from wand.image import Image
 from urllib import quote_plus
 from w3lib.html import replace_entities
 from twisted.web import client
@@ -14,6 +13,7 @@ from gazouilleur.lib.log import loggerr
 
 try:
     from gazouilleur.config import URL_MANET
+    from wand.image import Image
 except:
     URL_MANET = ""
 manet_url = lambda url, options: "%s/?url=%s%s" % (

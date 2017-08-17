@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os, codecs
-from pystache import Renderer
 from contextlib import nested
 from gazouilleur.lib.log import loggerr
 try:
     from gazouilleur.config import URL_STATS
+    from pystache import Renderer
 except:
     URL_STATS = None
 
