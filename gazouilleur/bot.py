@@ -1656,6 +1656,9 @@ ssl_options = ssl.optionsForClientTLS(hostname=config.HOST.decode("utf-8"))
 
 # Run as 'python gazouilleur/bot.py' ...
 if __name__ == '__main__':
+    from setproctitle import setproctitle
+    setproctitle('gazouilleur (%s)' % config.BOTNAME)
+
     if is_ssl(config):
         reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl_options)
         #reactor.connectSSL(config.HOST, config.PORT, IRCBotFactory(), ssl.ClientContextFactory())
