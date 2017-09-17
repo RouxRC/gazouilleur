@@ -27,7 +27,6 @@ if [ -z "$DATE" ]; then
   DATE=$(date -d 'yesterday' '+%Y-%m-%d')
 fi
 
-
 LOGPATH=$BOTPATH/log/${BOT}_${CHAN}.log
 TMPPATH="/tmp/${BOT}-$CHAN.tmp"
 if test -f "$LOGPATH.1"; then
@@ -77,8 +76,8 @@ do
     rm $PATH_PAD_TMP
     echo "Sauvegarde du pad : $URL"
     echo "---" > $REPO_PATH/$REF_PAD.md
-    echo "title: $(cat $REPO_PATH/$REF_PAD.txt | head -n 1)" >> $REPO_PATH/$REF_PAD.md
-    echo "url: $URL" >> $REPO_PATH/$REF_PAD.md
+    echo "title: \"$(cat $REPO_PATH/$REF_PAD.txt | head -n 1)\"" >> $REPO_PATH/$REF_PAD.md
+    echo "url: \"$URL\"" >> $REPO_PATH/$REF_PAD.md
     echo "---" >> $REPO_PATH/$REF_PAD.md
     curl -s $URL/export/markdown >> $REPO_PATH/$REF_PAD.md
     cd $REPO_PATH > /dev/null
