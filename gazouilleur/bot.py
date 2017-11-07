@@ -689,7 +689,7 @@ class IRCBot(NamesIRCClient):
     @inlineCallbacks
     def command_count(self, rest, channel=None, nick=None, _return_value=False):
         """count <text> : Prints the character length of <text> (spaces will be trimmed, urls will be shortened to Twitter's t.co length)."""
-        limit = " (max 140)" if not self.re_match_dm.match(rest) else ""
+        limit = " (max 280)" if not self.re_match_dm.match(rest) else ""
         answ = self.re_match_answer.search(rest)
         if answ:
             channel = self.getMasterChan(channel)
@@ -776,7 +776,7 @@ class IRCBot(NamesIRCClient):
                 kwargs['length'] = 100
             if kwargs['length'] < 30 and not nolimit:
                 return "Do you really want to send such a short message? (%s chars) add --nolimit to override" % kwargs['length']
-            if kwargs['length'] > 140 and siteprotocol == "twitter" and command != "directmsg" and not nolimit:
+            if kwargs['length'] > 280 and siteprotocol == "twitter" and command != "directmsg" and not nolimit:
                 return "[%s] Sorry, but that's too long (%s characters) add --nolimit to override" % (siteprotocol, kwargs['length'])
             if siteprotocol == "twitter" and command != "directmsg":
                 if not kwargs.get("imgs", ""):
@@ -1464,7 +1464,7 @@ class IRCBot(NamesIRCClient):
                 count = yield self.command_count(task, channel, nick, _return_value=True)
                 if type(count) != int:
                     returnD(self._stop_saving_task("I can already tell you this won't work: %s" % count))
-                elif (count > 140 or count < 30) and "--nolimit" not in task:
+                elif (count > 280 or count < 30) and "--nolimit" not in task:
                     returnD(self._stop_saving_task("I can already tell you this won't work, it's too %s (%s characters). Add --nolimit to override" % (("short" if count < 30 else "long"), count)))
             taskid = reactor.callLater(when, self.privmsg, nick, channel, task, tasks=rank)
         else:
