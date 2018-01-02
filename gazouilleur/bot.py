@@ -387,7 +387,7 @@ class IRCBot(NamesIRCClient):
                     loggerr("Encoding error on %s: %s" % (msg, e), chan)
                 orig_low = orig_utf.lower()
                 twuser = get_chan_twitter_user(chan).lower()
-                if twuser and twuser in orig_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan]):
+                if "[DM] " in orig_utf or (twuser and twuser in orig_low and not(chan in self.filters and "@%s" % twuser in self.filters[chan])):
                     pass
                 elif chan in self.silent and self.silent[chan] > datetime.today() and self.re_tweets.search(original):
                     skip = True
