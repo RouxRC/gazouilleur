@@ -82,7 +82,7 @@ class Microblog(object):
                     res = reformat_extended_tweets(res)
                 return res
             if config.DEBUG and not 'media[]' in args:
-                loggvar("%s %s" % (res['text'].encode('utf-8'), args), action=self.site)
+                loggvar("%s %s" % (res.get('text', unicode(res.get('event'))).encode('utf-8'), args), action=self.site)
             if self.site == 'twitter' and channel and 'id_str' in res:
                 save_lasttweet_id(channel, res['id_str'])
             imgstr = ""
@@ -107,7 +107,7 @@ class Microblog(object):
             dms = True
             if self.post:
                 trydms = self.get_dms()
-                dms = isinstance(trydms, list) or (isinstance(trydms, str) and "ERROR 429" in trydms)
+                dms = (isinstance(trydms, object) and "events" in trydms) or (isinstance(trydms, str) and "ERROR 429" in trydms)
             if config.DEBUG and not (creds and dms):
                 raise Exception("%s\n%s" % (creds, dms))
             return creds is not None and dms
@@ -201,11 +201,25 @@ class Microblog(object):
     def get_retweets_by_id(self, tweet_id, **kwargs):
         return self._send_query(self.conn.statuses.retweets, {'id': tweet_id, 'count': 100}, return_result=True, extended_tweets=True)
 
-    def directmsg(self, user, text, length=0):
-        return self._send_query(self.conn.direct_messages.new, {'user': user, 'text': text})
+    def directmsg(self, username, text, length=0):
+        user = self.resolve_users([username])
+        if "ERROR 429" in user or "ERROR 404" in user or not (isinstance(user, list) and len(user) == 1):
+            return "[twitter] Cannot find account %s" % username
+        event = {
+          "type": "message_create",
+          "message_create": {
+            "target": {
+              "recipient_id": user[0]["id_str"]
+            },
+            "message_data": {
+              "text": text
+            }
+          }
+        }
+        return self._send_query(self.conn.direct_messages.events.new, {"_json": {"event": event}})
 
     def get_dms(self, **kwargs):
-        return self._send_query(self.conn.direct_messages, {'full_text': True}, return_result=True)
+        return self._send_query(self.conn.direct_messages.events.list, {'count': 50}, return_result=True)
 
     @inlineCallbacks
     def get_stats(self, **kwargs):
@@ -258,7 +272,7 @@ class Microblog(object):
                 todo.append(name)
         if not todo:
             return good, cache_users
-        users = self._send_query(self.conn.users.lookup, {'screen_name': ','.join(todo), 'include_entities': 'false'}, return_result=True)
+        users = self.resolve_users(todo)
         if "ERROR 429" in users or "ERROR 404" in users or not isinstance(users, list):
             return good, cache_users
         list_users = [l.decode('utf-8') for l in list_users]
@@ -342,7 +356,7 @@ class Microblog(object):
         todo = todolostids + list(newids) + oldtodo
         lost = []
         for chunk in chunkize(todo, 100):
-            users = self._send_query(self.conn.users.lookup, {'user_id': ','.join([str(c) for c in chunk]), 'include_entities': 'false'}, return_result=True)
+            users = self.resolve_userids(chunk)
             if "ERROR 429" in users or "ERROR 404" in users or not isinstance(users, list):
                 break
             for user in users:
@@ -353,6 +367,12 @@ class Microblog(object):
                         del(user[f])
                 yield db[foll_coll].update({"_id": str(user["id"])}, {"$set": user})
         returnValue(lost)
+
+    def resolve_users(self, list_users):
+        return self._send_query(self.conn.users.lookup, {'screen_name': ','.join(list_users), 'include_entities': 'false'}, return_result=True)
+
+    def resolve_userids(self, list_ids):
+        return self._send_query(self.conn.users.lookup, {'user_id': ','.join([str(i) for i in list_ids]), 'include_entities': 'false'}, return_result=True)
 
 def check_twitter_results(data):
     text = data
@@ -439,7 +459,7 @@ def get_error_message(e):
         message = err["message"][0].upper() + err["message"][1:] if err["message"] else ""
     elif config.DEBUG:
         loggerr("%s: %s" % (code, error))
-    if code == 404 and "direct_messages/new" in error or "friendships" in error:
+    if code == 404 and "direct_messages/events/new" in error or "friendships" in error:
         code = 403
         message = "No twitter account found with this name"
     return format_error_message(code, message)
@@ -449,6 +469,7 @@ twitter_error_codes = {
     111: "Network difficulties, connection refused or timed-out",
     187: "Already done",
     404: "Cannot find that tweet",
+    415: "API communication error, an admin should probably update the python twitter dependency",
     429: "Rate limit exhausted, should be good within the next 15 minutes",
     500: "Twitter internal error",
     503: "Twitter is unavailable at the moment"

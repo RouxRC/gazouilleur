@@ -356,31 +356,47 @@ class FeederProtocol(object):
             returnD(False)
         ids = []
         dms = []
-        if not isinstance(listdms, list):
+        try:
+            listdms = listdms["events"]
+            assert(isinstance(listdms, list))
+        except:
             self.log("downloading DMs: %s" % listdms, error=True)
             returnD(False)
         for i in listdms:
             try:
-                #date = datetime.strptime(i.get('created_at', ''), '%a %b %d %H:%M:%S +0000 %Y') + timedelta(hours=2)
-                date = parse_date(i.get('created_at', ''))
+                date = parse_timestamp(i.get('created_timestamp', ''))
                 if datetime.today() - date > timedelta(hours=config.BACK_HOURS):
                     break
             except Exception as e:
-                self.log("processing DM %s: %s %s" % (i.get('created_at'), type(e), e), error=True)
+                self.log("processing DM %s: %s %s" % (i.get('created_timestamp'), type(e), e), error=True)
                 continue
             tid = long(i.get('id', ''))
-            if tid:
+            msg = i.get('message_create', {})
+            if tid and msg:
                 ids.append(tid)
-                sender = i.get('sender_screen_name', '')
-                dm, self.fact.cache_urls = yield clean_redir_urls(i.get('text', '').replace('\n', ' '), self.fact.cache_urls)
-                dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender': sender.lower(), 'screenname': sender, 'message': dm, 'date': date, 'timestamp': datetime.today()})
+                sender = msg.get('sender_id', '')
+                target = msg.get('target', {}).get('recipient_id', '')
+                dm, self.fact.cache_urls = yield clean_redir_urls(msg.get('message_data', {}).get('text', '').replace('\n', ' '), self.fact.cache_urls)
+                dms.append({'_id': "%s:%s" % (self.fact.channel, tid), 'channel': self.fact.channel, 'id': tid, 'user': user, 'sender_id': sender, 'target_id': target, 'message': dm, 'date': date, 'timestamp': datetime.today()})
         existings = yield self.fact.db['dms'].find({'channel': self.fact.channel, 'id': {'$in': ids}}, fields=['_id'], filter=sortdesc('id'))
         existing = [t['_id'] for t in existings]
         news = [t for t in dms if t['_id'] not in existing]
         if news:
             news.reverse()
+            conf = chanconf(self.fact.channel)
+            conn = Microblog('twitter', conf, bearer_token=conf["oauth2"])
+            res = yield conn.resolve_userids([n["sender_id"] for n in news] + [n["target_id"] for n in news])
+            if "ERROR 429" in res or "ERROR 404" in res or not isinstance(res, list):
+                self.log("resolving users from DMs %s: %s %s" % (res, type(e), e), error=True)
+                returnD(False)
+            users = dict((u['id_str'], u['screen_name']) for u in res)
+            for n in news:
+                n["screenname"] = users.get(n["sender_id"], "unknown")
+                n["sender"] = n["screenname"].lower()
+                n["target_screenname"] = users.get(n["target_id"], "unknown")
+                n["target"] = n["target_screenname"].lower()
             yield self.fact.db['dms'].insert(news, safe=True)
-            self.fact.ircclient._send_message([(True, "[DM] @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
+            self.fact.ircclient._send_message([(True, "[DM] @%s ➜ @%s: %s — https://twitter.com/%s" % (n['screenname'].encode('utf-8'), n['target_screenname'].encode('utf-8'), n['message'].encode('utf-8'), n['screenname'].encode('utf-8'))) for n in news], self.fact.channel)
         returnD(True)
 
     @inlineCallbacks

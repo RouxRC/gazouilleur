@@ -431,9 +431,12 @@ timestamp_hour = lambda date : date - timedelta(minutes=date.minute, seconds=dat
 
 re_datetime = re.compile(r'^\S+ (\S+) (\d+) (\d+):(\d+):(\d+) \+(\d+) (\d+)$')
 monthes = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
-def parse_date(str, timeshift=2):
-    els = re_datetime.search(str).groups()
+def parse_date(d, timeshift=2):
+    els = re_datetime.search(d).groups()
     return datetime(int(els[6]), monthes[els[0]], int(els[1]), int(els[2]), int(els[3]), int(els[4])) + timedelta(hours=int(els[5]) + timeshift)
+
+def parse_timestamp(d):
+    return datetime.fromtimestamp(int(d)/1000)
 
 def is_ssl(conf):
     return hasattr(conf, "SSL") and str(conf.SSL).lower() == "true"

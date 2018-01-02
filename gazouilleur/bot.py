@@ -990,7 +990,7 @@ class IRCBot(NamesIRCClient):
             yield self._send_message("[twitter] Started following @%s with chan's account" % user, channel, nick)
         elif "Protected account" in res:
             yield self._send_message(res, channel, nick)
-        res = yield self._send_via_protocol('twitter', 'directmsg', channel, nick, user=user, text=text)
+        res = yield self._send_via_protocol('twitter', 'directmsg', channel, nick, username=user, text=text)
         returnD(res)
 
     @inlineCallbacks
