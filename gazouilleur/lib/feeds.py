@@ -266,7 +266,7 @@ class FeederProtocol(object):
             existing = [t['uniq_rt_hash'] for t in existings]
 
             for t in news:
-                if self.fact.twuser == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s" % self.fact.twuser in t['message'].lower()):
+                if self.fact.twuser == t['user'] or t['uniq_rt_hash'] not in existing or (self.fact.displayMyRT and "@%s: " % self.fact.twuser in t['message'].lower()):
                     existing.append(t['uniq_rt_hash'])
                     good.append(t)
         if config.DEBUG:
