@@ -28,7 +28,7 @@ from gazouilleur.lib.log import logg
 from gazouilleur.lib.mongo import sortdesc, count_followers
 from gazouilleur.lib.httpget import conditionalGetPage
 from gazouilleur.lib.utils import *
-from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta, reformat_extended_tweets
+from gazouilleur.lib.microblog import Microblog, check_twitter_results, grab_extra_meta, reformat_extended_tweets, format_tweet
 from gazouilleur.lib.stats import Stats
 from gazouilleur.lib.webmonitor import WebMonitor
 
@@ -192,11 +192,8 @@ class FeederProtocol(object):
                 yield self.fact.db['news'].insert(new, safe=True)
             except Exception as e:
                 self._handle_error(e, "recording news batch", url)
-            self.fact.ircclient._send_message([(True, "[%s] %s" % (n['sourcename'].encode('utf-8'), self.format_tweet(n))) for n in new], self.fact.channel)
+            self.fact.ircclient._send_message([(True, "[%s] %s" % (n['sourcename'].encode('utf-8'), format_tweet(n))) for n in new], self.fact.channel)
         returnD(True)
-
-    re_cleantwitpicurl = re.compile(r'( https?(://twitter\.com/\S+/statuse?s?/\d+)/(photo|video)/1) — https?\2$')
-    format_tweet = lambda self, t: self.re_cleantwitpicurl.sub(r' —\1', "%s — %s" % (t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
     @inlineCallbacks
     def process_tweets(self, feed, source, query=None, pagecount=0):
@@ -277,7 +274,7 @@ class FeederProtocol(object):
             self.log("Displaying %s tweets%s" % (len(good), nb_rts_str), hint=True)
         if self.fact.status != "closed":
             for t in good:
-                msg = "%s: %s" % (t['screenname'].encode('utf-8'), self.format_tweet(t))
+                msg = "%s: %s" % (t['screenname'].encode('utf-8'), format_tweet(t))
                 self.fact.ircclient._send_message(msg, self.fact.channel)
         for t in news:
             yield self.fact.db['tweets'].save(t, safe=True)

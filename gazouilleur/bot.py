@@ -20,7 +20,7 @@ from txmongo import MongoConnection
 from gazouilleur.lib.mongo import sortasc, sortdesc, ensure_indexes
 from gazouilleur.lib.utils import *
 from gazouilleur.lib.filelogger import FileLogger
-from gazouilleur.lib.microblog import Microblog, clean_oauth_error
+from gazouilleur.lib.microblog import Microblog, clean_oauth_error, format_tweet
 from gazouilleur.lib.feeds import FeederFactory
 from gazouilleur.lib.stats import Stats
 client.HTTPClientFactory.noisy = False
@@ -1024,9 +1024,10 @@ class IRCBot(NamesIRCClient):
         source = " - %s" % clean_html(tweet['source']).encode('utf-8')
         extra = u" - %s ♻" % tweet['retweet_count'] if 'retweet_count' in tweet and tweet['retweet_count'] else ""
         extra += u" - %s ♥" % tweet['favorite_count'] if 'favorite_count' in tweet and tweet['favorite_count'] else ""
+        text = format_tweet({"message": text, "link": u"https://twitter.com/%s/status/%s" % (user['screen_name'], tweet['id_str'])})
         if light:
-            returnD("%s: %s — https://twitter.com/%s/status/%s (%s%s)" % (name, text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, extra.encode('utf-8')))
-        returnD("%s (%d followers): %s — https://twitter.com/%s/status/%s (%s%s%s)" % (name, user['followers_count'], text.encode('utf-8'), name, tweet['id_str'].encode('utf-8'), date, source, extra.encode('utf-8')))
+            returnD("%s: %s (%s%s)" % (name, text, date, extra.encode('utf-8')))
+        returnD("%s (%d followers): %s (%s%s%s)" % (name, user['followers_count'], text, date, source, extra.encode('utf-8')))
 
     @inlineCallbacks
     def _show_status_even_deleted(self, twconn, twid, channel, nick):
