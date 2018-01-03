@@ -386,7 +386,7 @@ def check_twitter_results(data):
     return data
 
 re_cleantwitpicurl = re.compile(r'( https?(://twitter\.com/\S+/statuse?s?/\d+)/(photo|video)/1) (\(in reply to: @[a-z0-9_@ ]+\) )?— https?\2$', re.I)
-format_tweet = lambda t: re_cleantwitpicurl.sub(r' \4—\1', "%s — %s" % (t['message'].encode('utf-8'), t['link'].encode('utf-8')))
+format_tweet = lambda t: re_cleantwitpicurl.sub(lambda x: ' ' + (x.group(4) or '') + '—' + x.group(1), "%s — %s" % (t['message'].encode('utf-8'), t['link'].encode('utf-8')))
 
 def reformat_extended_tweets(tweet):
     if type(tweet) in [list, TwitterListResponse]:
