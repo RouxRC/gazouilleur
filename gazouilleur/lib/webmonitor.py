@@ -40,7 +40,10 @@ class WebMonitor(Templater):
 
     def get_versions(self):
         files = os.listdir(self.path)
-        versions = [f.replace(".html", "") for f in files if f.endswith(".html")]
+        if URL_MANET:
+            versions = [f.replace(".png", "") for f in files if f.endswith(".png") and not "-small" in f]
+        else:
+            versions = [f.replace(".html", "") for f in files if f.endswith(".html")]
         return sorted(versions)
 
     def get_last(self):

@@ -25,4 +25,4 @@ pypump==0.5.0
 # pip install numpy
 # matplotlib
 # pystache
-# Wand
+# Wand==0.3.9
