@@ -1087,6 +1087,7 @@ class IRCBot(NamesIRCClient):
         todo = [tweet_id]
         done = []
         tweets = {}
+        root = None
         while todo:
             curid = todo.pop(0)
             done.append(curid)
@@ -1112,6 +1113,9 @@ class IRCBot(NamesIRCClient):
             tweets[curid]["text"] = yield self._format_tweet(tweet, light=True)
         if not tweets:
             returnD("[twitter] ERROR 404: Cannot find that tweet.")
+        if not root:
+            root = min(tweets.keys())
+            tweets[root]["text"] = "Deleted tweet - https://twitter.com/web/statuses/%s" % root
         returnD("\n".join(self._convtree(tweets, root)))
 
     def _convtree(self, tree, root):
