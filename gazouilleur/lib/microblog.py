@@ -165,13 +165,13 @@ class Microblog(object):
         return self._send_query(self.conn.favorites.create, {'_id': tweet_id, 'include_entities': False}, channel=channel)
 
     def show_status(self, tweet_id):
-        return self._send_query(self.conn.statuses.show, {'id': tweet_id}, return_result=True, extended_tweets=True)
+        return self._send_query(self.conn.statuses.show, {'id': tweet_id, 'tweet_mode': 'extended'}, return_result=True, extended_tweets=True)
 
     def get_mytweets(self, **kwargs):
-        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1}, return_result=True, extended_tweets=True)
+        return self._send_query(self.conn.statuses.user_timeline, {'screen_name': self.user, 'count': 15, 'include_rts': 1, 'tweet_mode': 'extended'}, return_result=True, extended_tweets=True)
 
     def get_mentions(self, **kwargs):
-        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1}, return_result=True, extended_tweets=True)
+        return self._send_query(self.conn.statuses.mentions_timeline, {'count': 200, 'include_rts': 1, 'tweet_mode': 'extended'}, return_result=True, extended_tweets=True)
 
     def get_retweets(self, retweets_processed={}, bearer_token=None, **kwargs):
         tweets = self._send_query(self.conn.statuses.retweets_of_me, {'count': 50, 'trim_user': 'true', 'include_user_entities': 'false'}, return_result=True)
@@ -237,7 +237,7 @@ class Microblog(object):
         returnValue((res, last, timestamp))
 
     def search(self, query, count=15, max_id=None):
-        args = {'q': query, 'count': count, 'result_type': 'recent'}
+        args = {'q': query, 'count': count, 'result_type': 'recent', 'include_entities': True, 'tweet_mode': 'extended'}
         if max_id:
             args['max_id'] = max_id
         return self._send_query(self.conn.search.tweets, args, return_result=True, extended_tweets=True)
