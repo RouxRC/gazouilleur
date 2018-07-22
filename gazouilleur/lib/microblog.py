@@ -422,7 +422,9 @@ def reformat_extended_tweets(tweet):
 
     if "quoted_status" in tweet and tweet["quoted_status"]['id_str'] not in (tweet['id_str'], rtquoteid):
         tweet["quoted_status"] = reformat_extended_tweets(tweet["quoted_status"])
-        tweet['text'] = re.sub(tweet["quoted_status"]["url"].replace('/', '\/'), u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]), tweet['text'], re.I)
+        qturl = tweet['quoted_status_permalink']['expanded'] if 'quoted_status_permalink' in tweet else tweet["quoted_status"]["url"]
+        qturl = re.sub(r'([/?])', r'\\\1', qturl)
+        tweet['text'] = re.sub(qturl, u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]), tweet['text'], re.I)
     return tweet
 
 def grab_extra_meta(source, result):
