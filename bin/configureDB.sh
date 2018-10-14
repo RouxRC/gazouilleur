@@ -22,5 +22,5 @@ MONGO_USER=$(echo $MONGO_CONF | awk -F ";" '{print $4}')
 MONGO_PASS=$(echo $MONGO_CONF | awk -F ";" '{print $5}')
 
 echo "Configuring database $MONGO_DB on $MONGO_HOST:$MONGO_PORT with user $MONGO_USER and pass $MONGO_PASS"
-echo -e "use $MONGO_DB\ndb.addUser({user: \"$MONGO_USER\", pwd: \"$MONGO_PASS\", roles: ['userAdmin']})" | mongo --host "$MONGO_HOST:$MONGO_PORT"
+echo -e "use $MONGO_DB\ndb.createUser({user: \"$MONGO_USER\", pwd: \"$MONGO_PASS\", roles: ['userAdmin']})" | mongo --host "$MONGO_HOST:$MONGO_PORT"
 
