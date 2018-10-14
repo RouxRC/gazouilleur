@@ -163,9 +163,11 @@ class IRCBot(NamesIRCClient):
         if "WELCOME" in conf and conf["WELCOME"]:
             self.users[lowchan] = yield self._get_chan_known_users(channel)
         # Follow RSS Feeds matching url queries set for this channel with !follow
-        self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
+        if display_feed(conf, 'news'):
+            self.feeders[lowchan]['news'] = FeederFactory(self, channel, 'news', 299, pagetimeout=35)
         # Monitor webpages set for this channel with !monitor
-        self.feeders[lowchan]['pages'] = FeederFactory(self, channel, 'pages', 301, timeout=900, pagetimeout=95)
+        if display_feed(conf, 'pages'):
+            self.feeders[lowchan]['pages'] = FeederFactory(self, channel, 'pages', 301, timeout=900, pagetimeout=95)
         twuser = get_chan_twitter_user(channel, conf)
         if twuser:
         # Get OAuth2 tokens for twitter search extra limitrate
@@ -176,14 +178,18 @@ class IRCBot(NamesIRCClient):
                 err = clean_oauth_error(e)
                 loggerr("Could not get an OAuth2 token from Twitter for user @%s: %s" % (twuser, err), channel, "twitter")
         # Follow Searched Tweets matching queries set for this channel with !follow
-            self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'search', 90 if conf["oauth2"] else 180, timeout=600, twitter_token=conf["oauth2"])
+            if display_feed(conf, 'twitter_search'):
+                self.feeders[lowchan]['twitter_search'] = FeederFactory(self, channel, 'search', 90 if conf["oauth2"] else 180, timeout=600, twitter_token=conf["oauth2"])
         # Follow Searched Tweets matching queries set for this channel with !follow via Twitter's streaming API
-            self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 5, timeout=90, twitter_token=conf["oauth2"])
+            if display_feed(conf, 'stream'):
+                self.feeders[lowchan]['stream'] = FeederFactory(self, channel, 'stream', 5, timeout=90, twitter_token=conf["oauth2"])
         # Follow Stats for Twitter USER
             if chan_has_twitter(channel, conf):
-                self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
+                if display_feed(conf, 'stats'):
+                    self.feeders[lowchan]['stats'] = FeederFactory(self, channel, 'stats', 600)
         # Follow Tweets sent by Twitter USER
-                self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 20 if conf["oauth2"] else 30, twitter_token=conf["oauth2"])
+                if display_feed(conf, 'mytweets_T'):
+                    self.feeders[lowchan]['mytweets_T'] = FeederFactory(self, channel, 'mytweets', 20 if conf["oauth2"] else 30, twitter_token=conf["oauth2"])
             # Deprecated
             # Follow Tweets sent by and mentionning Twitter USER via IceRocket.com
             #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, feeds=[getIcerocketFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='icerocket')
@@ -192,14 +198,18 @@ class IRCBot(NamesIRCClient):
             # ... or via Topsy.com
             #   self.feeders[lowchan]['mytweets'] = FeederFactory(self, channel, 'tweets', 289, pagetimeout=20, feeds=[getTopsyFeedUrl('%s+OR+@%s' % (twuser, twuser))], tweets_search_page='topsy')
             # Follow DMs sent to Twitter USER
-                self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
+                if display_feed(conf, 'dms'):
+                    self.feeders[lowchan]['dms'] = FeederFactory(self, channel, 'dms', 90)
         # Follow ReTweets of tweets sent by Twitter USER
-                self.feeders[lowchan]['retweets'] = FeederFactory(self, channel, 'retweets', 360)
+                if display_feed(conf, 'retweets'):
+                    self.feeders[lowchan]['retweets'] = FeederFactory(self, channel, 'retweets', 360)
         # Follow Mentions of Twitter USER in tweets
-            self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
+            if display_feed(conf, 'mentions'):
+                self.feeders[lowchan]['mentions'] = FeederFactory(self, channel, 'mentions', 90)
         else:
         # Follow Searched Tweets matching queries set for this channel with !follow via IceRocket.com since no Twitter account is set
-            self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, pagetimeout=30, tweets_search_page='icerocket')
+            if display_feed(conf, 'tweets'):
+                self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, pagetimeout=30, tweets_search_page='icerocket')
         # ... or via Topsy.com
         #   self.feeders[lowchan]['tweets'] = FeederFactory(self, channel, 'tweets', 277, pagetimeout=25, tweets_search_page='icerocket')
         n = self.factory.channels.index(lowchan) + 1

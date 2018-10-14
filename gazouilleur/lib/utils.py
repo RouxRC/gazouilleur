@@ -320,12 +320,19 @@ def chanconf(chan, conf=None):
     while chan:
         for c, conf in config.CHANNELS.items():
             if c.lower() == chan:
+                try:
+                    conf["DEBUG_FEEDS"] = config.DEBUG_FEEDS
+                except:
+                    conf["DEBUG_FEEDS"] = []
                 return conf
         if chan.startswith("#"):
             chan = chan[1:]
         else:
             break
     return None
+
+def display_feed(conf, feed):
+    return not conf["DEBUG_FEEDS"] or feed in conf["DEBUG_FEEDS"]
 
 def get_master_chan(default=config.BOTNAME):
     for chan in config.CHANNELS:
