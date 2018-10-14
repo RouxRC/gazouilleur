@@ -236,7 +236,7 @@ class Microblog(object):
         check_twitter_results(res)
         returnValue((res, last, timestamp))
 
-    def search(self, query, count=15, max_id=None):
+    def search(self, query, count=50, max_id=None):
         args = {'q': query, 'count': count, 'result_type': 'recent', 'include_entities': True, 'tweet_mode': 'extended'}
         if max_id:
             args['max_id'] = max_id
@@ -423,6 +423,8 @@ def reformat_extended_tweets(tweet):
     if "quoted_status" in tweet and tweet["quoted_status"]['id_str'] not in (tweet['id_str'], rtquoteid):
         tweet["quoted_status"] = reformat_extended_tweets(tweet["quoted_status"])
         qturl = tweet['quoted_status_permalink']['expanded'] if 'quoted_status_permalink' in tweet else tweet["quoted_status"]["url"]
+        if qturl not in tweet['text']:
+            tweet['text'] += " %s" % qturl
         qturl = re.sub(r'([/?])', r'\\\1', qturl)
         tweet['text'] = re.sub(qturl, u"« @%s: %s »" % (tweet["quoted_status"]["user"]["screen_name"], tweet["quoted_status"]["text"]), tweet['text'], re.I)
     return tweet
