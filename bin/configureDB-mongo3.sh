@@ -21,6 +21,9 @@ MONGO_PORT=$(echo $MONGO_CONF | awk -F ";" '{print $3}')
 MONGO_USER=$(echo $MONGO_CONF | awk -F ";" '{print $4}')
 MONGO_PASS=$(echo $MONGO_CONF | awk -F ";" '{print $5}')
 
-echo "Configuring database $MONGO_DB on $MONGO_HOST:$MONGO_PORT with user $MONGO_USER and pass $MONGO_PASS"
-echo -e "use $MONGO_DB\ndb.createUser({user: \"$MONGO_USER\", pwd: \"$MONGO_PASS\", roles: ['userAdmin']})" | mongo --host "$MONGO_HOST:$MONGO_PORT"
+existing=$(mongo --quiet --host $MONGO_HOST:$MONGO_PORT $MONGO_DB --eval "db.getUsers().length")
 
+if [ "$existing" = "0" ]; then
+  echo "Configuring database $MONGO_DB on $MONGO_HOST:$MONGO_PORT with user $MONGO_USER and pass $MONGO_PASS"
+  echo -e "use $MONGO_DB\ndb.createUser({user: \"$MONGO_USER\", pwd: \"$MONGO_PASS\", roles: ['userAdmin']})" | mongo --host "$MONGO_HOST:$MONGO_PORT"
+fi
