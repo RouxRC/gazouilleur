@@ -1,0 +1,29 @@
+version: "2"
+volumes:
+    web:
+    mongo-data:
+services:
+  backend:
+    restart: always
+    image: scpomedialab/gazouilleur:latest
+    build: .
+    links:
+     - "mongo:mongo"
+#     - "frontend:frontend"
+    env_file:
+     - config-backend.env
+    volumes:
+      - web:/app/web
+#  frontend:
+#    restart: always
+#    image: scpomedialab/gazouilleur-front:latest
+#    build: ./web
+#    ports:
+#      - "80:80"
+#    volumes:
+#      - web:/app/html
+  mongo:
+    restart: always
+    image: mongo:3.0
+    volumes:
+      - mongo-data:/data/db

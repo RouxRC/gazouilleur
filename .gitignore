@@ -3,6 +3,7 @@ cache
 *.log
 log
 config.py
+*.env
 *.pyc
 *.pid
 *.json
