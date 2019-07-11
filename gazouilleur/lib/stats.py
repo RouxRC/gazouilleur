@@ -23,7 +23,7 @@ class Stats(Templater):
         since = now - timedelta(days=30)
         stats = yield find_stats({'user': self.user, 'timestamp': {'$gte': since}}, filter=sortdesc('timestamp'))
         if not len(stats):
-            returnValue()
+            returnValue(None)
         stat = stats[0]
         stat["followers"] = yield count_followers(self.user)
         rts = 0
