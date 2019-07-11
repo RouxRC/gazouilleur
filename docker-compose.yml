@@ -3,27 +3,26 @@ volumes:
     web:
     mongo-data:
 services:
+  mongo:
+    restart: always
+    image: mongo:3.0
+    volumes:
+      - mongo-data:/data/db
+  frontend:
+    restart: always
+    image: httpd:2.4
+    ports:
+      - "5000:80"
+    volumes:
+      - web:/usr/local/apache2/htdocs/
   backend:
     restart: always
     image: scpomedialab/gazouilleur:latest
     build: .
     links:
      - "mongo:mongo"
-#     - "frontend:frontend"
+     - "frontend:frontend"
     env_file:
-     - config-backend.env
+     - docker-config.env
     volumes:
       - web:/app/web
-#  frontend:
-#    restart: always
-#    image: scpomedialab/gazouilleur-front:latest
-#    build: ./web
-#    ports:
-#      - "80:80"
-#    volumes:
-#      - web:/app/html
-  mongo:
-    restart: always
-    image: mongo:3.0
-    volumes:
-      - mongo-data:/data/db

@@ -18,15 +18,15 @@ RUN apt-get update \
 
 COPY ./bin /app/bin
 
-COPY ./web /app/web.sample
-
 COPY ./gazouilleur /app/gazouilleur
 
 COPY ./gazouilleur/config-docker.py /app/gazouilleur/config.py
 
 COPY ./docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN mkdir /app/cache /app/log /app/web
+COPY ./web /app/web.sample
+
+RUN mkdir /app/cache /app/log
 
 RUN chmod +x /app/docker-entrypoint.sh
 

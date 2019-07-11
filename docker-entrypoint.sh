@@ -1,10 +1,13 @@
 #!/bin/bash
 
-# fill web directory from web.sample if not exists
-if ! test -d /app/web; then
-  cp -r /app/web{.sample,}
+if ! test -d /app/web/templates; then
+  for d in templates css fonts js; do
+    cp -r /app/web.sample/$d /app/web/$d
+  done
 fi
+
+cd /app
 
 bash bin/configureDB-mongo3.sh
 
-python /app/gazouilleur/bot.py
+python gazouilleur/bot.py
