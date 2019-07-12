@@ -15,7 +15,7 @@ services:
       - "5000:80"
     volumes:
       - web:/usr/local/apache2/htdocs/
-  backend:
+  gazouilleur:
     restart: always
     image: scpomedialab/gazouilleur:latest
     build: .
