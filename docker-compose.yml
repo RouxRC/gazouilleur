@@ -10,7 +10,7 @@ services:
       - mongo-data:/data/db
   frontend:
     restart: always
-    image: httpd:2.4
+    image: briceburg/apache
     ports:
       - "5000:80"
     volumes:
