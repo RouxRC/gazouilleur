@@ -8,6 +8,6 @@ fi
 
 cd /app
 
-bash bin/configureDB-mongo3.sh
+sh bin/configureDB-mongo3.sh
 
 twistd -noy gazouilleur/bot.py -l -

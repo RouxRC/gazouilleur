@@ -1,4 +1,4 @@
-FROM python:2.7
+FROM python:2.7-alpine
 
 WORKDIR /app
 
@@ -6,15 +6,15 @@ ENV PYTHONPATH $PYTHONPATH:/app
 
 COPY requirements.txt /app/requirements.txt
 
-RUN apt-get update \
-    && apt-get install curl git vim python-dev python-pip libxml2-dev libfreetype6-dev libpng-dev libxslt1-dev libffi-dev mongodb -y --no-install-recommends \
+RUN apk --update add build-base gfortran pkgconfig python-dev openblas-dev freetype-dev libpng-dev libxml2-dev libxslt-dev libffi-dev openssl-dev mongodb \
+    && ln -s /usr/include/locale.h /usr/include/xlocale.h \
     && pip install --cache-dir=/tmp/pipcache --upgrade setuptools pip \
     && pip install --cache-dir=/tmp/pipcache numpy==1.7.1 \
-    && pip install --cache-dir=/tmp/pipcache matplotlib==1.3.0 pystache==0.5.3 Wand==0.4.4 \
+    && pip install --cache-dir=/tmp/pipcache matplotlib==1.5.3 pystache==0.5.3 Wand==0.4.4 \
     && pip install --cache-dir=/tmp/pipcache --requirement /app/requirements.txt \
     && rm -r /tmp/pipcache \
-    && apt-get autoclean \
-    && rm -r /var/cache/apt/*
+    && apk del build-base gfortran pkgconfig \
+    && rm -r /var/cache/apk/*
 
 COPY ./bin /app/bin
 
@@ -34,4 +34,4 @@ RUN mkdir -p /root/.config/matplotlib && echo "backend : Agg" > /root/.config/ma
 
 VOLUME ["/app/web"]
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
