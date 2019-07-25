@@ -30,6 +30,8 @@ RUN mkdir /app/cache /app/log
 
 RUN chmod +x /app/docker-entrypoint.sh
 
+RUN mkdir -p /root/.config/matplotlib && echo "backend : Agg" > /root/.config/matplotlib/matplotlibrc
+
 VOLUME ["/app/web"]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
