@@ -29,8 +29,74 @@ Inspired by [La Quadrature du Net](http://www.laquadrature.net/)'s IRC bot [UnGa
 See the list of all available IRC commands in [LIST_COMMANDS.md](/LIST_COMMANDS.md)
 
 
+## Easy Install using Docker
 
-## Easy Install (Debian/Ubuntu)
+For an easy install either on Linux, Mac OS X or Windows, the best solution is to rely on [Docker](https://www.docker.com).
+
+### 1. Install Docker
+
+First, you should deploy **Docker** on your machine following its [official installation instructions](https://docs.docker.com/installation/).
+
+Once you've got Docker installed and running, you will need **Docker Compose** to set up and orchestrate Hyphe services in a single line. Docker Compose is already installed along with Docker on Windows and Mac OS X, but you may need to [install it for Linux](https://docs.docker.com/compose/install/).
+
+
+### 2. Download Gazouilleur
+
+Collect Gazouilleur's sourcecode from this git repository, then enter the resulting directory:
+
+```bash
+git clone https://github.com/RouxRC/gazouilleur.git gazouilleur
+cd gazouilleur
+```
+
+
+### 3. Configure
+
+Then, copy the default configuration files and edit them to adjust the settings to your needs:
+
+```bash
+# use "copy" instead of "cp" under Windows powershell
+cp docker-config.env.example docker-config.env
+```
+
+Then edit `docker-config.env` file to configure the bot following `gazouilleur/config.py.example`'s explanations. Do not put quotes around variables values and use only one line per variable, even for json formatted ones.
+
+
+### 4. Prepare the Docker containers
+
+You have two options: either collect, or build Gazouilleur's Docker container.
+
++ **Recommended: Pull** our official preassembled images from the Docker Store
+
+  ```bash
+  docker-compose pull
+  ```
+
++ **Alternative: Build** your own images from the source code (mostly for development or if you intend to edit the code, and for some very specific configuration settings):
+
+  ```bash
+  docker-compose build
+  ```
+
+Pulling should be faster, but it will still take a few minutes to download or build everything either way.
+
+
+### 5. Start the bot
+
+Finally, start Gazouilleur with the following command, which will run it and display all of its logs in the console until stopped by pressing `Ctrl+C`.
+
+```bash
+docker-compose up
+```
+
+Or run the containers as a background daemon (for instance for production on a server):
+
+```bash
+docker-compose up -d
+```
+
+
+## Regular Install (Debian/Ubuntu)
 
 First download the repository:
 
