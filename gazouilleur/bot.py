@@ -1681,9 +1681,10 @@ if __name__ == '__main__':
 # ... or in the background when called with 'twistd -y gazouilleur/bot.py'
 elif __name__ == '__builtin__':
     application = service.Application('Gazouilleur IRC Bot')
-    filelog = log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a'))
-    filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
-    application.setComponent(log.ILogObserver, filelog.emit)
+    if "-l" not in sys.argv:
+        filelog = log.FileLogObserver(open(os.path.relpath('log/run.log'), 'a'))
+        filelog.timeFormat = "%Y-%m-%d %H:%M:%S"
+        application.setComponent(log.ILogObserver, filelog.emit)
     if is_ssl(config):
         ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ssl_options)
         #ircService = internet.SSLClient(config.HOST, config.PORT, IRCBotFactory(), ClientTLSContext())

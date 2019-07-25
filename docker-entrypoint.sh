@@ -10,4 +10,4 @@ cd /app
 
 bash bin/configureDB-mongo3.sh
 
-python gazouilleur/bot.py
+twistd -noy gazouilleur/bot.py -l -
