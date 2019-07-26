@@ -1,5 +1,6 @@
 version: "2"
 volumes:
+    log:
     web:
     mongo-data:
 services:
@@ -25,4 +26,5 @@ services:
     env_file:
      - docker-config.env
     volumes:
+      - log:/app/log
       - web:/app/web
