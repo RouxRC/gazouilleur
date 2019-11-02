@@ -4,7 +4,7 @@ lxml
 feedparser
 service_identity
 zope.interface
-twisted==15.1.0
+twisted==19.7.0
 stevedore
 virtualenvwrapper
 w3lib==1.12.0
