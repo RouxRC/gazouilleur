@@ -10,6 +10,8 @@ def bool_str(s):
 def obj_str(env_var, default='{}'):
     return literal_eval(environ.get(env_var, default))
 
+MONGO_HOST = environ.get('GAZOUILLEUR_MONGO_HOST', 'mongo')
+MONGO_PORT = int(environ.get('GAZOUILLEUR_MONGO_PORT', 27017))
 HOST = environ.get('GAZOUILLEUR_IRC_HOST', 'adams.freenode.net')
 PORT = int(environ.get('GAZOUILLEUR_IRC_PORT', 6667))
 SSL = bool_str(environ.get('GAZOUILLEUR_SSL', False))
@@ -17,8 +19,8 @@ BOTNAME = environ.get('GAZOUILLEUR_BOT_NICKNAME', 'gazouilleur2')
 BOTPASS = environ.get('GAZOUILLEUR_BOT_PASSWORD', '')
 
 MONGODB = {
-  'HOST': 'mongo',
-  'PORT': 27017,
+  'HOST': MONGO_HOST,
+  'PORT': MONGO_PORT,
   'DATABASE': BOTNAME,
   'USER': BOTNAME,
   'PSWD': BOTPASS
