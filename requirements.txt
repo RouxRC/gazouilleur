@@ -1,11 +1,13 @@
+pip<21 # we need a recent pip for cryptography's wheel
+cryptography==3.3.2 # needed because service_identity didn't fixed the version
 urllib3[secure]
 ndg-httpsclient>=0.4.0
 lxml
-feedparser
+feedparser==5.2.1
 service_identity
 zope.interface
 twisted==15.1.0
-stevedore
+stevedore==1.32.0
 virtualenvwrapper
 w3lib==1.12.0
 setproctitle
