@@ -6,6 +6,7 @@
 
 from twisted.words.protocols.irc import IRCClient
 from twisted.internet import defer
+from twisted.internet.defer import Deferred
 from textwrap import wrap
 
 class NamesIRCClient(IRCClient):
@@ -38,11 +39,32 @@ class NamesIRCClient(IRCClient):
             cb.callback(namelist)
         del self._namescallback[channel]
 
+    def irc_CAP(self, prefix, params):
+        if params[1] != 'ACK' or params[2].split() != ['sasl']:
+            print 'sasl not available'
+            self.quit('')
+        sasl = ('{0}\0{0}\0{1}'.format(self.nickname, self.password)).encode('base64').strip()
+        self.sendLine('AUTHENTICATE PLAIN')
+        self.sendLine('AUTHENTICATE ' + sasl)
+
+    def irc_903(self, prefix, params):
+        self.sendLine('CAP END')
+
+    def irc_904(self, prefix, params):
+        print 'sasl auth failed', params
+        self.quit('')
+    irc_905 = irc_904
+
     # Redefinition of IRCClient's msg and sendLine methods to:
     # - send messages to multiple chans in parallel
     # - forbid url-breaking when splitting long messages
 
     def connectionMade(self):
+        if self.sasl:
+            self._queue = {"default": []}
+            self._queueEmptying = {"default": None}
+            self.sendLine('CAP REQ :sasl')
+            self.deferred = Deferred()
         IRCClient.connectionMade(self)
         self._queue = {"default": []}
         self._queueEmptying = {"default": None}

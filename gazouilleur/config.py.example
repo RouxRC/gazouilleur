@@ -10,6 +10,7 @@
 HOST = 'adams.freenode.net'
 PORT = 6667
 SSL = False         # Set to True for IRC servers accepting SSL mode
+SASL = False        # Set to True to use SASL Authentification
 BOTNAME = 'gazouilleur2'
 BOTPASS = '--------'
 
