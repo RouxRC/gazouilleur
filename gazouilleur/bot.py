@@ -51,6 +51,10 @@ class IRCBot(NamesIRCClient):
         self.nickname = config.BOTNAME
         self.username = config.BOTNAME
         self.password = config.BOTPASS
+        try:
+            self.sasl = config.SASL
+        except AttributeError:
+            self.sasl = False
         self.db = MongoConnection(config.MONGODB['HOST'], config.MONGODB['PORT'], pool_size=int(THREADS/3))[config.MONGODB['DATABASE']]
         self.breathe = datetime.today()
         self.get_twitter_conf()
