@@ -67,7 +67,7 @@ class IRCBot(NamesIRCClient):
             setattr(self, 'command_set%s' % extra['command'], self.__command_set(extra))
 
     def get_twitter_conf(self):
-        for c in filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
+        for c in []: #filter(lambda x: "TWITTER" in config.CHANNELS[x], config.CHANNELS):
             try:
                 self.twitter["url_length"], self.twitter['max_img_size'] = Microblog("twitter", config.CHANNELS[c]).get_twitter_conf()
                 break
