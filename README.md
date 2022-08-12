@@ -142,6 +142,56 @@ Add the following line via `crontab -e` where $GAZOUILLEUR_PATH is Gazouilleur's
  @reboot     $GAZOUILLEUR_PATH/bin/gazouilleur start --quiet
  ```
 
+### Installing with legacy dependencies
+
+If you're running this bot after Jan 1th, 2020, you will need to use PyEnv to manage a Python2.7 environnement. To do that, the instructions are as follows ;
+
+#### Installing PyEnv
+
+Please follow the instructions here : https://pyenv.run/
+
+#### Setting up the environnement 
+
+Type the following commands in your terminal ;
+
+`export PYENV_VIRTUALENV_DISABLE_PROMPT=1`
+
+`eval "$(pyenv init --path)"`
+
+`source $(which virtualenvwrapper.sh) || ( echo "Error: You must install virtualenvwrapper to use this starter: sudo pip -q install virtualenvwrapper" && exit 1 )`
+
+`export PATH="$PYENV_ROOT/bin:$PATH"`
+
+`eval "$(pyenv init -)"`
+
+`eval "$(pyenv virtualenv-init -)"`
+
+`export PYENV_ROOT="$HOME/.pyenv"`
+
+Theses commands indicate to PyEnv how to setup the virtual environnement. 
+
+#### Installing Python 2.7.18
+
+Type the following commands in your terminal ;
+
+`pyenv install 2.7.18`
+
+`pyenv virtualenv 2.7.18 gazouilleur`
+
+`pip install -r requirements.txt`
+
+_NB : You might run into an issue while installing Twisted. You can install it directly from git like this `pip install https://github.com/twisted/twisted/archive/refs/tags/twisted-15.1.0.zip`. Run the command above again if needed. Also check your Python and Pip versions.
+
+`cd gazouilleur`
+
+`pwd > ~/.pyenv/versions/gazouilleur/lib/python2.7/site-packages/gazouilleur.path`
+
+#### Run Gazouilleur
+
+You should be able to launch Gazouilleur with the `bin/gazouilleur start` command, but in case it does no work, you can try with : `twistd --pidfile gazouilleur.pid -y gazouilleur/bot.py`. 
+
+Good luck !
+
 ## Getting Twitter & Identi.ca API rights for a channel
 
 ### Why create a Twitter API application?
